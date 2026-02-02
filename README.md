@@ -1,1 +1,192 @@
-# bluely_main
+# Bluely 💧
+
+A web-based diabetes self-management system designed for users in low- and middle-income settings, with initial deployment targeting Cameroon.
+
+##  Overview
+
+Bluely is a digital health MVP that enables individuals living with diabetes to:
+
+- **Create an account** and securely authenticate using Firebase
+- **Complete onboarding** to personalize their experience
+- **Log blood glucose readings** with contextual factors (time, meals, activity)
+- **View historical data** in a clean, simple dashboard
+
+##  Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Frontend** | Next.js 15 (React 19) |
+| **Backend** | Next.js API Routes (Node.js) |
+| **Authentication** | Firebase Authentication |
+| **Database** | MongoDB with Mongoose ODM |
+| **Styling** | Tailwind CSS |
+| **Forms** | React Hook Form + Zod validation |
+| **Charts** | Recharts |
+| **Icons** | React Icons (Feather) |
+
+##  Project Structure
+
+```
+bluely_main/
+├── src/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── api/               # API routes
+│   │   │   ├── users/         # User management endpoints
+│   │   │   └── glucose/       # Glucose readings endpoints
+│   │   ├── dashboard/         # Dashboard page
+│   │   ├── glucose/           # Log glucose page
+│   │   ├── history/           # History page
+│   │   ├── settings/          # Settings page
+│   │   ├── login/             # Login page
+│   │   ├── signup/            # Signup page
+│   │   ├── forgot-password/   # Password reset page
+│   │   └── onboarding/        # Onboarding flow
+│   ├── components/
+│   │   ├── ui/                # Reusable UI components
+│   │   └── layout/            # Layout components
+│   ├── contexts/              # React contexts (Auth)
+│   └── lib/
+│       ├── firebase/          # Firebase configuration
+│       └── mongodb/           # MongoDB connection & models
+├── public/                    # Static assets
+└── .env.local                 # Environment variables
+```
+
+##  Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- MongoDB database (Atlas recommended)
+- Firebase project
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd bluely_main
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+   
+   Copy `.env.example` to `.env.local` and fill in your credentials:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Required variables:
+   ```
+   # Firebase Configuration
+   NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+   # MongoDB
+   MONGODB_URI=mongodb+srv://...
+
+   # App
+   NEXTAUTH_SECRET=your_secret
+   NEXTAUTH_URL=http://localhost:3000
+   ```
+
+4. **Set up Firebase**
+   - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+   - Enable Email/Password authentication
+   - Copy your web app configuration to `.env.local`
+
+5. **Set up MongoDB**
+   - Create a MongoDB Atlas cluster or use a local MongoDB instance
+   - Copy your connection string to `.env.local`
+
+6. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+7. **Open the app**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+##  Features
+
+### Authentication
+- Email/password signup and login
+- Password reset functionality
+- Protected routes with automatic redirects
+
+### Onboarding
+- 3-step personalization flow
+- Diabetes type selection
+- Target glucose range configuration
+- Unit preference (mg/dL or mmol/L)
+
+### Glucose Tracking
+- Quick glucose value input
+- Reading type selection (fasting, before/after meal, etc.)
+- Meal and activity context
+- Notes for additional information
+- Date/time selection
+
+### Dashboard
+- 7-day average glucose
+- Time in range percentage
+- Min/max readings
+- Interactive line chart with target range
+- Recent readings list
+
+### History
+- Paginated list of all readings
+- Date range filtering
+- Grouped by day
+- Delete functionality
+- Color-coded status indicators
+
+### Settings
+- Profile management
+- Diabetes information
+- Target range configuration
+- Unit preferences
+
+##  API Endpoints
+
+### Users
+- `GET /api/users?firebaseUid=xxx` - Get user profile
+- `POST /api/users` - Create new user
+- `PUT /api/users` - Update user profile
+
+### Glucose Readings
+- `GET /api/glucose?firebaseUid=xxx` - Get readings (with pagination & date filters)
+- `POST /api/glucose` - Create new reading
+- `GET /api/glucose/[id]` - Get specific reading
+- `PUT /api/glucose/[id]` - Update reading
+- `DELETE /api/glucose/[id]` - Delete reading
+- `GET /api/glucose/stats?firebaseUid=xxx&days=7` - Get glucose statistics
+
+##  Design Principles
+
+- **Simplicity**: Clean, intuitive interface
+- **Accessibility**: Large touch targets, clear typography
+- **Mobile-first**: Responsive design for all devices
+- **Contextual feedback**: Color-coded glucose levels
+
+##  License
+
+This project is developed for academic purposes as part of a software engineering project.
+
+##  Contributing
+
+This is an MVP demonstration project. Contributions are welcome for educational purposes.
+
+---
+
+**Bluely** - Empowering diabetes self-management 💙
