@@ -6,8 +6,12 @@ import {
     updateProfile,
     User,
     UserCredential,
+    GoogleAuthProvider,
+    signInWithPopup,
 } from 'firebase/auth';
 import { auth } from './config';
+
+const googleProvider = new GoogleAuthProvider();
 
 // Sign up with email and password
 export const signUp = async (
@@ -51,4 +55,9 @@ export const getIdToken = async (): Promise<string | null> => {
     const user = auth.currentUser;
     if (!user) return null;
     return user.getIdToken();
+};
+
+// Sign in with Google
+export const signInWithGoogle = async (): Promise<UserCredential> => {
+    return signInWithPopup(auth, googleProvider);
 };

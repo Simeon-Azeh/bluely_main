@@ -11,22 +11,34 @@ interface AuthLayoutProps {
 }
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
-    const { user, loading } = useAuth();
+    const { user, userProfile, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
 
     const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
+    const fullScreenRoutes = ['/onboarding']; // Routes that need full screen (no sidebar)
     const isPublicRoute = publicRoutes.includes(pathname);
+    const isFullScreenRoute = fullScreenRoutes.includes(pathname);
 
     React.useEffect(() => {
         if (!loading) {
             if (!user && !isPublicRoute) {
+                // Not logged in, redirect to login
                 router.push('/login');
             } else if (user && isPublicRoute && pathname !== '/') {
-                router.push('/dashboard');
+                // User is logged in and on a public route (login/signup)
+                // Check if they've completed onboarding
+                if (userProfile?.onboardingCompleted) {
+                    router.push('/dashboard');
+                } else {
+                    router.push('/onboarding');
+                }
+            } else if (user && !isPublicRoute && !isFullScreenRoute && !userProfile?.onboardingCompleted) {
+                // User is trying to access dashboard but hasn't completed onboarding
+                router.push('/onboarding');
             }
         }
-    }, [user, loading, isPublicRoute, pathname, router]);
+    }, [user, userProfile, loading, isPublicRoute, isFullScreenRoute, pathname, router]);
 
     if (loading) {
         return (
@@ -39,8 +51,8 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
         );
     }
 
-    // For public routes, don't show dashboard layout
-    if (isPublicRoute) {
+    // For public routes or full-screen routes (like onboarding), don't show dashboard layout
+    if (isPublicRoute || isFullScreenRoute) {
         return <>{children}</>;
     }
 

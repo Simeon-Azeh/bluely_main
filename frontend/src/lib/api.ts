@@ -26,17 +26,24 @@ class ApiClient {
             (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...fetchOptions,
-            headers,
-        });
+        try {
+            const response = await fetch(`${this.baseUrl}${endpoint}`, {
+                ...fetchOptions,
+                headers,
+            });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(error.error || `HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: 'Request failed' }));
+                throw new Error(error.error || `HTTP error! status: ${response.status}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                throw new Error('Unable to connect to server. Please ensure the backend is running.');
+            }
+            throw error;
         }
-
-        return response.json();
     }
 
     // User endpoints

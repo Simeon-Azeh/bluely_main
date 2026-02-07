@@ -105,8 +105,12 @@ bluely_main/
    - Copy your web app configuration to `.env.local`
 
 5. **Set up MongoDB**
-   - Create a MongoDB Atlas cluster or use a local MongoDB instance
-   - Copy your connection string to `.env.local`
+   - Create a MongoDB Atlas cluster at [cloud.mongodb.com](https://cloud.mongodb.com)
+   - Create a database user with read/write permissions
+   - **Important**: Add your IP address to the IP whitelist:
+     - Go to Network Access → Add IP Address
+     - Add your current IP address (or use `0.0.0.0/0` for development only)
+   - Copy your connection string to `.env.local` (replace `<password>` with your database user password)
 
 6. **Run the development server**
    ```bash
