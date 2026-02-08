@@ -48,14 +48,23 @@ interface UserData {
 }
 
 interface GlucoseStats {
-    average: number;
-    min: number;
-    max: number;
-    count: number;
-    inRange: number;
-    belowRange: number;
-    aboveRange: number;
-    timeInRange: number;
+    totalReadings: number;
+    averageGlucose: number | null;
+    minGlucose: number | null;
+    maxGlucose: number | null;
+    inRangePercentage: number | null;
+    belowRangePercentage: number | null;
+    aboveRangePercentage: number | null;
+    targetMin: number;
+    targetMax: number;
+    readingsByDay: Array<{
+        date: string;
+        average: number;
+        readings: Array<{
+            value: number;
+            recordedAt: string;
+        }>;
+    }>;
 }
 
 class ApiClient {

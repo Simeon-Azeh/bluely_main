@@ -26,6 +26,11 @@ interface Pagination {
     pages: number;
 }
 
+interface GlucoseReadingsResponse {
+    readings: Reading[];
+    pagination: Pagination;
+}
+
 const readingTypeLabels: Record<string, string> = {
     fasting: 'Fasting',
     before_meal: 'Before Meal',
@@ -68,7 +73,7 @@ export default function HistoryPage() {
                 endDate = endOfDay(new Date()).toISOString();
             }
 
-            const data = await api.getGlucoseReadings({
+            const data: GlucoseReadingsResponse = await api.getGlucoseReadings({
                 firebaseUid: user.uid,
                 page: currentPage,
                 limit: 20,
