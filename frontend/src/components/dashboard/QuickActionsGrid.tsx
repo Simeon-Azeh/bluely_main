@@ -3,14 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui';
-import { FiDroplet, FiActivity, FiCoffee, FiSmile } from 'react-icons/fi';
+import { FiDroplet, FiActivity, FiHeart, FiSmile } from 'react-icons/fi';
+import { IoFastFoodOutline } from 'react-icons/io5';
 
 interface QuickAction {
     id: string;
     label: string;
     description: string;
     icon: React.ComponentType<{ className?: string }>;
-    emoji?: string;
     href: string;
     gradient: string;
     shadowColor: string;
@@ -31,7 +31,6 @@ const quickActions: QuickAction[] = [
         label: 'Log Mood',
         description: 'How are you feeling?',
         icon: FiSmile,
-        emoji: '😊',
         href: '/mood',
         gradient: 'from-pink-500 to-rose-500',
         shadowColor: 'shadow-pink-500/20',
@@ -40,8 +39,7 @@ const quickActions: QuickAction[] = [
         id: 'meal',
         label: 'Log Meal',
         description: 'What did you eat?',
-        icon: FiCoffee,
-        emoji: '🍽️',
+        icon: IoFastFoodOutline,
         href: '/meals',
         gradient: 'from-orange-500 to-amber-500',
         shadowColor: 'shadow-orange-500/20',
@@ -51,7 +49,6 @@ const quickActions: QuickAction[] = [
         label: 'Log Activity',
         description: 'Track your exercise',
         icon: FiActivity,
-        emoji: '🏃',
         href: '/activity',
         gradient: 'from-green-500 to-emerald-500',
         shadowColor: 'shadow-green-500/20',
@@ -69,11 +66,7 @@ export default function QuickActionsGrid() {
                             <CardContent className="p-4">
                                 <div className="flex flex-col items-center text-center">
                                     <div className={`w-14 h-14 bg-gradient-to-br ${action.gradient} rounded-2xl flex items-center justify-center shadow-lg ${action.shadowColor} mb-3`}>
-                                        {action.emoji ? (
-                                            <span className="text-2xl">{action.emoji}</span>
-                                        ) : (
-                                            <Icon className="w-6 h-6 text-white" />
-                                        )}
+                                        <Icon className="w-6 h-6 text-white" />
                                     </div>
                                     <h3 className="font-semibold text-gray-900 mb-1">{action.label}</h3>
                                     <p className="text-xs text-gray-500">{action.description}</p>

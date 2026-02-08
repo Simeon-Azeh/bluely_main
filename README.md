@@ -1,8 +1,10 @@
-# Bluely 💧
+# Bluely 
+
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/Simeon-Azeh/bluely_main.git)
 
 A web-based diabetes self-management system designed for users in low- and middle-income settings, with initial deployment targeting Cameroon.
 
-##  Overview
+## Overview
 
 Bluely is a digital health MVP that enables individuals living with diabetes to:
 
@@ -11,7 +13,11 @@ Bluely is a digital health MVP that enables individuals living with diabetes to:
 - **Log blood glucose readings** with contextual factors (time, meals, activity)
 - **View historical data** in a clean, simple dashboard
 
-##  Tech Stack
+## Supervisor
+
+**Bernard Lamptey** - Project Supervisor
+
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
@@ -24,7 +30,7 @@ Bluely is a digital health MVP that enables individuals living with diabetes to:
 | **Charts** | Recharts |
 | **Icons** | React Icons (Feather) |
 
-##  Project Structure
+## Project Structure
 
 ```
 bluely_main/
@@ -52,11 +58,11 @@ bluely_main/
 └── .env.local                 # Environment variables
 ```
 
-##  Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - MongoDB database (Atlas recommended)
 - Firebase project
@@ -65,7 +71,7 @@ bluely_main/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Simeon-Azeh/bluely_main.git
    cd bluely_main
    ```
 
@@ -75,7 +81,7 @@ bluely_main/
    ```
 
 3. **Configure environment variables**
-   
+
    Copy `.env.example` to `.env.local` and fill in your credentials:
    ```bash
    cp .env.example .env.local
@@ -118,10 +124,10 @@ bluely_main/
    ```
 
 7. **Open the app**
-   
+
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-##  Features
+## Features
 
 ### Authentication
 - Email/password signup and login
@@ -161,7 +167,24 @@ bluely_main/
 - Target range configuration
 - Unit preferences
 
-##  API Endpoints
+## Designs
+
+### Figma Mockups
+- [View Figma Designs](https://www.figma.com/design/...) *(Add your Figma link here)*
+
+### Screenshots
+- **Landing Page**: Clean, welcoming interface with clear value proposition
+- **Dashboard**: Comprehensive overview with glucose trends and quick actions
+- **Glucose Logging**: Simple input form with contextual options
+- **History View**: Organized list of readings with filtering capabilities
+- **Settings**: Comprehensive user profile and preferences management
+
+### Circuit Diagram
+- **Hardware Integration**: Planned integration with glucometers via Bluetooth/serial connection
+- **Data Flow**: Secure transmission from device to cloud database
+- **Offline Capability**: Local storage with sync when connectivity is restored
+
+## API Endpoints
 
 ### Users
 - `GET /api/users?firebaseUid=xxx` - Get user profile
@@ -176,18 +199,59 @@ bluely_main/
 - `DELETE /api/glucose/[id]` - Delete reading
 - `GET /api/glucose/stats?firebaseUid=xxx&days=7` - Get glucose statistics
 
-##  Design Principles
+## Design Principles
 
 - **Simplicity**: Clean, intuitive interface
 - **Accessibility**: Large touch targets, clear typography
 - **Mobile-first**: Responsive design for all devices
 - **Contextual feedback**: Color-coded glucose levels
 
-##  License
+## Deployment Plan
+
+### Development Environment
+- **Local Development**: Node.js + Next.js development server
+- **Version Control**: Git with GitHub repository
+- **Code Quality**: ESLint, Prettier, TypeScript strict mode
+
+### Staging Environment
+- **Platform**: Vercel or Railway for staging deployment
+- **Database**: MongoDB Atlas staging cluster
+- **Authentication**: Firebase staging project
+- **Testing**: End-to-end testing with Cypress or Playwright
+
+### Production Environment
+- **Platform**: Vercel for frontend, Railway or Heroku for backend API
+- **Database**: MongoDB Atlas production cluster with backup
+- **Authentication**: Firebase production project
+- **CDN**: Vercel automatic CDN for static assets
+- **Monitoring**: Application monitoring with Sentry or similar
+- **Analytics**: User analytics with Google Analytics or Mixpanel
+
+### Deployment Steps
+1. **Code Review**: Pull request review and approval
+2. **Automated Testing**: CI/CD pipeline with GitHub Actions
+3. **Staging Deployment**: Automatic deployment to staging on merge to develop branch
+4. **Production Deployment**: Manual deployment to production after staging verification
+5. **Database Migration**: Automated schema migrations with MongoDB migration tools
+6. **Rollback Plan**: Quick rollback capability with previous deployment versions
+
+### Security Considerations
+- **Data Encryption**: End-to-end encryption for sensitive health data
+- **Compliance**: GDPR and HIPAA compliance for health data
+- **Access Control**: Role-based access control and API authentication
+- **Regular Audits**: Security audits and penetration testing
+
+### Scaling Strategy
+- **Horizontal Scaling**: Load balancer with multiple server instances
+- **Database Scaling**: MongoDB sharding for large datasets
+- **Caching**: Redis for session and data caching
+- **CDN**: Global CDN for static assets and API responses
+
+## License
 
 This project is developed for academic purposes as part of a software engineering project.
 
-##  Contributing
+## Contributing
 
 This is an MVP demonstration project. Contributions are welcome for educational purposes.
 

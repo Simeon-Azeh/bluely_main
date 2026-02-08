@@ -16,10 +16,10 @@ export const initializeFirebase = () => {
                     privateKey,
                 }),
             });
-            console.log('✅ Firebase Admin initialized');
+            console.log(' Firebase Admin initialized');
             firebaseInitialized = true;
         } else {
-            console.warn('⚠️ Firebase Admin SDK credentials not configured');
+            console.warn(' Firebase Admin SDK credentials not configured');
             // Initialize without credentials for development
             admin.initializeApp({
                 projectId: projectId || 'bluely-development',
