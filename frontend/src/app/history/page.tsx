@@ -68,7 +68,8 @@ export default function HistoryPage() {
                 endDate = endOfDay(new Date()).toISOString();
             }
 
-            const data = await api.getGlucoseReadings(user.uid, {
+            const data = await api.getGlucoseReadings({
+                firebaseUid: user.uid,
                 page: currentPage,
                 limit: 20,
                 startDate,
