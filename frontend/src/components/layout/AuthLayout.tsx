@@ -27,14 +27,17 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
                 router.push('/login');
             } else if (user && isPublicRoute && pathname !== '/') {
                 // User is logged in and on a public route (login/signup)
-                // Check if they've completed onboarding
-                if (userProfile?.onboardingCompleted) {
-                    router.push('/dashboard');
-                } else {
-                    router.push('/onboarding');
+                // Check if they've completed onboarding - wait for profile to load
+                if (userProfile !== null) {
+                    if (userProfile?.onboardingCompleted === true) {
+                        router.push('/dashboard');
+                    } else {
+                        router.push('/onboarding');
+                    }
                 }
-            } else if (user && !isPublicRoute && !isFullScreenRoute && !userProfile?.onboardingCompleted) {
+            } else if (user && !isPublicRoute && !isFullScreenRoute && userProfile !== null && userProfile?.onboardingCompleted !== true) {
                 // User is trying to access dashboard but hasn't completed onboarding
+                // Only redirect if we have loaded the profile (userProfile !== null)
                 router.push('/onboarding');
             }
         }

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, Select } from '@/components/ui';
-import { FiDroplet, FiArrowRight, FiArrowLeft, FiCheck, FiArrowUpRight } from 'react-icons/fi';
+import { FiArrowRight, FiArrowLeft, FiCheck, FiArrowUpRight } from 'react-icons/fi';
+import Image from 'next/image';
 import api from '@/lib/api';
 
 const diabetesTypes = [
@@ -218,11 +219,14 @@ export default function OnboardingPage() {
                     {/* Top Navigation */}
                     <div className="flex items-center justify-between">
                         {/* Logo */}
-                        <Link href="/" className="flex items-center space-x-2">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-                                <FiDroplet className="w-6 h-6 text-[#1F2F98]" />
-                            </div>
-                            <span className="text-xl font-bold text-white">Bluely</span>
+                        <Link href="/" className="flex items-center space-x-3">
+                            <Image
+                                src="/icons/full_logotext_white.png"
+                                alt="Bluely"
+                                width={140}
+                                height={40}
+                                className="h-10 w-auto"
+                            />
                         </Link>
 
                         {/* Skip */}
@@ -241,10 +245,10 @@ export default function OnboardingPage() {
                             <div
                                 key={num}
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${step === num
-                                        ? 'bg-white text-[#1F2F98]'
-                                        : step > num
-                                            ? 'bg-white/30 text-white'
-                                            : 'bg-white/10 text-white/50'
+                                    ? 'bg-white text-[#1F2F98]'
+                                    : step > num
+                                        ? 'bg-white/30 text-white'
+                                        : 'bg-white/10 text-white/50'
                                     }`}
                             >
                                 {step > num ? <FiCheck className="w-4 h-4" /> : num}
@@ -269,11 +273,14 @@ export default function OnboardingPage() {
                 <div className="w-full max-w-lg">
                     {/* Mobile Logo & Skip */}
                     <div className="lg:hidden flex items-center justify-between mb-8">
-                        <Link href="/" className="flex items-center space-x-2">
-                            <div className="w-10 h-10 bg-[#1F2F98] rounded-xl flex items-center justify-center">
-                                <FiDroplet className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-xl font-bold text-gray-900">Bluely</span>
+                        <Link href="/" className="flex items-center">
+                            <Image
+                                src="/icons/full_logotext.png"
+                                alt="Bluely"
+                                width={120}
+                                height={35}
+                                className="h-9 w-auto"
+                            />
                         </Link>
                         <button
                             onClick={handleSkip}
@@ -289,10 +296,10 @@ export default function OnboardingPage() {
                             <div
                                 key={num}
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${step === num
-                                        ? 'bg-[#1F2F98] text-white'
-                                        : step > num
-                                            ? 'bg-[#1F2F98]/20 text-[#1F2F98]'
-                                            : 'bg-gray-100 text-gray-400'
+                                    ? 'bg-[#1F2F98] text-white'
+                                    : step > num
+                                        ? 'bg-[#1F2F98]/20 text-[#1F2F98]'
+                                        : 'bg-gray-100 text-gray-400'
                                     }`}
                             >
                                 {step > num ? <FiCheck className="w-3 h-3" /> : num}

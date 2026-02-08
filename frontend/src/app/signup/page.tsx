@@ -8,8 +8,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input } from '@/components/ui';
-import { FiDroplet, FiMail, FiLock, FiUser, FiArrowLeft, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiArrowLeft, FiEye, FiEyeOff } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
+import Image from 'next/image';
 
 const signupSchema = z.object({
     displayName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -119,11 +120,14 @@ export default function SignupPage() {
                     {/* Top Navigation */}
                     <div className="flex items-center justify-between">
                         {/* Logo */}
-                        <Link href="/" className="flex items-center space-x-2">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-                                <FiDroplet className="w-6 h-6 text-[#1F2F98]" />
-                            </div>
-                            <span className="text-xl font-bold text-white">Bluely</span>
+                        <Link href="/" className="flex items-center space-x-3">
+                            <Image
+                                src="/icons/full_logotext_white.png"
+                                alt="Bluely"
+                                width={140}
+                                height={40}
+                                className="h-10 w-auto"
+                            />
                         </Link>
 
                         {/* Back to Website */}
@@ -157,8 +161,8 @@ export default function SignupPage() {
                                     key={index}
                                     onClick={() => setCurrentSlide(index)}
                                     className={`h-2 rounded-full transition-all duration-300 ${index === currentSlide
-                                            ? 'w-8 bg-white'
-                                            : 'w-2 bg-white/40 hover:bg-white/60'
+                                        ? 'w-8 bg-white'
+                                        : 'w-2 bg-white/40 hover:bg-white/60'
                                         }`}
                                     aria-label={`Go to slide ${index + 1}`}
                                 />
@@ -173,11 +177,14 @@ export default function SignupPage() {
                 <div className="w-full max-w-md space-y-6">
                     {/* Mobile Logo */}
                     <div className="lg:hidden text-center mb-6">
-                        <Link href="/" className="inline-flex items-center space-x-2">
-                            <div className="w-10 h-10 bg-[#1F2F98] rounded-xl flex items-center justify-center">
-                                <FiDroplet className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-xl font-bold text-gray-900">Bluely</span>
+                        <Link href="/" className="inline-flex items-center">
+                            <Image
+                                src="/icons/full_logotext.png"
+                                alt="Bluely"
+                                width={140}
+                                height={40}
+                                className="h-10 w-auto"
+                            />
                         </Link>
                     </div>
 

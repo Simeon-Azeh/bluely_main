@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -75,8 +76,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
                 <div className="text-center">
-                    <div className="w-16 h-16 bg-[#1F2F98] rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <FiDroplet className="w-8 h-8 text-white" />
+                    <div className="w-20 h-20 bg-[#1F2F98] rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+                        <Image
+                            src="/icons/logo_white.png"
+                            alt="Bluely"
+                            width={48}
+                            height={48}
+                            className="w-12 h-12"
+                        />
                     </div>
                     <LoadingSpinner size="lg" />
                     <p className="mt-4 text-gray-600 font-medium">Loading your dashboard...</p>
@@ -99,13 +106,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 {/* Logo Section */}
                 <div className={`flex items-center h-20 px-6 border-b border-gray-100 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
                     <Link href="/dashboard" className="flex items-center space-x-3">
-                        <div className="w-11 h-11 bg-gradient-to-br from-[#1F2F98] to-[#3B4CC0] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <FiDroplet className="w-6 h-6 text-white" />
-                        </div>
-                        {!sidebarCollapsed && (
-                            <span className="text-xl font-bold bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] bg-clip-text text-transparent">
-                                Bluely
-                            </span>
+                        {sidebarCollapsed ? (
+                            <Image
+                                src="/icons/logo_white.png"
+                                alt="Bluely"
+                                width={36}
+                                height={36}
+                                className="w-9 h-9"
+                            />
+                        ) : (
+                            <Image
+                                src="/icons/full_logotext.png"
+                                alt="Bluely"
+                                width={140}
+                                height={40}
+                                className="h-10 w-auto"
+                            />
                         )}
                     </Link>
                     {!sidebarCollapsed && (
@@ -143,8 +159,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`group flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 ${active
-                                        ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98]'
+                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98]'
                                     }`}
                                 title={sidebarCollapsed ? item.label : undefined}
                             >
@@ -170,8 +186,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`group flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${active
-                                        ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98]'
+                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98]'
                                     }`}
                                 title={sidebarCollapsed ? item.label : undefined}
                             >
@@ -224,11 +240,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     {/* Left Section - Greeting (Desktop) / Logo (Mobile) */}
                     <div className="flex items-center">
                         {/* Mobile Logo */}
-                        <Link href="/dashboard" className="md:hidden flex items-center space-x-2 mr-4">
-                            <div className="w-9 h-9 bg-gradient-to-br from-[#1F2F98] to-[#3B4CC0] rounded-xl flex items-center justify-center">
-                                <FiDroplet className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="text-lg font-bold text-gray-900">Bluely</span>
+                        <Link href="/dashboard" className="md:hidden flex items-center mr-4">
+                            <Image
+                                src="/icons/full_logotext.png"
+                                alt="Bluely"
+                                width={130}
+                                height={38}
+                                className="h-10 w-auto"
+                            />
                         </Link>
 
                         {/* Desktop Greeting */}
@@ -337,8 +356,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all ${active
-                                        ? 'text-[#1F2F98]'
-                                        : 'text-gray-400'
+                                    ? 'text-[#1F2F98]'
+                                    : 'text-gray-400'
                                     }`}
                             >
                                 <div className={`p-2 rounded-xl transition-all ${active ? 'bg-blue-50' : ''}`}>
