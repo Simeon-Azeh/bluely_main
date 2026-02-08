@@ -3,6 +3,7 @@ import {
     HeroSection,
     WhatIsBluelySection,
     HowItWorksSection,
+    FeaturesSection,
     DifferenceSection,
     VisionSection,
     CTASection,
@@ -16,6 +17,7 @@ export default function Home() {
             <HeroSection />
             <WhatIsBluelySection />
             <HowItWorksSection />
+            <FeaturesSection />
             <DifferenceSection />
             <VisionSection />
             <CTASection />

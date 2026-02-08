@@ -68,8 +68,8 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
                             key={mood.label}
                             onClick={() => handleMoodSelect(mood)}
                             className={`flex-1 flex flex-col items-center p-3 rounded-xl border-2 transition-all duration-200 ${selectedMood === mood.label
-                                    ? `${mood.bgColor} border-current ${mood.color} scale-105 shadow-md`
-                                    : 'bg-white border-gray-100 hover:border-gray-200'
+                                ? `${mood.bgColor} border-current ${mood.color} scale-105 shadow-md`
+                                : 'bg-white border-gray-100 hover:border-gray-200'
                                 }`}
                         >
                             <span className="text-3xl mb-1">{mood.emoji}</span>
@@ -84,7 +84,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
                     <Button
                         onClick={handleSave}
                         isLoading={isSaving}
-                        className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                        className="w-full bg-[#1F2F98] hover:bg-[#1F2F98]/90"
                     >
                         Log Mood
                     </Button>
