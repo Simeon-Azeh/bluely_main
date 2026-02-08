@@ -4,6 +4,60 @@ interface FetchOptions extends RequestInit {
     token?: string;
 }
 
+// Response types
+interface GlucoseReading {
+    _id: string;
+    firebaseUid: string;
+    value: number;
+    unit: string;
+    readingType: string;
+    mealContext?: string;
+    activityContext?: string;
+    notes?: string;
+    recordedAt: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface Pagination {
+    total: number;
+    page: number;
+    pages: number;
+    limit: number;
+}
+
+interface GlucoseReadingsResponse {
+    readings: GlucoseReading[];
+    pagination: Pagination;
+}
+
+interface UserData {
+    _id: string;
+    firebaseUid: string;
+    email: string;
+    displayName?: string;
+    diabetesType?: string;
+    diagnosisYear?: number;
+    preferredUnit?: string;
+    targetGlucoseMin?: number;
+    targetGlucoseMax?: number;
+    activityLevel?: string;
+    reminderEnabled?: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface GlucoseStats {
+    average: number;
+    min: number;
+    max: number;
+    count: number;
+    inRange: number;
+    belowRange: number;
+    aboveRange: number;
+    timeInRange: number;
+}
+
 class ApiClient {
     private baseUrl: string;
 
@@ -47,19 +101,19 @@ class ApiClient {
     }
 
     // User endpoints
-    async createUser(data: { firebaseUid: string; email: string; displayName: string }) {
-        return this.request('/users', {
+    async createUser(data: { firebaseUid: string; email: string; displayName: string }): Promise<UserData> {
+        return this.request<UserData>('/users', {
             method: 'POST',
             body: JSON.stringify(data),
         });
     }
 
-    async getUser(firebaseUid: string) {
-        return this.request(`/users?firebaseUid=${firebaseUid}`);
+    async getUser(firebaseUid: string): Promise<UserData> {
+        return this.request<UserData>(`/users?firebaseUid=${firebaseUid}`);
     }
 
-    async updateUser(firebaseUid: string, data: Record<string, unknown>) {
-        return this.request('/users', {
+    async updateUser(firebaseUid: string, data: Record<string, unknown>): Promise<UserData> {
+        return this.request<UserData>('/users', {
             method: 'PUT',
             body: JSON.stringify({ firebaseUid, ...data }),
         });
@@ -75,8 +129,8 @@ class ApiClient {
         activityContext?: string;
         notes?: string;
         recordedAt?: string;
-    }) {
-        return this.request('/glucose', {
+    }): Promise<GlucoseReading> {
+        return this.request<GlucoseReading>('/glucose', {
             method: 'POST',
             body: JSON.stringify(data),
         });
@@ -88,40 +142,40 @@ class ApiClient {
         endDate?: string;
         limit?: number;
         page?: number;
-    }) {
+    }): Promise<GlucoseReadingsResponse> {
         const searchParams = new URLSearchParams();
         Object.entries(params).forEach(([key, value]) => {
             if (value !== undefined) {
                 searchParams.append(key, String(value));
             }
         });
-        return this.request(`/glucose?${searchParams.toString()}`);
+        return this.request<GlucoseReadingsResponse>(`/glucose?${searchParams.toString()}`);
     }
 
-    async getGlucoseReading(id: string) {
-        return this.request(`/glucose/${id}`);
+    async getGlucoseReading(id: string): Promise<GlucoseReading> {
+        return this.request<GlucoseReading>(`/glucose/${id}`);
     }
 
-    async updateGlucoseReading(id: string, data: Record<string, unknown>) {
-        return this.request(`/glucose/${id}`, {
+    async updateGlucoseReading(id: string, data: Record<string, unknown>): Promise<GlucoseReading> {
+        return this.request<GlucoseReading>(`/glucose/${id}`, {
             method: 'PUT',
             body: JSON.stringify(data),
         });
     }
 
-    async deleteGlucoseReading(id: string) {
-        return this.request(`/glucose/${id}`, {
+    async deleteGlucoseReading(id: string): Promise<{ message: string }> {
+        return this.request<{ message: string }>(`/glucose/${id}`, {
             method: 'DELETE',
         });
     }
 
-    async getGlucoseStats(firebaseUid: string, days: number = 7) {
-        return this.request(`/glucose/stats?firebaseUid=${firebaseUid}&days=${days}`);
+    async getGlucoseStats(firebaseUid: string, days: number = 7): Promise<GlucoseStats> {
+        return this.request<GlucoseStats>(`/glucose/stats?firebaseUid=${firebaseUid}&days=${days}`);
     }
 
     // Health check
-    async healthCheck() {
-        return this.request('/health');
+    async healthCheck(): Promise<{ status: string; message: string; timestamp: string }> {
+        return this.request<{ status: string; message: string; timestamp: string }>('/health');
     }
 }
 
