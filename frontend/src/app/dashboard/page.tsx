@@ -89,9 +89,9 @@ export default function DashboardPage() {
             try {
                 setBackendError(false);
                 const [statsData, readingsData, allReadingsData] = await Promise.all([
-                    api.getGlucoseStats(user.uid, 7) as unknown as Promise<Stats>,
-                    api.getGlucoseReadings({ firebaseUid: user.uid, limit: 5 }) as Promise<ReadingsResponse>,
-                    api.getGlucoseReadings({ firebaseUid: user.uid, limit: 100 }) as Promise<ReadingsResponse>,
+                    api.getGlucoseStats(user.uid, 7),
+                    api.getGlucoseReadings({ firebaseUid: user.uid, limit: 5 }),
+                    api.getGlucoseReadings({ firebaseUid: user.uid, limit: 100 }),
                 ]);
 
                 setStats(statsData);

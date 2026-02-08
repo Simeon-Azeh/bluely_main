@@ -50,10 +50,10 @@ export default function InsightsPage() {
             if (!user) return;
 
             try {
-                const readingsData = await api.getGlucoseReadings({
+                const readingsData: ReadingsResponse = await api.getGlucoseReadings({
                     firebaseUid: user.uid,
                     limit: 100
-                }) as ReadingsResponse;
+                });
 
                 setReadings(readingsData.readings);
 
