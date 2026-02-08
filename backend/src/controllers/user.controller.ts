@@ -7,8 +7,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     try {
         const { firebaseUid, email, displayName } = req.body;
 
-        if (!firebaseUid || !email || !displayName) {
-            res.status(400).json({ error: 'firebaseUid, email, and displayName are required' });
+        if (!firebaseUid || !email) {
+            res.status(400).json({ error: 'firebaseUid and email are required' });
             return;
         }
 
@@ -19,11 +19,11 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Create new user
+        // Create new user with default displayName if not provided
         const newUser = await User.create({
             firebaseUid,
             email,
-            displayName,
+            displayName: displayName || email.split('@')[0] || 'User',
             onboardingCompleted: false,
         });
 

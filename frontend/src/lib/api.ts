@@ -110,7 +110,7 @@ class ApiClient {
     }
 
     // User endpoints
-    async createUser(data: { firebaseUid: string; email: string; displayName: string }): Promise<UserData> {
+    async createUser(data: { firebaseUid: string; email: string; displayName?: string }): Promise<UserData> {
         return this.request<UserData>('/users', {
             method: 'POST',
             body: JSON.stringify(data),

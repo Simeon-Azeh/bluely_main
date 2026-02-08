@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     await api.createUser({
                         firebaseUid: firebaseUser.uid,
                         email: firebaseUser.email || '',
-                        displayName: firebaseUser.displayName || 'User',
+                        displayName: firebaseUser.displayName || undefined,
                     });
                     // Fetch the newly created profile
                     const newProfile = await api.getUser(firebaseUser.uid) as UserProfile;
@@ -64,10 +64,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     return;
                 } catch (createError) {
                     console.error('Error creating user profile:', createError);
+                    // Set a minimal profile so the app can still function
+                    setUserProfile({ onboardingCompleted: false });
+                    return;
                 }
             }
             console.error('Error fetching user profile:', error);
-            setUserProfile(null);
+            // Set a minimal profile so the app can still function
+            setUserProfile({ onboardingCompleted: false });
         }
     };
 
