@@ -6,6 +6,14 @@
 [![Demo Video](https://img.shields.io/badge/Demo-Video-red?logo=youtube)](https://youtu.be/g1m0TP3f2tU)
 [![Figma Designs](https://img.shields.io/badge/Figma-Designs-purple?logo=figma)](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1)
 
+## Links
+
+- [GitHub Repository](https://github.com/Simeon-Azeh/bluely_main.git)
+- [Live Demo](https://bluely-main-foyr.vercel.app/dashboard)
+- [API Docs](https://bluely-main.onrender.com/api/docs/)
+- [Demo Video](https://youtu.be/g1m0TP3f2tU)
+- [Figma Designs](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1)
+
 A web-based diabetes self-management system designed for users in low- and middle-income settings, with initial deployment targeting Cameroon.
 
 ## Overview
