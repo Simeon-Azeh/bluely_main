@@ -4,9 +4,9 @@
   "description": "Backend API for Bluely diabetes self-management system",
   "main": "dist/server.js",
  "scripts": {
-  "dev": "nodemon src/server.ts",
+  "dev": "nodemon --max-old-space-size=512 src/server.ts",
   "build": "tsc",
-  "start": "node dist/server.js"
+  "start": "node --max-old-space-size=512 dist/server.js"
 },
   "keywords": [
     "diabetes",
