@@ -20,7 +20,11 @@ const readingTypes = [
 ];
 
 const glucoseSchema = z.object({
-    value: z.coerce.number().min(20, 'Value must be at least 20').max(600, 'Value must be at most 600'),
+    value: z.string().min(1, 'Value is required').transform((val) => {
+        const num = parseFloat(val);
+        if (isNaN(num)) throw new Error('Invalid number');
+        return num;
+    }).pipe(z.number().min(20, 'Value must be at least 20').max(600, 'Value must be at most 600')),
     readingType: z.string().min(1, 'Please select a reading type'),
     mealContext: z.string().optional(),
     activityContext: z.string().optional(),
@@ -28,7 +32,14 @@ const glucoseSchema = z.object({
     recordedAt: z.string().optional(),
 });
 
-type GlucoseFormData = z.infer<typeof glucoseSchema>;
+type GlucoseFormData = {
+    value: string;
+    readingType: string;
+    mealContext?: string;
+    activityContext?: string;
+    notes?: string;
+    recordedAt?: string;
+};
 
 export default function GlucosePage() {
     const { user } = useAuth();
