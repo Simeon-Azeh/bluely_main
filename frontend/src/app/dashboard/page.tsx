@@ -1,0 +1,287 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent, Button, LoadingSpinner, InstallPrompt } from '@/components/ui';
+import {
+    WelcomeHeader,
+    QuickActionsGrid,
+    StatsGrid,
+    WeeklyChart,
+    RecentReadings,
+    MoodTracker,
+    TodaysProgress,
+} from '@/components/dashboard';
+import { FiAlertCircle, FiCircle, FiArrowRight } from 'react-icons/fi';
+import { format, isToday } from 'date-fns';
+import api from '@/lib/api';
+
+interface Stats {
+    totalReadings: number;
+    averageGlucose: number | null;
+    minGlucose: number | null;
+    maxGlucose: number | null;
+    inRangePercentage: number | null;
+    belowRangePercentage: number | null;
+    aboveRangePercentage: number | null;
+    targetMin: number;
+    targetMax: number;
+    readingsByDay: Array<{
+        date: string;
+        average: number;
+        readings: Array<{
+            value: number;
+            recordedAt: string;
+        }>;
+    }>;
+}
+
+interface Reading {
+    _id: string;
+    value: number;
+    unit: string;
+    readingType: string;
+    recordedAt: string;
+    notes?: string;
+}
+
+interface ReadingsResponse {
+    readings: Reading[];
+    pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+    };
+}
+
+// Motivational messages for the dashboard
+const motivationalMessages = [
+    "Every reading is a step toward better health. Keep going!",
+    "Small consistent steps lead to big changes. You're doing great!",
+    "Your dedication to tracking shows how much you care about your health.",
+    "Progress, not perfection. Every day is a new opportunity!",
+    "You're taking control of your health journey. That's amazing!",
+    "Remember: knowledge is power. Keep tracking!",
+    "One day at a time. You've got this!",
+    "Your future self will thank you for the effort you're putting in today.",
+    "Consistency is key. You're building great habits!",
+    "Be proud of yourself for prioritizing your health.",
+];
+
+export default function DashboardPage() {
+    const { user, userProfile } = useAuth();
+    const [stats, setStats] = useState<Stats | null>(null);
+    const [recentReadings, setRecentReadings] = useState<Reading[]>([]);
+    const [allReadings, setAllReadings] = useState<Reading[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [backendError, setBackendError] = useState(false);
+    const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+    const [motivationalMessage, setMotivationalMessage] = useState('');
+
+    const isOnboardingComplete = userProfile?.onboardingCompleted === true;
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!user) return;
+
+            try {
+                setBackendError(false);
+                const [statsData, readingsData, allReadingsData] = await Promise.all([
+                    api.getGlucoseStats(user.uid, 7) as Promise<Stats>,
+                    api.getGlucoseReadings({ firebaseUid: user.uid, limit: 5 }) as Promise<ReadingsResponse>,
+                    api.getGlucoseReadings({ firebaseUid: user.uid, limit: 100 }) as Promise<ReadingsResponse>,
+                ]);
+
+                setStats(statsData);
+                setRecentReadings(readingsData.readings);
+                setAllReadings(allReadingsData.readings);
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                setBackendError(true);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+
+        // Set random motivational message
+        const randomIndex = Math.floor(Math.random() * motivationalMessages.length);
+        setMotivationalMessage(motivationalMessages[randomIndex]);
+
+        // Show install prompt after 3 seconds for new users
+        const dismissed = localStorage.getItem('bluely-install-dismissed');
+        if (!dismissed) {
+            const timer = setTimeout(() => setShowInstallPrompt(true), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [user]);
+
+    // Count today's readings
+    const todaysReadingsCount = allReadings.filter(reading =>
+        isToday(new Date(reading.recordedAt))
+    ).length;
+
+    // Calculate streak (consecutive days with readings)
+    const calculateStreak = () => {
+        if (allReadings.length === 0) return 0;
+        let streak = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i <= 30; i++) {
+            const checkDate = new Date(today);
+            checkDate.setDate(checkDate.getDate() - i);
+            const hasReading = allReadings.some(reading => {
+                const readingDate = new Date(reading.recordedAt);
+                readingDate.setHours(0, 0, 0, 0);
+                return readingDate.getTime() === checkDate.getTime();
+            });
+            if (hasReading) streak++;
+            else if (i > 0) break;
+        }
+        return streak;
+    };
+
+    const streak = calculateStreak();
+    const recommendedReadings = 3;
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="mt-4 text-gray-500">Loading your dashboard...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Prepare chart data
+    const chartData = stats?.readingsByDay.map(day => ({
+        date: format(new Date(day.date), 'EEE'),
+        fullDate: format(new Date(day.date), 'MMM d'),
+        average: Math.round(day.average),
+        readings: day.readings.length,
+    })) || [];
+
+    return (
+        <div className="space-y-6 pb-8">
+            {/* Install Prompt */}
+            {showInstallPrompt && (
+                <InstallPrompt
+                    variant="modal"
+                    onDismiss={() => setShowInstallPrompt(false)}
+                />
+            )}
+
+            {/* Welcome Header */}
+            <WelcomeHeader
+                userName={user?.displayName?.split(' ')[0]}
+                motivationalMessage={motivationalMessage}
+                isOnboardingComplete={isOnboardingComplete}
+                todaysReadingsCount={todaysReadingsCount}
+                averageGlucose={stats?.averageGlucose || null}
+                streak={streak}
+            />
+
+            {/* Backend Connection Error */}
+            {backendError && (
+                <Card className="border-red-200 bg-red-50">
+                    <CardContent>
+                        <div className="flex items-start space-x-3">
+                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+                                <FiAlertCircle className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-semibold text-red-800 mb-1">Connection Issue</h3>
+                                <p className="text-sm text-red-700">
+                                    Unable to connect to the server. Please make sure the backend is running and try again.
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Onboarding Required Card */}
+            {!isOnboardingComplete && (
+                <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 overflow-hidden">
+                    <CardContent>
+                        <div className="flex items-start space-x-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-amber-200">
+                                <FiAlertCircle className="w-7 h-7 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-gray-900 text-xl mb-2">Complete Your Profile</h3>
+                                <p className="text-gray-600 mb-4">
+                                    Set up your profile to get personalized insights and start tracking effectively.
+                                </p>
+                                <div className="flex flex-wrap gap-2 mb-5">
+                                    {['Set diabetes type', 'Configure target range', 'Choose units'].map((item) => (
+                                        <span key={item} className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white text-amber-700 border border-amber-200 shadow-sm">
+                                            <FiCircle className="w-2 h-2 mr-1.5" />
+                                            {item}
+                                        </span>
+                                    ))}
+                                </div>
+                                <Link href="/onboarding">
+                                    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-200/50">
+                                        Complete Setup
+                                        <FiArrowRight className="w-4 h-4 ml-2" />
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Only show features if onboarding is complete */}
+            {isOnboardingComplete && (
+                <>
+                    {/* Quick Actions Grid */}
+                    <QuickActionsGrid />
+
+                    {/* Mood Tracker */}
+                    <MoodTracker />
+
+                    {/* Today's Progress */}
+                    <TodaysProgress
+                        todaysReadingsCount={todaysReadingsCount}
+                        recommendedReadings={recommendedReadings}
+                    />
+
+                    {/* Stats Grid */}
+                    <StatsGrid
+                        averageGlucose={stats?.averageGlucose || null}
+                        inRangePercentage={stats?.inRangePercentage || null}
+                        minGlucose={stats?.minGlucose || null}
+                        maxGlucose={stats?.maxGlucose || null}
+                        targetMin={stats?.targetMin || 70}
+                        targetMax={stats?.targetMax || 180}
+                    />
+
+                    {/* Weekly Chart */}
+                    <WeeklyChart
+                        chartData={chartData}
+                        targetMin={stats?.targetMin || 70}
+                        targetMax={stats?.targetMax || 180}
+                    />
+
+                    {/* Recent Readings */}
+                    <RecentReadings
+                        readings={recentReadings}
+                        targetMin={stats?.targetMin || 70}
+                        targetMax={stats?.targetMax || 180}
+                    />
+
+                    {/* Install App Card (Alternative placement) */}
+                    <InstallPrompt variant="card" onDismiss={() => { }} />
+                </>
+            )}
+        </div>
+    );
+}
