@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -43,7 +43,7 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 // Swagger JSON endpoint
-app.get('/api/docs.json', (req, res) => {
+app.get('/api/docs.json', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
@@ -73,7 +73,7 @@ app.get('/api/docs.json', (req, res) => {
  *                   format: date-time
  */
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
     res.json({
         status: 'ok',
         message: 'Bluely API is running',
@@ -89,7 +89,7 @@ app.use('/api/glucose', glucoseRoutes);
 app.use(errorHandler);
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
