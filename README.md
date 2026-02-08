@@ -108,6 +108,7 @@ bluely_main/
 4. **Set up Firebase**
    - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
    - Enable Email/Password authentication
+   - Enable Google auth 
    - Copy your web app configuration to `.env.local`
 
 5. **Set up MongoDB**
@@ -170,7 +171,7 @@ bluely_main/
 ## Designs
 
 ### Figma Mockups
-- [View Figma Designs](https://www.figma.com/design/...) *(Add your Figma link here)*
+- [View Figma Designs](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1) 
 
 ### Screenshots
 - **Landing Page**: Clean, welcoming interface with clear value proposition

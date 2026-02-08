@@ -117,7 +117,7 @@ export default function LoginPage() {
                                 alt="Bluely"
                                 width={140}
                                 height={40}
-                                className="h-10 w-auto"
+                                className="h-26 w-auto"
                             />
                         </Link>
 
@@ -174,7 +174,7 @@ export default function LoginPage() {
                                 alt="Bluely"
                                 width={140}
                                 height={40}
-                                className="h-10 w-auto"
+                                className="h-26 w-auto"
                             />
                         </Link>
                     </div>

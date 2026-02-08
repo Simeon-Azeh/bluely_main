@@ -225,7 +225,7 @@ export default function OnboardingPage() {
                                 alt="Bluely"
                                 width={140}
                                 height={40}
-                                className="h-10 w-auto"
+                                className="h-26 w-auto"
                             />
                         </Link>
 
@@ -277,9 +277,9 @@ export default function OnboardingPage() {
                             <Image
                                 src="/icons/full_logotext.png"
                                 alt="Bluely"
-                                width={120}
-                                height={35}
-                                className="h-9 w-auto"
+                                width={140}
+                                height={40}
+                                className="h-26 w-auto"
                             />
                         </Link>
                         <button
