@@ -11,6 +11,9 @@ import mealRoutes from './routes/meal.routes';
 import activityRoutes from './routes/activity.routes';
 import healthProfileRoutes from './routes/healthProfile.routes';
 import predictRoutes from './routes/predict.routes';
+import medicationRoutes from './routes/medication.routes';
+import notificationRoutes from './routes/notification.routes';
+import wellnessRoutes from './routes/wellness.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -92,6 +95,9 @@ app.use('/api/meals', mealRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/health-profile', healthProfileRoutes);
 app.use('/api/predict', predictRoutes);
+app.use('/api/medications', medicationRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/wellness', wellnessRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

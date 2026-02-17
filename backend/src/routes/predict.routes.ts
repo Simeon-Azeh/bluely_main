@@ -4,6 +4,8 @@ import {
     getPredictions,
     getLatestPrediction,
     getTrends,
+    getGlucose30,
+    getForecastHistory,
 } from '../controllers/predict.controller';
 
 const router = Router();
@@ -91,5 +93,46 @@ router.get('/latest', getLatestPrediction);
  *         description: Trend analysis data
  */
 router.get('/trends', getTrends);
+
+/**
+ * @swagger
+ * /predict/glucose-30:
+ *   get:
+ *     summary: Get 30-minute glucose forecast
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: 30-minute glucose prediction with direction
+ */
+router.get('/glucose-30', getGlucose30);
+
+/**
+ * @swagger
+ * /predict/forecast-history:
+ *   get:
+ *     summary: Get forecast prediction history
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of saved forecasts
+ */
+router.get('/forecast-history', getForecastHistory);
 
 export default router;

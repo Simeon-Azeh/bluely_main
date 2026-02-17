@@ -61,7 +61,7 @@ export default function PredictionCard({
                         </div>
                         <div>
                             <h3 className="font-semibold text-gray-900">Glucose Prediction</h3>
-                            <p className="text-xs text-gray-500">AI-powered risk analysis</p>
+                            <p className="text-xs text-gray-500">Based on logged data patterns</p>
                         </div>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${config.bgColor} ${config.color}`}>
@@ -97,10 +97,14 @@ export default function PredictionCard({
                 {/* Recommendation */}
                 <div className={`p-3 rounded-xl ${config.bgColor}/50 border ${config.borderColor}`}>
                     <p className="text-sm text-gray-700">
-                        <span className="font-medium">💡 Tip: </span>
                         {recommendation}
                     </p>
                 </div>
+
+                {/* Disclaimer */}
+                <p className="text-[10px] text-gray-400 mt-3 text-center">
+                    Insights are based on logged data patterns and are not medical instructions.
+                </p>
             </CardContent>
         </Card>
     );

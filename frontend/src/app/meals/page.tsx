@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import api from '@/lib/api';
 import { Card, CardContent, Button } from '@/components/ui';
 import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle } from 'react-icons/fi';
 import { IoFastFoodOutline } from 'react-icons/io5';
@@ -15,22 +16,23 @@ interface CamerooniaDish {
     name: string;
     carbLevel: CarbLevel;
     description: string;
+    imageUrl?: string;
 }
 
 const cameroonianDishes: CamerooniaDish[] = [
-    { id: 'fufu-eru', name: 'Fufu & Eru', carbLevel: 'high', description: 'Cassava-based' },
-    { id: 'fufu-corn-njama', name: 'Fufu Corn & Njama Njama', carbLevel: 'high', description: 'Maize' },
-    { id: 'garri-eru', name: 'Garri & Eru', carbLevel: 'high', description: 'Processed cassava' },
-    { id: 'rice-stew', name: 'Rice & Stew', carbLevel: 'high', description: 'Refined carbs' },
-    { id: 'plantain', name: 'Plantain (Boiled/Fried)', carbLevel: 'medium', description: 'Starchy' },
-    { id: 'beans-plantain', name: 'Beans & Plantain', carbLevel: 'medium', description: 'Fiber reduces spike' },
-    { id: 'yam', name: 'Yam (Boiled)', carbLevel: 'high', description: 'Starchy' },
-    { id: 'achu', name: 'Achu', carbLevel: 'high', description: 'Pounded cocoyam' },
-    { id: 'koki-beans', name: 'Koki Beans', carbLevel: 'medium', description: 'Legumes' },
-    { id: 'okra-soup', name: 'Okra Soup (without fufu)', carbLevel: 'low', description: 'Mostly vegetables' },
-    { id: 'fish-meat-eggs', name: 'Fish / Meat / Eggs', carbLevel: 'low', description: 'Protein' },
-    { id: 'ndole', name: 'Ndolé (without starch)', carbLevel: 'low', description: 'Leafy vegetables' },
-    { id: 'pepper-soup', name: 'Pepper Soup', carbLevel: 'low', description: 'Broth-based' },
+    { id: 'fufu-eru', name: 'Fufu & Eru', carbLevel: 'high', description: 'Cassava-based', imageUrl: '' },
+    { id: 'fufu-corn-njama', name: 'Fufu Corn & Njama Njama', carbLevel: 'high', description: 'Maize', imageUrl: '' },
+    { id: 'garri-eru', name: 'Garri & Eru', carbLevel: 'high', description: 'Processed cassava', imageUrl: '' },
+    { id: 'rice-stew', name: 'Rice & Stew', carbLevel: 'high', description: 'Refined carbs', imageUrl: '' },
+    { id: 'plantain', name: 'Plantain (Boiled/Fried)', carbLevel: 'medium', description: 'Starchy', imageUrl: '' },
+    { id: 'beans-plantain', name: 'Beans & Plantain', carbLevel: 'medium', description: 'Fiber reduces spike', imageUrl: '' },
+    { id: 'yam', name: 'Yam (Boiled)', carbLevel: 'high', description: 'Starchy', imageUrl: '' },
+    { id: 'achu', name: 'Achu', carbLevel: 'high', description: 'Pounded cocoyam', imageUrl: '' },
+    { id: 'koki-beans', name: 'Koki Beans', carbLevel: 'medium', description: 'Legumes', imageUrl: '' },
+    { id: 'okra-soup', name: 'Okra Soup (without fufu)', carbLevel: 'low', description: 'Mostly vegetables', imageUrl: '' },
+    { id: 'fish-meat-eggs', name: 'Fish / Meat / Eggs', carbLevel: 'low', description: 'Protein', imageUrl: '' },
+    { id: 'ndole', name: 'Ndolé (without starch)', carbLevel: 'low', description: 'Leafy vegetables', imageUrl: '' },
+    { id: 'pepper-soup', name: 'Pepper Soup', carbLevel: 'low', description: 'Broth-based', imageUrl: '' },
 ];
 
 const mealTypes = [
@@ -137,7 +139,29 @@ export default function MealsPage() {
 
             console.log('Meal logged:', mealData);
 
-            // For now, just show success (API integration would go here)
+            // Map carb levels to an estimate: low=15, medium=40, high=65
+            const carbMap: Record<string, number> = { low: 15, medium: 40, high: 65 };
+            const totalCarbs = mealData.dishes.reduce((sum, d) => sum + (carbMap[d.carbLevel] || 30), 0);
+
+            // Build a description from the selected dishes
+            const dishNames = mealData.dishes.map(d => d.name).join(', ');
+
+            await api.createMeal({
+                firebaseUid: user.uid,
+                mealType: selectedMealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+                carbsEstimate: totalCarbs,
+                description: dishNames.slice(0, 300),
+                timestamp: mealData.loggedAt,
+            });
+
+            // Trigger a new 30-min forecast in the background after logging a meal
+            try {
+                await api.getGlucose30(user.uid, 'meal_log');
+            } catch (forecastErr) {
+                console.warn('Forecast refresh after meal log failed (non-critical):', forecastErr);
+            }
+
+            // Show success
             setIsSuccess(true);
 
             // Reset form after short delay
@@ -278,6 +302,17 @@ export default function MealsPage() {
                                             }`}>
                                             {isSelected && <FiCheck className="w-2.5 h-2.5 text-white" />}
                                         </div>
+                                        {dish.imageUrl ? (
+                                            <img
+                                                src={dish.imageUrl}
+                                                alt={dish.name}
+                                                className="w-10 h-10 rounded-lg object-cover shrink-0"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center shrink-0">
+                                                <IoFastFoodOutline className="w-5 h-5 text-orange-400" />
+                                            </div>
+                                        )}
                                         <div>
                                             <p className="font-medium text-gray-900 text-sm leading-tight">{dish.name}</p>
                                             <p className="text-[10px] text-gray-400">{dish.description}</p>

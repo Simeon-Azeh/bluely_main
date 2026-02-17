@@ -104,10 +104,14 @@ export default function WeeklyTrendCard({
                 {/* Recommendation */}
                 <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                     <p className="text-sm text-gray-700">
-                        <span className="font-medium">📊 </span>
                         {recommendation}
                     </p>
                 </div>
+
+                {/* Disclaimer */}
+                <p className="text-[10px] text-gray-400 mt-3 text-center">
+                    Insights are based on logged data patterns and are not medical instructions.
+                </p>
             </CardContent>
         </Card>
     );

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -22,12 +22,14 @@ import {
     FiCheck,
     FiChevronRight,
     FiAlertTriangle,
-    FiEdit3,
     FiHeart,
     FiDroplet,
     FiDownload,
     FiBarChart2,
+    FiClock,
+    FiAlertCircle,
 } from 'react-icons/fi';
+import { TbPill } from 'react-icons/tb';
 import api from '@/lib/api';
 
 const diabetesTypes = [
@@ -51,6 +53,14 @@ const activityLevels = [
     { value: 'very_active', label: 'Very Active (intense exercise daily)' },
 ];
 
+const reminderIntervalOptions = [
+    { value: '2', label: 'Every 2 hours' },
+    { value: '4', label: 'Every 4 hours' },
+    { value: '6', label: 'Every 6 hours' },
+    { value: '8', label: 'Every 8 hours' },
+    { value: '12', label: 'Every 12 hours' },
+];
+
 interface ProfileFormData {
     displayName: string;
     diabetesType: string;
@@ -60,6 +70,11 @@ interface ProfileFormData {
     targetGlucoseMax: string;
     activityLevel: string;
     reminderEnabled: boolean;
+    reminderInterval: string;
+    pushNotifications: boolean;
+    insightNotifications: boolean;
+    medicationReminders: boolean;
+    weeklySummary: boolean;
     darkMode: boolean;
 }
 
@@ -72,27 +87,132 @@ export default function SettingsPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeSection, setActiveSection] = useState('profile');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default');
+    const [isExporting, setIsExporting] = useState(false);
+    const reminderIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [reminderActive, setReminderActive] = useState(false);
 
     const {
         register,
         handleSubmit,
         reset,
         watch,
+        setValue,
         formState: { errors, isDirty },
     } = useForm<ProfileFormData>();
 
     const watchedUnit = watch('preferredUnit');
     const watchedMin = watch('targetGlucoseMin');
     const watchedMax = watch('targetGlucoseMax');
+    const watchedPush = watch('pushNotifications');
+    const watchedReminder = watch('reminderEnabled');
 
     const menuItems = [
         { id: 'profile', label: 'Profile', icon: FiUser },
         { id: 'health', label: 'Health Info', icon: FiHeart },
         { id: 'targets', label: 'Glucose Targets', icon: FiTarget },
-        { id: 'preferences', label: 'Preferences', icon: FiGlobe },
         { id: 'notifications', label: 'Notifications', icon: FiBell },
+        { id: 'preferences', label: 'Preferences', icon: FiGlobe },
+        { id: 'data', label: 'Data & Export', icon: FiDownload },
         { id: 'account', label: 'Account', icon: FiShield },
     ];
+
+    useEffect(() => {
+        // Check push notification support
+        if ('Notification' in window) {
+            setPushPermission(Notification.permission);
+        } else {
+            setPushPermission('unsupported');
+        }
+    }, []);
+
+    // ── Reminder scheduling logic ──
+    const fireReminder = useCallback(() => {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+        const messages = [
+            "Time to log your glucose reading!",
+            "Don't forget to check your blood sugar.",
+            "Stay on track — log a glucose reading now.",
+            "Quick reminder: how's your glucose doing?",
+            "It's been a while — let's log a reading!",
+        ];
+        const body = messages[Math.floor(Math.random() * messages.length)];
+
+        try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then((reg) => {
+                    reg.showNotification('Bluely Reminder', {
+                        body,
+                        icon: '/icons/android-chrome-192x192.png',
+                        badge: '/icons/android-chrome-192x192.png',
+                        tag: 'glucose-reminder',
+                    });
+                });
+            } else {
+                new Notification('Bluely Reminder', {
+                    body,
+                    icon: '/icons/android-chrome-192x192.png',
+                });
+            }
+        } catch (err) {
+            console.warn('Failed to show notification:', err);
+        }
+    }, []);
+
+    const startReminderSchedule = useCallback((intervalHours: number) => {
+        // Clear existing
+        if (reminderIntervalRef.current) {
+            clearInterval(reminderIntervalRef.current);
+            reminderIntervalRef.current = null;
+        }
+
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+        const ms = intervalHours * 60 * 60 * 1000;
+        reminderIntervalRef.current = setInterval(() => {
+            fireReminder();
+        }, ms);
+
+        setReminderActive(true);
+
+        // Save schedule info to localStorage for persistence awareness
+        localStorage.setItem('bluely-reminder', JSON.stringify({
+            enabled: true,
+            intervalHours,
+            startedAt: Date.now(),
+        }));
+    }, [fireReminder]);
+
+    const stopReminderSchedule = useCallback(() => {
+        if (reminderIntervalRef.current) {
+            clearInterval(reminderIntervalRef.current);
+            reminderIntervalRef.current = null;
+        }
+        setReminderActive(false);
+        localStorage.removeItem('bluely-reminder');
+    }, []);
+
+    // Restore reminders from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('bluely-reminder');
+        if (saved) {
+            try {
+                const { enabled, intervalHours } = JSON.parse(saved);
+                if (enabled && 'Notification' in window && Notification.permission === 'granted') {
+                    startReminderSchedule(intervalHours);
+                }
+            } catch {
+                // ignore
+            }
+        }
+
+        return () => {
+            if (reminderIntervalRef.current) {
+                clearInterval(reminderIntervalRef.current);
+            }
+        };
+    }, [startReminderSchedule]);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -108,6 +228,11 @@ export default function SettingsPage() {
                     targetGlucoseMax: data.targetGlucoseMax?.toString() || '180',
                     activityLevel: data.activityLevel || 'moderate',
                     reminderEnabled: data.reminderEnabled ?? true,
+                    reminderInterval: '4',
+                    pushNotifications: Notification.permission === 'granted',
+                    insightNotifications: true,
+                    medicationReminders: true,
+                    weeklySummary: false,
                     darkMode: false,
                 });
             } catch (err) {
@@ -118,6 +243,26 @@ export default function SettingsPage() {
         };
         fetchProfile();
     }, [user, reset]);
+
+    const requestPushPermission = async () => {
+        if (!('Notification' in window)) return;
+
+        try {
+            const permission = await Notification.requestPermission();
+            setPushPermission(permission);
+            setValue('pushNotifications', permission === 'granted', { shouldDirty: true });
+
+            if (permission === 'granted') {
+                // Show a test notification
+                new Notification('Bluely', {
+                    body: 'Push notifications enabled! You\'ll receive glucose reminders here.',
+                    icon: '/icons/android-chrome-192x192.png',
+                });
+            }
+        } catch (err) {
+            console.error('Error requesting notification permission:', err);
+        }
+    };
 
     const onSubmit = async (data: ProfileFormData) => {
         if (!user) return;
@@ -132,7 +277,17 @@ export default function SettingsPage() {
                 targetGlucoseMin: parseInt(data.targetGlucoseMin),
                 targetGlucoseMax: parseInt(data.targetGlucoseMax),
                 activityLevel: data.activityLevel,
+                reminderEnabled: data.reminderEnabled,
             });
+
+            // ── Start/stop actual browser reminders ──
+            if (data.reminderEnabled && pushPermission === 'granted') {
+                const hours = parseInt(data.reminderInterval) || 4;
+                startReminderSchedule(hours);
+            } else {
+                stopReminderSchedule();
+            }
+
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
         } catch (err) {
@@ -140,6 +295,47 @@ export default function SettingsPage() {
             setError('Failed to save settings. Please try again.');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleExportAll = async () => {
+        if (!user) return;
+        setIsExporting(true);
+        try {
+            // Fetch all readings
+            const readingsRes = await api.getGlucoseReadings({ firebaseUid: user.uid, limit: 10000 });
+            const readings = readingsRes.readings;
+
+            // Build CSV
+            const headers = ['Date', 'Time', 'Value (mg/dL)', 'Reading Type', 'Meal Context', 'Activity Context', 'Medication', 'Notes'];
+            const rows = readings.map((r: { recordedAt: string; value: number; readingType: string; mealContext?: string; activityContext?: string; medicationName?: string; notes?: string }) => [
+                new Date(r.recordedAt).toLocaleDateString(),
+                new Date(r.recordedAt).toLocaleTimeString(),
+                r.value,
+                r.readingType,
+                r.mealContext || '',
+                r.activityContext || '',
+                r.medicationName || '',
+                r.notes || '',
+            ]);
+
+            const csv = [
+                headers.join(','),
+                ...rows.map((row: (string | number)[]) => row.map((v: string | number) => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bluely-all-data-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Export failed:', err);
+            setError('Failed to export data. Please try again.');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -189,6 +385,7 @@ export default function SettingsPage() {
             )}
 
             <div className="grid lg:grid-cols-4 gap-6">
+                {/* Sidebar */}
                 <div className="lg:col-span-1">
                     <Card className="border-0 shadow-lg shadow-gray-100 sticky top-24">
                         <CardContent className="p-2">
@@ -213,8 +410,10 @@ export default function SettingsPage() {
                     </Card>
                 </div>
 
+                {/* Main Content */}
                 <div className="lg:col-span-3 space-y-6">
                     <form onSubmit={handleSubmit(onSubmit)}>
+                        {/* ───── Profile ───── */}
                         {activeSection === 'profile' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -252,6 +451,7 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
+                        {/* ───── Health Info ───── */}
                         {activeSection === 'health' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -278,13 +478,14 @@ export default function SettingsPage() {
                                             <Select options={activityLevels} placeholder="Select your activity level" {...register('activityLevel')} />
                                         </div>
                                         <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                                            <p className="text-sm text-blue-800"><strong>Why we ask:</strong> Your health information helps Bluely provide more personalized insights and recommendations.</p>
+                                            <p className="text-sm text-blue-800"><strong>Why we ask:</strong> Your health information helps Bluely provide more relevant insights based on your logged data patterns.</p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
                         )}
 
+                        {/* ───── Targets ───── */}
                         {activeSection === 'targets' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -338,6 +539,167 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
+                        {/* ───── Notifications ───── */}
+                        {activeSection === 'notifications' && (
+                            <div className="space-y-6">
+                                {/* Push Notifications */}
+                                <Card className="border-0 shadow-lg shadow-gray-100">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                                                <FiBell className="w-6 h-6 text-orange-600" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-bold text-gray-900">Notifications</h2>
+                                                <p className="text-gray-500 text-sm">Control how and when Bluely notifies you</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {/* Browser Push Permission */}
+                                            <div className={`p-4 rounded-xl border-2 transition-all ${pushPermission === 'granted' ? 'bg-green-50 border-green-200' : pushPermission === 'denied' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${pushPermission === 'granted' ? 'bg-green-100' : pushPermission === 'denied' ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                                            <FiBell className={`w-5 h-5 ${pushPermission === 'granted' ? 'text-green-600' : pushPermission === 'denied' ? 'text-red-600' : 'text-blue-600'}`} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-gray-900">Browser Push Notifications</p>
+                                                            <p className="text-sm text-gray-500">
+                                                                {pushPermission === 'granted'
+                                                                    ? 'Enabled — you\'ll receive alerts in your browser'
+                                                                    : pushPermission === 'denied'
+                                                                        ? 'Blocked — update your browser settings to enable'
+                                                                        : pushPermission === 'unsupported'
+                                                                            ? 'Not supported in this browser'
+                                                                            : 'Allow Bluely to send you important alerts'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    {pushPermission === 'granted' ? (
+                                                        <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
+                                                            <FiCheck className="w-4 h-4" /> Enabled
+                                                        </span>
+                                                    ) : pushPermission !== 'denied' && pushPermission !== 'unsupported' ? (
+                                                        <Button type="button" size="sm" onClick={requestPushPermission}>
+                                                            Enable
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+
+                                            {/* Reading Reminders */}
+                                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                                        <FiClock className="w-5 h-5 text-green-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Reading Reminders</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {reminderActive
+                                                                ? 'Active — you\'ll receive periodic reminders'
+                                                                : 'Get reminded to log your glucose'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {reminderActive && (
+                                                        <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
+                                                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                                            Active
+                                                        </span>
+                                                    )}
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" className="sr-only peer" {...register('reminderEnabled')} />
+                                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {/* Reminder Interval — show only when reminders enabled */}
+                                            {watchedReminder && (
+                                                <div className="p-4 bg-gray-50 rounded-xl ml-4 border-l-4 border-[#1F2F98] space-y-3">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        <FiClock className="w-4 h-4 inline mr-1" /> Reminder Frequency
+                                                    </label>
+                                                    <Select options={reminderIntervalOptions} {...register('reminderInterval')} />
+
+                                                    {pushPermission === 'granted' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => fireReminder()}
+                                                            className="text-sm text-[#1F2F98] hover:underline font-medium flex items-center gap-1"
+                                                        >
+                                                            <FiBell className="w-3.5 h-3.5" />
+                                                            Send a test reminder now
+                                                        </button>
+                                                    )}
+                                                    {pushPermission !== 'granted' && (
+                                                        <p className="text-xs text-amber-600">
+                                                            Enable browser push notifications above to activate reminders.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Insight Notifications */}
+                                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                        <FiAlertCircle className="w-5 h-5 text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Insight Alerts</p>
+                                                        <p className="text-sm text-gray-500">Alerts when readings are out of range</p>
+                                                    </div>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" className="sr-only peer" {...register('insightNotifications')} />
+                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
+                                                </label>
+                                            </div>
+
+                                            {/* Medication Reminders */}
+                                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
+                                                        <TbPill className="w-5 h-5 text-violet-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Medication Reminders</p>
+                                                        <p className="text-sm text-gray-500">Reminders to log medications</p>
+                                                    </div>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" className="sr-only peer" {...register('medicationReminders')} />
+                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
+                                                </label>
+                                            </div>
+
+                                            {/* Weekly Summary */}
+                                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                                        <FiBarChart2 className="w-5 h-5 text-indigo-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Weekly Summary</p>
+                                                        <p className="text-sm text-gray-500">A weekly overview of your trends</p>
+                                                    </div>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" className="sr-only peer" {...register('weeklySummary')} />
+                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* ───── Preferences ───── */}
                         {activeSection === 'preferences' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -379,44 +741,48 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
-                        {activeSection === 'notifications' && (
+                        {/* ───── Data & Export ───── */}
+                        {activeSection === 'data' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
                                     <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                                            <FiBell className="w-6 h-6 text-orange-600" />
+                                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                                            <FiDownload className="w-6 h-6 text-emerald-600" />
                                         </div>
                                         <div>
-                                            <h2 className="text-xl font-bold text-gray-900">Notifications</h2>
-                                            <p className="text-gray-500 text-sm">Manage your notification preferences</p>
+                                            <h2 className="text-xl font-bold text-gray-900">Data & Export</h2>
+                                            <p className="text-gray-500 text-sm">Download and share your health data</p>
                                         </div>
                                     </div>
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                        <button
+                                            type="button"
+                                            onClick={handleExportAll}
+                                            disabled={isExporting}
+                                            className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                                        >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><FiActivity className="w-5 h-5 text-green-600" /></div>
-                                                <div><p className="font-medium text-gray-900">Reading Reminders</p><p className="text-sm text-gray-500">Get reminded to log your glucose</p></div>
+                                                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><FiDownload className="w-5 h-5 text-green-600" /></div>
+                                                <div className="text-left">
+                                                    <p className="font-medium text-gray-900">Export All Data (CSV)</p>
+                                                    <p className="text-sm text-gray-500">Download all glucose readings as a spreadsheet</p>
+                                                </div>
                                             </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" className="sr-only peer" {...register('reminderEnabled')} />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
-                                            </label>
-                                        </div>
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl opacity-60">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><FiBarChart2 className="w-5 h-5 text-blue-600" /></div>
-                                                <div><p className="font-medium text-gray-900">Weekly Summary</p><p className="text-sm text-gray-500">Receive weekly insights (Coming Soon)</p></div>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-not-allowed">
-                                                <input type="checkbox" className="sr-only peer" disabled />
-                                                <div className="w-11 h-6 bg-gray-200 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5"></div>
-                                            </label>
+                                            {isExporting ? <LoadingSpinner size="sm" /> : <FiChevronRight className="w-5 h-5 text-gray-400" />}
+                                        </button>
+                                        <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                                            <p className="text-sm text-blue-800">
+                                                <strong>Tip:</strong> You can also export filtered readings from the{' '}
+                                                <a href="/history" className="text-[#1F2F98] underline font-medium">History</a>{' '}
+                                                page using the Export button. The printable report is formatted for sharing with your healthcare provider.
+                                            </p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
                         )}
 
+                        {/* ───── Account ───── */}
                         {activeSection === 'account' && (
                             <div className="space-y-6">
                                 <Card className="border-0 shadow-lg shadow-gray-100">
@@ -435,13 +801,6 @@ export default function SettingsPage() {
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center"><FiLogOut className="w-5 h-5 text-gray-600" /></div>
                                                     <div className="text-left"><p className="font-medium text-gray-900">Sign Out</p><p className="text-sm text-gray-500">Sign out of your account</p></div>
-                                                </div>
-                                                <FiChevronRight className="w-5 h-5 text-gray-400" />
-                                            </button>
-                                            <button type="button" className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors opacity-60 cursor-not-allowed" disabled>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><FiDownload className="w-5 h-5 text-blue-600" /></div>
-                                                    <div className="text-left"><p className="font-medium text-gray-900">Export Data</p><p className="text-sm text-gray-500">Download your data (Coming Soon)</p></div>
                                                 </div>
                                                 <FiChevronRight className="w-5 h-5 text-gray-400" />
                                             </button>
@@ -478,7 +837,8 @@ export default function SettingsPage() {
                             </div>
                         )}
 
-                        {['profile', 'health', 'targets', 'preferences', 'notifications'].includes(activeSection) && (
+                        {/* Save button — visible for all sections except account */}
+                        {activeSection !== 'account' && activeSection !== 'data' && (
                             <div className="flex justify-end mt-6">
                                 <Button type="submit" isLoading={isSaving} disabled={!isDirty}>
                                     <FiSave className="w-4 h-4 mr-2" />

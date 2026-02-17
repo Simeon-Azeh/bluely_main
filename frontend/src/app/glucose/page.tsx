@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '@/components/ui';
-import { FiDroplet, FiCheck, FiClock, FiAlertTriangle, FiTrendingUp, FiTrendingDown, FiThumbsUp, FiInfo } from 'react-icons/fi';
+import { FiDroplet, FiCheck, FiClock, FiAlertTriangle, FiTrendingUp, FiTrendingDown, FiThumbsUp, FiInfo, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { TbPill, TbVaccine, TbTargetArrow } from 'react-icons/tb';
 import api from '@/lib/api';
 
 const readingTypes = [
@@ -26,6 +27,12 @@ const glucoseSchema = z.object({
     activityContext: z.string().optional(),
     notes: z.string().optional(),
     recordedAt: z.string().optional(),
+    medicationTaken: z.boolean().optional(),
+    medicationName: z.string().optional(),
+    medicationType: z.string().optional(),
+    medicationDose: z.string().optional(),
+    medicationDoseUnit: z.string().optional(),
+    injectionSite: z.string().optional(),
 });
 
 type GlucoseFormData = z.infer<typeof glucoseSchema>;
@@ -43,8 +50,8 @@ function getGlucoseMessage(value: number, userName?: string): {
 
     if (value < 54) {
         return {
-            title: 'Very Low — Take Action',
-            message: `Hey ${name}, this is quite low. Please have some fast-acting glucose (juice, candy) right away and retest in 15 minutes. Your safety comes first.`,
+            title: 'Very Low Reading Detected',
+            message: `${name}, this reading is significantly below the target range. Very low glucose may need immediate attention — please follow your provider's guidance for low readings and recheck in 15 minutes.`,
             icon: FiAlertTriangle,
             gradient: 'from-red-50 to-rose-50',
             textColor: 'text-red-700',
@@ -53,8 +60,8 @@ function getGlucoseMessage(value: number, userName?: string): {
     }
     if (value < 70) {
         return {
-            title: 'Below Range',
-            message: `${name}, this is a bit low. Consider having a small snack to bring your levels up. A piece of fruit or some crackers can help. You've got this!`,
+            title: 'Below Target Range',
+            message: `${name}, this reading is below the typical target range. Logging follow-up readings can help you and your provider identify if this is a recurring pattern.`,
             icon: FiTrendingDown,
             gradient: 'from-orange-50 to-amber-50',
             textColor: 'text-orange-700',
@@ -63,8 +70,8 @@ function getGlucoseMessage(value: number, userName?: string): {
     }
     if (value <= 140) {
         return {
-            title: 'In Target Range',
-            message: `Great job, ${name}! Your glucose is right where it should be. Whatever you're doing — keep it up! Your consistency is paying off.`,
+            title: 'Within Target Range',
+            message: `${name}, this reading falls within the typical target range. Consistent logging helps build a clearer picture of your patterns over time.`,
             icon: FiThumbsUp,
             gradient: 'from-green-50 to-emerald-50',
             textColor: 'text-green-700',
@@ -73,8 +80,8 @@ function getGlucoseMessage(value: number, userName?: string): {
     }
     if (value <= 180) {
         return {
-            title: 'Slightly Elevated',
-            message: `Hey ${name}, your levels are a little above target but nothing to worry about. A short walk or some water can help bring things down. You're doing well overall!`,
+            title: 'Slightly Above Target',
+            message: `${name}, this reading is slightly above the target range. This can vary based on meals, activity, and timing — logging context alongside readings helps identify patterns.`,
             icon: FiTrendingUp,
             gradient: 'from-yellow-50 to-amber-50',
             textColor: 'text-yellow-700',
@@ -83,8 +90,8 @@ function getGlucoseMessage(value: number, userName?: string): {
     }
     if (value <= 250) {
         return {
-            title: 'High — Monitor Closely',
-            message: `${name}, your glucose is running high. Stay hydrated, avoid extra carbs for now, and consider checking again in an hour. Remember, one high reading doesn't define your journey.`,
+            title: 'Above Target Range',
+            message: `${name}, this reading is above the target range. Continued monitoring and noting any contributing factors (meals, stress, timing) can provide useful context for your provider.`,
             icon: FiTrendingUp,
             gradient: 'from-orange-50 to-red-50',
             textColor: 'text-orange-700',
@@ -92,8 +99,8 @@ function getGlucoseMessage(value: number, userName?: string): {
         };
     }
     return {
-        title: 'Very High — Seek Guidance',
-        message: `Hey ${name}, this reading is quite high. Please drink water, rest, and consider reaching out to your healthcare provider if it stays elevated. We're here to support you.`,
+        title: 'Significantly Elevated Reading',
+        message: `${name}, this reading is significantly above target. If elevated readings persist, consider discussing them with your healthcare provider. Logging follow-up readings helps track the trend.`,
         icon: FiAlertTriangle,
         gradient: 'from-red-50 to-rose-50',
         textColor: 'text-red-800',
@@ -107,26 +114,69 @@ export default function GlucosePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showMedication, setShowMedication] = useState(false);
+    const [medications, setMedications] = useState<Array<{ _id: string; medicationName: string; medicationType: string; dosage: number; doseUnit: string; isInjectable: boolean }>>([]);
+    const [injectionRec, setInjectionRec] = useState<{ recommendedSite: string } | null>(null);
 
     const {
         register,
         handleSubmit,
         watch,
         reset,
+        setValue,
         formState: { errors },
     } = useForm<GlucoseFormData>({
         resolver: zodResolver(glucoseSchema),
         defaultValues: {
             readingType: 'random',
             recordedAt: new Date().toISOString().slice(0, 16),
+            medicationTaken: false,
+            medicationDoseUnit: 'units',
         },
     });
 
     const watchedValue = watch('value');
+    const watchedMedTaken = watch('medicationTaken');
+    const watchedMedType = watch('medicationType');
     const glucoseNum = watchedValue ? parseFloat(watchedValue) : null;
     const glucoseMessage = glucoseNum && !isNaN(glucoseNum) && glucoseNum >= 20 && glucoseNum <= 600
         ? getGlucoseMessage(glucoseNum, user?.displayName || undefined)
         : null;
+    const isInsulinType = watchedMedType?.startsWith('insulin');
+
+    // Load user's medications for quick-select
+    useEffect(() => {
+        const loadMeds = async () => {
+            if (!user) return;
+            try {
+                const data = await api.getMedications(user.uid, true);
+                setMedications(data.medications);
+                if (data.medications.length > 0) {
+                    setShowMedication(true);
+                }
+            } catch (err) {
+                console.error('Error loading medications:', err);
+            }
+            try {
+                const rec = await api.getInjectionSiteRecommendation(user.uid);
+                setInjectionRec(rec);
+            } catch (err) {
+                console.error('Error loading injection rec:', err);
+            }
+        };
+        loadMeds();
+    }, [user]);
+
+    const handleMedSelect = (med: typeof medications[0]) => {
+        setValue('medicationName', med.medicationName);
+        setValue('medicationType', med.medicationType);
+        setValue('medicationDose', med.dosage.toString());
+        setValue('medicationDoseUnit', med.doseUnit);
+        setValue('medicationTaken', true);
+        if (med.isInjectable && injectionRec) {
+            setValue('injectionSite', injectionRec.recommendedSite);
+        }
+    };
 
     const onSubmit = async (data: GlucoseFormData) => {
         if (!user) return;
@@ -150,13 +200,45 @@ export default function GlucosePage() {
                 activityContext: data.activityContext,
                 notes: data.notes,
                 recordedAt: data.recordedAt ? new Date(data.recordedAt).toISOString() : new Date().toISOString(),
+                medicationTaken: data.medicationTaken,
+                medicationName: data.medicationTaken ? data.medicationName : undefined,
+                medicationType: data.medicationTaken ? data.medicationType : undefined,
+                medicationDose: data.medicationTaken && data.medicationDose ? parseFloat(data.medicationDose) : undefined,
+                medicationDoseUnit: data.medicationTaken ? data.medicationDoseUnit : undefined,
+                injectionSite: data.medicationTaken ? data.injectionSite : undefined,
             });
+
+            // Also log medication if taken
+            if (data.medicationTaken && data.medicationName && data.medicationDose) {
+                try {
+                    await api.logMedication({
+                        firebaseUid: user.uid,
+                        medicationName: data.medicationName,
+                        medicationType: data.medicationType || 'other',
+                        dosage: parseFloat(data.medicationDose),
+                        doseUnit: data.medicationDoseUnit || 'units',
+                        injectionSite: data.injectionSite,
+                        takenAt: data.recordedAt ? new Date(data.recordedAt).toISOString() : new Date().toISOString(),
+                    });
+                } catch (medErr) {
+                    console.warn('Medication log failed (non-critical):', medErr);
+                }
+            }
 
             setIsSuccess(true);
             reset({
                 readingType: 'random',
                 recordedAt: new Date().toISOString().slice(0, 16),
+                medicationTaken: false,
+                medicationDoseUnit: 'units',
             });
+
+            // Trigger a new 30-min forecast in the background after logging
+            try {
+                await api.getGlucose30(user.uid, 'glucose_log');
+            } catch (forecastErr) {
+                console.warn('Forecast refresh after glucose log failed (non-critical):', forecastErr);
+            }
 
             setTimeout(() => {
                 setIsSuccess(false);
@@ -289,6 +371,136 @@ export default function GlucosePage() {
                             />
                         </div>
 
+                        {/* Medication Section */}
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => setShowMedication(!showMedication)}
+                                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <TbPill className="w-4 h-4 text-[#1F2F98]" />
+                                    <span className="text-sm font-medium text-gray-700">Medication with this reading</span>
+                                </div>
+                                {showMedication ? (
+                                    <FiChevronUp className="w-4 h-4 text-gray-400" />
+                                ) : (
+                                    <FiChevronDown className="w-4 h-4 text-gray-400" />
+                                )}
+                            </button>
+
+                            {showMedication && (
+                                <div className="p-4 space-y-4">
+                                    {/* Toggle */}
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded border-gray-300 text-[#1F2F98] focus:ring-[#1F2F98]"
+                                            {...register('medicationTaken')}
+                                        />
+                                        <span className="text-sm text-gray-700">I took medication with this reading</span>
+                                    </label>
+
+                                    {watchedMedTaken && (
+                                        <>
+                                            {/* Quick-select from user's medications */}
+                                            {medications.length > 0 && (
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select</label>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {medications.map((med) => (
+                                                            <button
+                                                                key={med._id}
+                                                                type="button"
+                                                                onClick={() => handleMedSelect(med)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-[#1F2F98] hover:bg-blue-50 transition-colors text-sm"
+                                                            >
+                                                                {med.isInjectable ? (
+                                                                    <TbVaccine className="w-3.5 h-3.5 text-violet-500" />
+                                                                ) : (
+                                                                    <TbPill className="w-3.5 h-3.5 text-blue-500" />
+                                                                )}
+                                                                {med.medicationName}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <Input
+                                                    label="Medication Name"
+                                                    placeholder="e.g., Humalog"
+                                                    {...register('medicationName')}
+                                                />
+                                                <Select
+                                                    label="Type"
+                                                    options={[
+                                                        { value: 'insulin_rapid', label: 'Insulin (Rapid)' },
+                                                        { value: 'insulin_long', label: 'Insulin (Long)' },
+                                                        { value: 'insulin_mixed', label: 'Insulin (Mixed)' },
+                                                        { value: 'metformin', label: 'Metformin' },
+                                                        { value: 'other_oral', label: 'Other Oral' },
+                                                        { value: 'other', label: 'Other' },
+                                                    ]}
+                                                    {...register('medicationType')}
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Input
+                                                    label="Dose"
+                                                    type="number"
+                                                    placeholder="e.g., 10"
+                                                    {...register('medicationDose')}
+                                                />
+                                                <Select
+                                                    label="Unit"
+                                                    options={[
+                                                        { value: 'units', label: 'Units' },
+                                                        { value: 'mg', label: 'mg' },
+                                                        { value: 'mcg', label: 'mcg' },
+                                                    ]}
+                                                    {...register('medicationDoseUnit')}
+                                                />
+                                            </div>
+
+                                            {/* Injection Site — only for insulin */}
+                                            {isInsulinType && (
+                                                <div>
+                                                    <Select
+                                                        label={
+                                                            injectionRec
+                                                                ? `Injection Site (Recommended: ${injectionRec.recommendedSite.replace(/_/g, ' ')})`
+                                                                : 'Injection Site'
+                                                        }
+                                                        options={[
+                                                            { value: '', label: 'Select site...' },
+                                                            { value: 'abdomen_left', label: 'Abdomen (Left)' },
+                                                            { value: 'abdomen_right', label: 'Abdomen (Right)' },
+                                                            { value: 'thigh_left', label: 'Thigh (Left)' },
+                                                            { value: 'thigh_right', label: 'Thigh (Right)' },
+                                                            { value: 'arm_left', label: 'Arm (Left)' },
+                                                            { value: 'arm_right', label: 'Arm (Right)' },
+                                                            { value: 'buttock_left', label: 'Buttock (Left)' },
+                                                            { value: 'buttock_right', label: 'Buttock (Right)' },
+                                                        ]}
+                                                        {...register('injectionSite')}
+                                                    />
+                                                    {injectionRec && (
+                                                        <div className="flex items-center gap-2 mt-1.5 text-xs text-violet-600">
+                                                            <TbTargetArrow className="w-3.5 h-3.5" />
+                                                            Rotate sites to prevent lipohypertrophy
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Notes */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -340,6 +552,9 @@ export default function GlucosePage() {
                             </div>
                         ))}
                     </div>
+                    <p className="text-[10px] text-gray-400 mt-3 text-center">
+                        Insights are based on logged data patterns and are not medical instructions.
+                    </p>
                 </CardContent>
             </Card>
         </div>
