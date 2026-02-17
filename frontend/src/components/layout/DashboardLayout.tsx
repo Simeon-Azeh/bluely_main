@@ -103,7 +103,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                             alt="Bluely"
                             width={48}
                             height={48}
-                            className="w-12 h-12"
+                            className="w-32 h-12"
                         />
                     </div>
                     <LoadingSpinner size="lg" />
@@ -133,7 +133,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 alt="Bluely"
                                 width={36}
                                 height={36}
-                                className="w-9 h-9"
+                                className="w-32 h-9"
                             />
                         ) : (
                             <Image
@@ -267,7 +267,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 alt="Bluely"
                                 width={130}
                                 height={38}
-                                className="h-10 w-auto"
+                                className="h-32 w-auto"
                             />
                         </Link>
 

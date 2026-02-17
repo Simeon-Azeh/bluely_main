@@ -1,0 +1,67 @@
+# Render Blueprint — Bluely (3 services)
+# https://render.com/docs/blueprint-spec
+
+services:
+  # ── ML Service (Python FastAPI) ──
+  - type: web
+    name: bluely-ml
+    runtime: python
+    region: frankfurt
+    rootDir: ml
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: gunicorn server:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: PORT
+        value: 8000
+    plan: free
+    healthCheckPath: /health
+
+  # ── Backend (Node.js Express) ──
+  - type: web
+    name: bluely-backend
+    runtime: node
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm install && npx tsc
+    startCommand: node dist/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: ML_API_URL
+        sync: false # Set manually to the bluely-ml URL
+      - key: MONGODB_URI
+        sync: false # Set manually
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+    plan: free
+    healthCheckPath: /api/health
+
+  # ── Frontend (Next.js Static) ──
+  - type: web
+    name: bluely-frontend
+    runtime: static
+    region: frankfurt
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: out
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NEXT_PUBLIC_API_URL
+        sync: false # Set manually to the bluely-backend URL
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        sync: false
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -274,6 +274,5 @@ wheels/
 MANIFEST
 
 # ML specific
-ml/models/
 ml/data/
 ml/__pycache__/
