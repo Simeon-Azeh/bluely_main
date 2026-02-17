@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { GlucoseReading, User } from '../models';
+import { GlucoseReading, User, Notification } from '../models';
 import { AuthRequest } from '../middleware/auth';
 
 // Create a new glucose reading
@@ -14,6 +14,13 @@ export const createReading = async (req: Request, res: Response): Promise<void> 
             activityContext,
             notes,
             recordedAt,
+            medicationTaken,
+            medicationTiming,
+            medicationName,
+            medicationType,
+            medicationDose,
+            medicationDoseUnit,
+            injectionSite,
         } = req.body;
 
         if (!firebaseUid || value === undefined) {
@@ -38,8 +45,49 @@ export const createReading = async (req: Request, res: Response): Promise<void> 
             mealContext,
             activityContext,
             notes,
+            medicationTaken,
+            medicationTiming,
+            medicationName,
+            medicationType,
+            medicationDose,
+            medicationDoseUnit,
+            injectionSite,
             recordedAt: recordedAt ? new Date(recordedAt) : new Date(),
         });
+
+        // Create notification for out-of-range readings
+        try {
+            if (value < 70) {
+                await Notification.create({
+                    userId: user._id,
+                    firebaseUid,
+                    type: 'insight',
+                    title: 'Below Target Range',
+                    message: `Your reading of ${value} mg/dL is below the typical target range. Monitoring closely and logging follow-up readings may help you and your provider identify patterns.`,
+                    data: { glucoseValue: value, readingType },
+                });
+            } else if (value > 250) {
+                await Notification.create({
+                    userId: user._id,
+                    firebaseUid,
+                    type: 'insight',
+                    title: 'Significantly Above Target',
+                    message: `Your reading of ${value} mg/dL is significantly above target range. Consider discussing persistently elevated readings with your healthcare provider.`,
+                    data: { glucoseValue: value, readingType },
+                });
+            } else if (value > 180) {
+                await Notification.create({
+                    userId: user._id,
+                    firebaseUid,
+                    type: 'insight',
+                    title: 'Above Target Range',
+                    message: `Your reading of ${value} mg/dL is above the target range. Logging context (meals, activity) alongside readings can help identify contributing factors.`,
+                    data: { glucoseValue: value, readingType },
+                });
+            }
+        } catch (notifError) {
+            console.warn('Failed to create glucose notification:', notifError);
+        }
 
         res.status(201).json(newReading);
     } catch (error) {

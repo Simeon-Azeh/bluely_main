@@ -3,8 +3,10 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import api from '@/lib/api';
+import { Card, CardContent, Button } from '@/components/ui';
 import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle } from 'react-icons/fi';
+import { IoFastFoodOutline } from 'react-icons/io5';
 
 // Carb level types
 type CarbLevel = 'low' | 'medium' | 'high';
@@ -14,22 +16,23 @@ interface CamerooniaDish {
     name: string;
     carbLevel: CarbLevel;
     description: string;
+    imageUrl?: string;
 }
 
 const cameroonianDishes: CamerooniaDish[] = [
-    { id: 'fufu-eru', name: 'Fufu & Eru', carbLevel: 'high', description: 'Cassava-based' },
-    { id: 'fufu-corn-njama', name: 'Fufu Corn & Njama Njama', carbLevel: 'high', description: 'Maize' },
-    { id: 'garri-eru', name: 'Garri & Eru', carbLevel: 'high', description: 'Processed cassava' },
-    { id: 'rice-stew', name: 'Rice & Stew', carbLevel: 'high', description: 'Refined carbs' },
-    { id: 'plantain', name: 'Plantain (Boiled/Fried)', carbLevel: 'medium', description: 'Starchy' },
-    { id: 'beans-plantain', name: 'Beans & Plantain', carbLevel: 'medium', description: 'Fiber reduces spike' },
-    { id: 'yam', name: 'Yam (Boiled)', carbLevel: 'high', description: 'Starchy' },
-    { id: 'achu', name: 'Achu', carbLevel: 'high', description: 'Pounded cocoyam' },
-    { id: 'koki-beans', name: 'Koki Beans', carbLevel: 'medium', description: 'Legumes' },
-    { id: 'okra-soup', name: 'Okra Soup (without fufu)', carbLevel: 'low', description: 'Mostly vegetables' },
-    { id: 'fish-meat-eggs', name: 'Fish / Meat / Eggs', carbLevel: 'low', description: 'Protein' },
-    { id: 'ndole', name: 'Ndolé (without starch)', carbLevel: 'low', description: 'Leafy vegetables' },
-    { id: 'pepper-soup', name: 'Pepper Soup', carbLevel: 'low', description: 'Broth-based' },
+    { id: 'fufu-eru', name: 'Fufu & Eru', carbLevel: 'high', description: 'Cassava-based', imageUrl: '' },
+    { id: 'fufu-corn-njama', name: 'Fufu Corn & Njama Njama', carbLevel: 'high', description: 'Maize', imageUrl: '' },
+    { id: 'garri-eru', name: 'Garri & Eru', carbLevel: 'high', description: 'Processed cassava', imageUrl: '' },
+    { id: 'rice-stew', name: 'Rice & Stew', carbLevel: 'high', description: 'Refined carbs', imageUrl: '' },
+    { id: 'plantain', name: 'Plantain (Boiled/Fried)', carbLevel: 'medium', description: 'Starchy', imageUrl: '' },
+    { id: 'beans-plantain', name: 'Beans & Plantain', carbLevel: 'medium', description: 'Fiber reduces spike', imageUrl: '' },
+    { id: 'yam', name: 'Yam (Boiled)', carbLevel: 'high', description: 'Starchy', imageUrl: '' },
+    { id: 'achu', name: 'Achu', carbLevel: 'high', description: 'Pounded cocoyam', imageUrl: '' },
+    { id: 'koki-beans', name: 'Koki Beans', carbLevel: 'medium', description: 'Legumes', imageUrl: '' },
+    { id: 'okra-soup', name: 'Okra Soup (without fufu)', carbLevel: 'low', description: 'Mostly vegetables', imageUrl: '' },
+    { id: 'fish-meat-eggs', name: 'Fish / Meat / Eggs', carbLevel: 'low', description: 'Protein', imageUrl: '' },
+    { id: 'ndole', name: 'Ndolé (without starch)', carbLevel: 'low', description: 'Leafy vegetables', imageUrl: '' },
+    { id: 'pepper-soup', name: 'Pepper Soup', carbLevel: 'low', description: 'Broth-based', imageUrl: '' },
 ];
 
 const mealTypes = [
@@ -136,7 +139,29 @@ export default function MealsPage() {
 
             console.log('Meal logged:', mealData);
 
-            // For now, just show success (API integration would go here)
+            // Map carb levels to an estimate: low=15, medium=40, high=65
+            const carbMap: Record<string, number> = { low: 15, medium: 40, high: 65 };
+            const totalCarbs = mealData.dishes.reduce((sum, d) => sum + (carbMap[d.carbLevel] || 30), 0);
+
+            // Build a description from the selected dishes
+            const dishNames = mealData.dishes.map(d => d.name).join(', ');
+
+            await api.createMeal({
+                firebaseUid: user.uid,
+                mealType: selectedMealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+                carbsEstimate: totalCarbs,
+                description: dishNames.slice(0, 300),
+                timestamp: mealData.loggedAt,
+            });
+
+            // Trigger a new 30-min forecast in the background after logging a meal
+            try {
+                await api.getGlucose30(user.uid, 'meal_log');
+            } catch (forecastErr) {
+                console.warn('Forecast refresh after meal log failed (non-critical):', forecastErr);
+            }
+
+            // Show success
             setIsSuccess(true);
 
             // Reset form after short delay
@@ -160,29 +185,35 @@ export default function MealsPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="space-y-5 max-w-2xl mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                    <IoFastFoodOutline className="w-5 h-5 text-white" />
+                </div>
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Log a Meal</h1>
-                    <p className="text-gray-600 mt-1">
-                        Track what you eat to understand its effect on your glucose
-                    </p>
+                    <p className="text-sm text-gray-500">Track what you eat to understand glucose effects</p>
                 </div>
             </div>
 
             {/* Success Message */}
             {isSuccess && (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
-                    <FiCheck className="w-5 h-5 text-green-600 mr-2" />
-                    <span className="text-green-700">Meal logged successfully!</span>
+                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl flex items-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3 shrink-0">
+                        <FiCheck className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div>
+                        <span className="text-green-700 font-medium">Meal logged successfully!</span>
+                        <p className="text-xs text-green-600 mt-0.5">Keep tracking for more accurate insights.</p>
+                    </div>
                 </div>
             )}
 
-            {/* Info Tooltip Card */}
-            <Card className="border-blue-100 bg-blue-50/50">
+            {/* Info + Carb Legend — combined */}
+            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-blue-50/50">
                 <CardContent>
-                    <div className="flex items-start space-x-3">
+                    <div className="flex items-start gap-3">
                         <button
                             onClick={() => setShowTooltip(!showTooltip)}
                             className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0 hover:bg-blue-200 transition-colors"
@@ -190,63 +221,39 @@ export default function MealsPage() {
                             <FiInfo className="w-4 h-4 text-blue-600" />
                         </button>
                         <div className="flex-1">
-                            <h3 className="font-medium text-gray-900 text-sm">What are carbohydrates?</h3>
-                            {showTooltip ? (
+                            <div className="flex items-center justify-between">
+                                <h3 className="font-medium text-gray-900 text-sm">What are carbohydrates?</h3>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /><span className="text-[10px] text-gray-500">Low</span></div>
+                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-500" /><span className="text-[10px] text-gray-500">Med</span></div>
+                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /><span className="text-[10px] text-gray-500">High</span></div>
+                                </div>
+                            </div>
+                            {showTooltip && (
                                 <div className="mt-2 space-y-2">
                                     <p className="text-sm text-gray-600">
                                         Carbohydrates are foods that give your body energy, such as rice, fufu, garri, plantain, and yam.
-                                    </p>
-                                    <p className="text-sm text-gray-600">
                                         These foods can raise blood glucose levels, especially when eaten in large portions.
                                     </p>
-                                    <div className="pt-2 border-t border-blue-100">
-                                        <p className="text-xs text-blue-700">
-                                            Bluely uses carb levels (low, medium, high) instead of exact numbers to keep meal tracking simple and practical.
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowTooltip(false)}
-                                        className="text-xs text-blue-600 hover:underline"
-                                    >
-                                        Hide details
-                                    </button>
+                                    <p className="text-xs text-blue-700 pt-1 border-t border-blue-100">
+                                        Bluely uses carb levels (low, medium, high) instead of exact numbers to keep meal tracking simple.
+                                    </p>
+                                    <button onClick={() => setShowTooltip(false)} className="text-xs text-blue-600 hover:underline">Hide details</button>
                                 </div>
-                            ) : (
-                                <button
-                                    onClick={() => setShowTooltip(true)}
-                                    className="text-xs text-blue-600 hover:underline mt-1"
-                                >
-                                    Learn more
-                                </button>
+                            )}
+                            {!showTooltip && (
+                                <button onClick={() => setShowTooltip(true)} className="text-xs text-blue-600 hover:underline mt-1">Learn more</button>
                             )}
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Carb Level Legend */}
-            <div className="flex items-center justify-center gap-4 py-2">
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="text-xs text-gray-600">Low carb</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                    <span className="text-xs text-gray-600">Medium carb</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span className="text-xs text-gray-600">High carb</span>
-                </div>
-            </div>
-
             {/* Step 1: Meal Type */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">1. Select meal type</CardTitle>
-                </CardHeader>
+            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                 <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">1. Select meal type</h3>
+                    <div className="grid grid-cols-4 gap-2">
                         {mealTypes.map((meal) => {
                             const Icon = meal.icon;
                             const isSelected = selectedMealType === meal.value;
@@ -254,13 +261,15 @@ export default function MealsPage() {
                                 <button
                                     key={meal.value}
                                     onClick={() => setSelectedMealType(meal.value)}
-                                    className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${isSelected
-                                            ? 'border-blue-600 bg-blue-50 text-blue-600'
-                                            : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                                    className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${isSelected
+                                        ? 'border-orange-500 bg-orange-50 text-orange-600 shadow-[0_4px_20px_rgba(0,0,0,0.06)]'
+                                        : 'border-gray-200 hover:border-gray-300 text-gray-500'
                                         }`}
                                 >
-                                    <Icon className={`w-6 h-6 mb-2 ${isSelected ? 'text-blue-600' : ''}`} />
-                                    <span className="text-sm font-medium">{meal.label}</span>
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-1.5 ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100'}`}>
+                                        <Icon className="w-4 h-4" />
+                                    </div>
+                                    <span className={`text-xs font-medium ${isSelected ? 'text-orange-700' : 'text-gray-600'}`}>{meal.label}</span>
                                 </button>
                             );
                         })}
@@ -269,16 +278,12 @@ export default function MealsPage() {
             </Card>
 
             {/* Step 2: Select Foods */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">2. What did you eat?</CardTitle>
-                </CardHeader>
+            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                 <CardContent>
-                    <p className="text-sm text-gray-500 mb-4">
-                        Select one or more dishes. Carb estimates are shown for guidance only.
-                    </p>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">2. What did you eat?</h3>
+                    <p className="text-xs text-gray-400 mb-3">Select dishes. Carb estimates are for guidance only.</p>
 
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {cameroonianDishes.map((dish) => {
                             const isSelected = selectedDishes.includes(dish.id);
                             const config = carbLevelConfig[dish.carbLevel];
@@ -286,20 +291,31 @@ export default function MealsPage() {
                             return (
                                 <div
                                     key={dish.id}
-                                    className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${isSelected
-                                            ? 'border-blue-600 bg-blue-50'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${isSelected
+                                        ? 'border-orange-500 bg-orange-50'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                     onClick={() => handleDishSelect(dish)}
                                 >
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
+                                    <div className="flex items-center space-x-2.5">
+                                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-orange-500 bg-orange-500' : 'border-gray-300'
                                             }`}>
-                                            {isSelected && <FiCheck className="w-3 h-3 text-white" />}
+                                            {isSelected && <FiCheck className="w-2.5 h-2.5 text-white" />}
                                         </div>
+                                        {dish.imageUrl ? (
+                                            <img
+                                                src={dish.imageUrl}
+                                                alt={dish.name}
+                                                className="w-10 h-10 rounded-lg object-cover shrink-0"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center shrink-0">
+                                                <IoFastFoodOutline className="w-5 h-5 text-orange-400" />
+                                            </div>
+                                        )}
                                         <div>
-                                            <p className="font-medium text-gray-900">{dish.name}</p>
-                                            <p className="text-xs text-gray-500">{dish.description}</p>
+                                            <p className="font-medium text-gray-900 text-sm leading-tight">{dish.name}</p>
+                                            <p className="text-[10px] text-gray-400">{dish.description}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -314,20 +330,20 @@ export default function MealsPage() {
                     </div>
 
                     {/* Custom Dish Input */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Add something else</p>
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs font-medium text-gray-700 mb-2">Add something else</p>
                         <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={customDish}
                                 onChange={(e) => setCustomDish(e.target.value)}
-                                placeholder="Enter dish name"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Dish name"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             />
                             <select
                                 value={customCarbLevel}
                                 onChange={(e) => setCustomCarbLevel(e.target.value as CarbLevel)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             >
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
@@ -346,24 +362,20 @@ export default function MealsPage() {
                 </CardContent>
             </Card>
 
-            {/* Selected Dishes with Editable Carb Levels */}
+            {/* Selected Dishes with Editable Carb Levels + Notes — combined */}
             {selectedDishes.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">3. Adjust carb levels (optional)</CardTitle>
-                    </CardHeader>
+                <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                     <CardContent>
-                        <p className="text-sm text-gray-500 mb-4">
-                            These are estimated carb levels. Adjust based on your portion size.
-                        </p>
-                        <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">3. Adjust carbs & add notes</h3>
+                        <p className="text-xs text-gray-400 mb-3">Adjust based on your portion size.</p>
+                        <div className="space-y-2">
                             {selectedDishes.map((dishId) => {
                                 const dish = getDishById(dishId);
                                 const currentLevel = dishCarbLevels[dishId] || 'medium';
                                 const name = dish?.name || dishId.replace('custom-', '');
 
                                 return (
-                                    <div key={dishId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div key={dishId} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
                                         <div className="flex items-center space-x-2">
                                             <button
                                                 onClick={() => {
@@ -371,9 +383,9 @@ export default function MealsPage() {
                                                 }}
                                                 className="text-gray-400 hover:text-red-500"
                                             >
-                                                <FiX className="w-4 h-4" />
+                                                <FiX className="w-3.5 h-3.5" />
                                             </button>
-                                            <span className="font-medium text-gray-900">{name}</span>
+                                            <span className="font-medium text-gray-900 text-sm">{name}</span>
                                         </div>
                                         <div className="flex gap-1">
                                             {(['low', 'medium', 'high'] as CarbLevel[]).map((level) => {
@@ -384,8 +396,8 @@ export default function MealsPage() {
                                                         key={level}
                                                         onClick={() => handleCarbLevelChange(dishId, level)}
                                                         className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${isActive
-                                                                ? `${config.bg} ${config.color} ${config.border} border`
-                                                                : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-300'
+                                                            ? `${config.bg} ${config.color} ${config.border} border`
+                                                            : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-300'
                                                             }`}
                                                     >
                                                         {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -397,25 +409,20 @@ export default function MealsPage() {
                                 );
                             })}
                         </div>
+
+                        {/* Notes inline */}
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                            <textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Add any notes about this meal..."
+                                rows={2}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                        </div>
                     </CardContent>
                 </Card>
             )}
-
-            {/* Notes */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Notes (optional)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Add any notes about this meal..."
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                </CardContent>
-            </Card>
 
             {/* Submit Button */}
             <div className="flex gap-3">
@@ -423,7 +430,7 @@ export default function MealsPage() {
                     onClick={handleSubmit}
                     disabled={!selectedMealType || selectedDishes.length === 0 || isLoading}
                     isLoading={isLoading}
-                    className="flex-1"
+                    className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
                 >
                     <FiCheck className="w-4 h-4 mr-2" />
                     Log Meal
@@ -437,9 +444,9 @@ export default function MealsPage() {
             </div>
 
             {/* Disclaimer */}
-            <p className="text-xs text-gray-400 text-center">
-                Carbohydrate levels shown are estimates based on typical preparations.
-                Actual values may vary based on portion size and preparation method.
+            <p className="text-xs text-gray-400 text-center pb-4">
+                Carb levels shown are estimates based on typical preparations.
+                Actual values may vary by portion and method.
             </p>
         </div>
     );

@@ -9,6 +9,16 @@ export interface IGlucoseReading extends Document {
     mealContext?: string;
     activityContext?: string;
     notes?: string;
+
+    // Medication tracking when logging glucose
+    medicationTaken?: boolean;
+    medicationTiming?: string;
+    medicationName?: string;
+    medicationType?: string;
+    medicationDose?: number;
+    medicationDoseUnit?: string;
+    injectionSite?: string;
+
     recordedAt: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -57,6 +67,39 @@ const GlucoseReadingSchema = new Schema<IGlucoseReading>(
             type: String,
             maxlength: 500,
             trim: true,
+        },
+        medicationTaken: {
+            type: Boolean,
+        },
+        medicationTiming: {
+            type: String,
+            enum: ['just_before', 'with_reading', '30min_before', '1hr_before', '2hr_before', 'previous_night', 'earlier_today'],
+        },
+        medicationName: {
+            type: String,
+            trim: true,
+            maxlength: 100,
+        },
+        medicationType: {
+            type: String,
+            trim: true,
+        },
+        medicationDose: {
+            type: Number,
+            min: 0,
+        },
+        medicationDoseUnit: {
+            type: String,
+            enum: ['units', 'mg', 'mcg', 'ml'],
+        },
+        injectionSite: {
+            type: String,
+            enum: [
+                'abdomen_left', 'abdomen_right',
+                'thigh_left', 'thigh_right',
+                'arm_left', 'arm_right',
+                'buttock_left', 'buttock_right',
+            ],
         },
         recordedAt: {
             type: Date,

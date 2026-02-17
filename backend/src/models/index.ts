@@ -1,2 +1,12 @@
 export { User, IUser } from './User';
 export { GlucoseReading, IGlucoseReading } from './GlucoseReading';
+export { Meal, IMeal } from './Meal';
+export { Activity, IActivity } from './Activity';
+export { UserHealthProfile, IUserHealthProfile } from './UserHealthProfile';
+export { PredictionAnalysis, IPredictionAnalysis } from './PredictionAnalysis';
+export { Medication, IMedication } from './Medication';
+export { MedicationLog, IMedicationLog } from './MedicationLog';
+export { Notification, INotification } from './Notification';
+export { MoodLog, IMoodLog } from './MoodLog';
+export { LifestyleLog, ILifestyleLog } from './LifestyleLog';
+export { ForecastLog, IForecastLog } from './ForecastLog';

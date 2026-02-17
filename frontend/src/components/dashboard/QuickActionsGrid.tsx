@@ -62,7 +62,7 @@ export default function QuickActionsGrid() {
                 const Icon = action.icon;
                 return (
                     <Link key={action.id} href={action.href}>
-                        <Card className="border-0 shadow-lg shadow-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
+                        <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
                             <CardContent className="p-4">
                                 <div className="flex flex-col items-center text-center">
                                     <div className={`w-14 h-14 bg-gradient-to-br ${action.gradient} rounded-2xl flex items-center justify-center shadow-lg ${action.shadowColor} mb-3`}>

@@ -22,7 +22,9 @@ import {
     FiSun,
     FiMoon
 } from 'react-icons/fi';
+import { TbPill } from 'react-icons/tb';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import api from '@/lib/api';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -32,8 +34,10 @@ const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: FiHome },
     { href: '/glucose', label: 'Log Glucose', icon: FiDroplet },
     { href: '/meals', label: 'Log Meal', icon: FiCoffee },
+    { href: '/medications', label: 'Medications', icon: TbPill },
     { href: '/insights', label: 'Insights', icon: FiTrendingUp },
     { href: '/history', label: 'History', icon: FiBarChart2 },
+    { href: '/notifications', label: 'Notifications', icon: FiBell },
 ];
 
 const bottomNavItems = [
@@ -45,6 +49,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const pathname = usePathname();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const isActive = (path: string) => pathname === path;
 
@@ -71,6 +76,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         }
         return name[0].toUpperCase();
     };
+
+    // Fetch unread notification count
+    React.useEffect(() => {
+        const fetchUnread = async () => {
+            if (!user) return;
+            try {
+                const data = await api.getUnreadNotificationCount(user.uid);
+                setUnreadCount(data.unreadCount);
+            } catch (err) {
+                // Silently fail - notification count is non-critical
+            }
+        };
+        fetchUnread();
+        const interval = setInterval(fetchUnread, 60000); // Poll every 60s
+        return () => clearInterval(interval);
+    }, [user]);
 
     if (loading) {
         return (
@@ -285,10 +306,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         </Link>
 
                         {/* Notifications */}
-                        <button className="relative p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
+                        <Link href="/notifications" className="relative p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
                             <FiBell className="w-5 h-5" />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-                        </button>
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                        </Link>
 
                         {/* Help */}
                         <button className="hidden sm:flex p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
@@ -347,24 +372,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
             {/* Mobile Bottom Tab Navigation */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-2xl">
-                <div className="flex items-center justify-around h-20 px-2">
-                    {navItems.slice(0, 5).map((item) => {
+                <div className="flex items-center justify-around h-20 px-1">
+                    {[
+                        { href: '/dashboard', label: 'Home', icon: FiHome },
+                        { href: '/glucose', label: 'Log', icon: FiDroplet },
+                        { href: '/meals', label: 'Meals', icon: FiCoffee },
+                        { href: '/medications', label: 'Meds', icon: TbPill },
+                        { href: '/insights', label: 'Insights', icon: FiTrendingUp },
+                        { href: '/history', label: 'History', icon: FiBarChart2 },
+                        { href: '/settings', label: 'Settings', icon: FiSettings },
+                    ].map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.href);
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all ${active
+                                className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all min-w-0 ${active
                                     ? 'text-[#1F2F98]'
                                     : 'text-gray-400'
                                     }`}
                             >
-                                <div className={`p-2 rounded-xl transition-all ${active ? 'bg-blue-50' : ''}`}>
+                                <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50' : ''}`}>
                                     <Icon className="w-5 h-5" />
                                 </div>
-                                <span className={`text-xs mt-1 font-medium ${active ? 'text-[#1F2F98]' : 'text-gray-500'}`}>
-                                    {item.label.split(' ')[0]}
+                                <span className={`text-[10px] mt-0.5 font-medium truncate ${active ? 'text-[#1F2F98]' : 'text-gray-500'}`}>
+                                    {item.label}
                                 </span>
                             </Link>
                         );
