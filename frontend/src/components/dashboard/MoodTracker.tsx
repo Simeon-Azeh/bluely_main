@@ -48,7 +48,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
     };
 
     return (
-        <Card className="border-0 shadow-lg shadow-gray-100 bg-gradient-to-br from-pink-50/50 via-purple-50/50 to-blue-50/50">
+        <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-gradient-to-br from-pink-50/50 via-purple-50/50 to-blue-50/50">
             <CardContent>
                 <div className="flex items-center justify-between mb-4">
                     <div>

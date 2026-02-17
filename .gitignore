@@ -249,3 +249,31 @@ coverage/
 .out
 .storybook-out
 storybook-static
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ML specific
+ml/models/
+ml/data/
+ml/__pycache__/

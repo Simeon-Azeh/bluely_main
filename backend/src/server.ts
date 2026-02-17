@@ -7,6 +7,10 @@ import { connectDB } from './config/database';
 import { swaggerSpec } from './config/swagger';
 import userRoutes from './routes/user.routes';
 import glucoseRoutes from './routes/glucose.routes';
+import mealRoutes from './routes/meal.routes';
+import activityRoutes from './routes/activity.routes';
+import healthProfileRoutes from './routes/healthProfile.routes';
+import predictRoutes from './routes/predict.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -84,6 +88,10 @@ app.get('/api/health', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/glucose', glucoseRoutes);
+app.use('/api/meals', mealRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/health-profile', healthProfileRoutes);
+app.use('/api/predict', predictRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

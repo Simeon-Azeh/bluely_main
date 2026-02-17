@@ -63,7 +63,7 @@ export default function StatsGrid({
             {stats.map((stat) => {
                 const Icon = stat.icon;
                 return (
-                    <Card key={stat.label} className="border-0 shadow-lg shadow-gray-100 hover:shadow-xl transition-shadow">
+                    <Card key={stat.label} className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-shadow">
                         <CardContent>
                             <div className="flex items-start justify-between">
                                 <div>

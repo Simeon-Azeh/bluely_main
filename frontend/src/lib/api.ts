@@ -67,6 +67,94 @@ interface GlucoseStats {
     }>;
 }
 
+// Health Profile types
+interface HealthProfile {
+    _id: string;
+    firebaseUid: string;
+    activityLevel?: string;
+    exerciseFrequency?: string;
+    sleepQuality?: number;
+    stressLevel?: number;
+    mealPreference?: string;
+    onMedication: boolean;
+    medicationCategory?: string;
+    medicationFrequency?: string;
+    lastPromptShown?: string;
+    promptsDismissed: number;
+    profileCompleteness: number;
+}
+
+interface HealthProfileResponse {
+    exists: boolean;
+    profile: HealthProfile | null;
+}
+
+// Prediction types
+interface Prediction {
+    predictedGlucose: number;
+    riskLevel: 'normal' | 'elevated' | 'critical';
+    confidence: number;
+    recommendation: string;
+    modelVersion: string;
+    createdAt: string;
+}
+
+interface PredictionResponse {
+    prediction: Prediction;
+}
+
+interface LatestPredictionResponse {
+    exists: boolean;
+    prediction: Prediction | null;
+}
+
+// Trend types
+interface TrendData {
+    direction: 'rising' | 'stable' | 'declining';
+    currentAverage: number;
+    previousAverage: number | null;
+    percentageChange: number;
+    totalReadings: number;
+    riskPeriod: string;
+    recommendation: string;
+}
+
+interface TrendsResponse {
+    hasData: boolean;
+    trend: TrendData | null;
+}
+
+// Meal types
+interface MealData {
+    _id: string;
+    firebaseUid: string;
+    carbsEstimate?: number;
+    mealType: string;
+    mealCategory?: string;
+    description?: string;
+    timestamp: string;
+}
+
+interface MealsResponse {
+    meals: MealData[];
+    pagination: Pagination;
+}
+
+// Activity types
+interface ActivityData {
+    _id: string;
+    firebaseUid: string;
+    activityLevel: string;
+    activityType?: string;
+    durationMinutes?: number;
+    timestamp: string;
+}
+
+interface ActivitiesResponse {
+    activities: ActivityData[];
+    pagination: Pagination;
+}
+
 class ApiClient {
     private baseUrl: string;
 
@@ -180,6 +268,91 @@ class ApiClient {
 
     async getGlucoseStats(firebaseUid: string, days: number = 7): Promise<GlucoseStats> {
         return this.request<GlucoseStats>(`/glucose/stats?firebaseUid=${firebaseUid}&days=${days}`);
+    }
+
+    // ── Health Profile endpoints ──────────────────────────────────────────
+
+    async getHealthProfile(firebaseUid: string): Promise<HealthProfileResponse> {
+        return this.request<HealthProfileResponse>(`/health-profile?firebaseUid=${firebaseUid}`);
+    }
+
+    async upsertHealthProfile(
+        firebaseUid: string,
+        data: Record<string, unknown>
+    ): Promise<HealthProfileResponse> {
+        return this.request<HealthProfileResponse>('/health-profile', {
+            method: 'POST',
+            body: JSON.stringify({ firebaseUid, ...data }),
+        });
+    }
+
+    async dismissHealthPrompt(firebaseUid: string): Promise<{ profile: HealthProfile }> {
+        return this.request<{ profile: HealthProfile }>('/health-profile/dismiss', {
+            method: 'POST',
+            body: JSON.stringify({ firebaseUid }),
+        });
+    }
+
+    // ── Prediction endpoints ──────────────────────────────────────────────
+
+    async requestPrediction(firebaseUid: string): Promise<PredictionResponse> {
+        return this.request<PredictionResponse>('/predict', {
+            method: 'POST',
+            body: JSON.stringify({ firebaseUid }),
+        });
+    }
+
+    async getLatestPrediction(firebaseUid: string): Promise<LatestPredictionResponse> {
+        return this.request<LatestPredictionResponse>(`/predict/latest?firebaseUid=${firebaseUid}`);
+    }
+
+    async getPredictionHistory(firebaseUid: string, limit: number = 10): Promise<{ predictions: Prediction[] }> {
+        return this.request<{ predictions: Prediction[] }>(
+            `/predict/history?firebaseUid=${firebaseUid}&limit=${limit}`
+        );
+    }
+
+    async getTrends(firebaseUid: string): Promise<TrendsResponse> {
+        return this.request<TrendsResponse>(`/predict/trends?firebaseUid=${firebaseUid}`);
+    }
+
+    // ── Meal endpoints ────────────────────────────────────────────────────
+
+    async createMeal(data: {
+        firebaseUid: string;
+        mealType: string;
+        carbsEstimate?: number;
+        mealCategory?: string;
+        description?: string;
+        timestamp?: string;
+    }): Promise<MealData> {
+        return this.request<MealData>('/meals', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getMeals(firebaseUid: string, limit: number = 50): Promise<MealsResponse> {
+        return this.request<MealsResponse>(`/meals?firebaseUid=${firebaseUid}&limit=${limit}`);
+    }
+
+    // ── Activity endpoints ────────────────────────────────────────────────
+
+    async createActivity(data: {
+        firebaseUid: string;
+        activityLevel: string;
+        activityType?: string;
+        durationMinutes?: number;
+        timestamp?: string;
+    }): Promise<ActivityData> {
+        return this.request<ActivityData>('/activities', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getActivities(firebaseUid: string, limit: number = 50): Promise<ActivitiesResponse> {
+        return this.request<ActivitiesResponse>(`/activities?firebaseUid=${firebaseUid}&limit=${limit}`);
     }
 
     // Health check
