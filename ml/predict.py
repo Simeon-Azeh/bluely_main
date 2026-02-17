@@ -59,20 +59,20 @@ def predict_risk(
     if prediction == 0:
         risk_level = 'normal'
         recommendation = (
-            'Your glucose levels look good. '
-            'Keep maintaining a balanced diet and regular activity.'
+            'Current inputs suggest a lower risk profile. '
+            'Consistent habits may help maintain this pattern.'
         )
     elif confidence < 0.7:
         risk_level = 'elevated'
         recommendation = (
-            'Consider monitoring more frequently and '
-            'reducing carb intake in your next meal.'
+            'Some factors suggest an elevated risk pattern. '
+            'Consider reviewing this with your healthcare provider.'
         )
     else:
         risk_level = 'critical'
         recommendation = (
-            'Your predicted glucose is high. '
-            'Please consult your healthcare provider and review your medication.'
+            'Multiple factors indicate a higher risk profile. '
+            'We recommend discussing these patterns with your healthcare provider.'
         )
 
     return {

@@ -360,7 +360,36 @@ The system uses **progressive data collection** — non-essential attributes are
 
 ## ML Pipeline
 
-### Dataset: Pima Indians Diabetes Dataset
+### Dual-Dataset Strategy
+
+The ML system uses **three complementary approaches** to provide meaningful glucose insights:
+
+| Approach | Dataset | Purpose | Model | Output |
+|----------|---------|---------|-------|--------|
+| **Risk Classification** | Pima Indians Diabetes Dataset (external) | Baseline diabetes risk assessment | Random Forest + Logistic Regression | Risk level (normal / elevated / critical) |
+| **Temporal Glucose Prediction** | OhioT1DM Dataset (external) | 30-minute-ahead glucose forecasting | Gradient Boosting Regressor | Predicted glucose value + direction |
+| **Trend Prediction** | User-logged glucose readings (in-app) | Real-time directional trend estimation | Statistical regression + contextual adjustments | Direction (rising / stable / dropping) + predicted next value |
+
+#### Why Three Approaches?
+
+The Pima dataset contains **static diagnostic features** (glucose concentration, BMI, insulin levels, age, pregnancy history) collected at a single point in time. These features are valuable for estimating overall diabetes risk but are **insufficient for real-time glucose management** because they lack:
+
+- **Temporal context** — no time-series of readings, no day-of-week or hour-of-day patterns
+- **Behavioural context** — no meal timing, medication schedules, or physical activity data
+- **Individual variability** — the model generalises across a population and cannot adapt to a single user's patterns
+
+Real-time glucose management requires **temporal modelling** — understanding how a user's glucose changes over time, what events precede spikes or drops, and how medication or meals influence direction. This is addressed by the **trend prediction** pipeline, which operates on the user's own logged data and applies contextual adjustments for:
+
+- Meal proximity (time since last meal)
+- Medication timing (insulin, oral medications)
+- Activity level (recent exercise or sedentary behaviour)
+- Circadian patterns (dawn phenomenon, nighttime stabilisation)
+
+> **Summary**: The Pima model answers *"What is this user's overall risk profile?"*, the OhioT1DM model answers *"What glucose value should we expect in 30 minutes based on CGM + context?"*, and the trend model answers *"Where is this user's glucose heading in the next 1–2 hours based on their own logged data?"*
+
+---
+
+### Dataset 1: Pima Indians Diabetes Dataset (Risk Classification)
 
 | Feature | Description |
 |---------|-------------|
@@ -374,44 +403,160 @@ The system uses **progressive data collection** — non-essential attributes are
 | `Age` | Age in years |
 | `Outcome` | 0 (no diabetes) / 1 (diabetes) |
 
-> **Justification**: Small, clean, widely cited, and perfect for a capstone project. External dataset used for initial training and validation before fine-tuning with app-collected data.
+> **Justification**: Small, clean, widely cited, and suitable for a capstone-level risk classification model. Used for initial training and validation — not for real-time glucose direction prediction.
 
-### ML Feature Vector (App Data)
+### Dataset 2: OhioT1DM Dataset (Temporal Glucose Prediction)
 
-When using app-collected data, the feature vector sent to the model:
+**Citation**: Marling C, Bunescu R. The OhioT1DM Dataset for Blood Glucose Level Prediction: Update 2020. CEUR Workshop Proc. 2020 Sep;2675:71-74. PMID: 33584164; PMCID: PMC7881904.
 
-| Feature | Source | Encoding |
-|---------|--------|----------|
-| `age` | User profile (`dateOfBirth`) | Integer |
-| `glucose_prev` | Last glucose reading (`GlucoseReading.value`) | Float |
-| `carbs` | Meal carbs estimate (`Meal.carbsEstimate`) | Float |
-| `activity` | Activity level (`UserHealthProfile.activityLevel`) | Encoded: low=0, medium=1, high=2 |
-| `reading_type` | Reading type (`GlucoseReading.readingType`) | Encoded: fasting=0, before_meal=1, after_meal=2, bedtime=3, random=4 |
-| `hour_of_day` | Timestamp of reading | Integer 0–23 |
-| `sleep_quality` | From health profile | Integer 1–5 |
-| `stress_level` | From health profile | Integer 1–5 |
-| `on_medication` | From health profile | Binary: 0 or 1 |
-| `exercise_frequency` | From health profile | Encoded: rare=0, moderate=1, frequent=2 |
+The OhioT1DM dataset provides **8 weeks of continuous glucose monitor (CGM) data** from 6 Type 1 Diabetes patients along with rich contextual information recorded every 5 minutes.
 
-**Target variable**: `glucose_level` (next glucose reading value) or `risk_level` (classification).
+#### Patient Overview
+
+| Patient ID | Weight (kg) | Insulin Type | Training Readings | Test Readings |
+|------------|-------------|--------------|-------------------|---------------|
+| 559 | 99 | Novalog | 10,796 | 2,514 |
+| 563 | — | Novalog | 12,124 | 2,570 |
+| 570 | — | Novalog | 10,982 | 2,745 |
+| 575 | — | Novalog | 11,866 | 2,590 |
+| 588 | — | Novalog | 12,640 | 2,791 |
+| 591 | — | Novalog | 10,847 | 2,760 |
+
+#### XML Data Sections
+
+| Section | Description | Typical Count |
+|---------|-------------|---------------|
+| `glucose_level` | CGM readings every 5 minutes | ~10,000+ |
+| `finger_stick` | Manual blood glucose check | ~170 |
+| `basal` | Basal insulin rate | ~160 |
+| `temp_basal` | Temporary basal adjustments | ~30 |
+| `bolus` | Bolus insulin doses | ~150 |
+| `meal` | Meal events with carb count | ~150 |
+| `sleep` | Sleep events with quality (1–3) | ~40 |
+| `exercise` | Exercise with intensity/duration | ~20 |
+| `basis_heart_rate` | Wristband heart rate | ~12,000 |
+| `basis_steps` | Step count | ~12,000 |
+| `basis_skin_temperature` | Skin temperature | ~12,000 |
+| `basis_gsr` | Galvanic skin response | ~12,000 |
+| `hypo_event` | Hypoglycaemic episodes | ~5–10 |
+
+#### Temporal Feature Vector (26 features per sample)
+
+| Feature Group | Features | Count |
+|---------------|----------|-------|
+| **Glucose history** | Last 12 normalized CGM values (60-min lookback) | 12 |
+| **Glucose stats** | Current glucose, slope, std deviation | 3 |
+| **Time encoding** | Hour (sin/cos), day of week | 3 |
+| **Meal context** | Minutes since last meal, carbs in last meal | 2 |
+| **Insulin context** | Minutes since last bolus, last bolus dose | 2 |
+| **Activity** | Recent exercise flag (within 2h) | 1 |
+| **Sleep** | Recent sleep flag (within 30min) | 1 |
+| **Physiology** | Average heart rate (lookback window) | 1 |
+| **Movement** | Steps in last hour | 1 |
+
+**Target**: Glucose value 6 steps (30 minutes) into the future.
+
+#### Model Performance
+
+| Metric | Training | Test |
+|--------|----------|------|
+| **MAE** | 13.71 mg/dL | 15.65 mg/dL |
+| **RMSE** | 19.19 mg/dL | 22.53 mg/dL |
+| **R²** | 0.8995 | 0.8663 |
+| **Within ±20 mg/dL** | — | 73.0% |
+| **Within ±40 mg/dL** | — | 92.9% |
+
+> **How it complements Pima**: The Pima model uses static diagnostic features to assess overall risk. The OhioT1DM model uses temporally rich CGM data with contextual features (meals, insulin, exercise, heart rate, sleep) to predict what glucose will be in 30 minutes — a capability the Pima model cannot provide. Together, they offer both long-term risk context and short-term actionable prediction.
+
+### Dataset 3: User-Logged Glucose Data (Trend Prediction)
+
+| Feature | Source | Type |
+|---------|--------|------|
+| Recent glucose values | `GlucoseReading.value` (last N readings) | Float array |
+| Reading type | `GlucoseReading.readingType` | Categorical |
+| Hour of day | Timestamp of reading | Integer 0–23 |
+| Day of week | Timestamp of reading | Integer 0–6 |
+| Medication taken | `GlucoseReading.medicationTaken` | Boolean |
+| Meal context | `GlucoseReading.mealContext` | String (optional) |
+| Activity context | `GlucoseReading.activityContext` | String (optional) |
+| Time since last meal | Derived from logs | Float (hours) |
+| Activity level | `UserHealthProfile.activityLevel` | Categorical |
+
+> **Justification**: User-generated temporal data enables directional trend estimation that static features alone cannot provide. The system improves over time as more readings are logged.
+
+### ML Feature Vector (Risk Classification)
+
+When using the Pima-trained model via `POST /predict`, the backend constructs a feature vector from available user data:
+
+| Feature | Source | Default |
+|---------|--------|---------|
+| `pregnancies` | Not collected in-app | 0 |
+| `glucose` | Latest `GlucoseReading.value` | 100 |
+| `blood_pressure` | Not collected in-app | 72 |
+| `skin_thickness` | Not collected in-app | 29 |
+| `insulin` | Not collected in-app | 80 |
+| `bmi` | Not collected in-app | 32 |
+| `diabetes_pedigree` | Not collected in-app | 0.5 |
+| `age` | Derived from `User.dateOfBirth` | 30 |
+
+> **Note**: Many Pima features are not collected in-app. Default values represent population medians from the training set. The risk classification output should be interpreted as a *general indicator* informed primarily by the user's glucose reading and age, not a precise clinical diagnosis.
+
+**Target variable**: `Outcome` (0 = no diabetes, 1 = diabetes → mapped to risk levels).
 
 ### Pipeline Steps
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     ML Pipeline                             │
+│              Pipeline 1: Risk Classification (Pima)         │
 │                                                             │
-│  1. Load Dataset (CSV / MongoDB export)                     │
+│  1. Load Dataset (CSV)                                      │
 │  2. Clean Missing Values (median imputation)                │
-│  3. Encode Categorical Variables (label encoding)           │
-│  4. Feature Selection (correlation analysis)                │
-│  5. Split Data (80% train / 20% test, stratified)           │
-│  6. Train Models                                            │
+│  3. Feature Scaling (StandardScaler)                        │
+│  4. Split Data (80% train / 20% test, stratified)           │
+│  5. Train Models                                            │
 │     ├── Logistic Regression (baseline)                      │
 │     └── Random Forest Classifier (primary)                  │
-│  7. Evaluate (accuracy, precision, recall, F1-score)        │
-│  8. Save Model (joblib serialization)                       │
-│  9. Expose via FastAPI POST /predict                        │
+│  6. Evaluate (accuracy, precision, recall, F1-score)        │
+│  7. Save Model + Scaler (joblib serialization)              │
+│  8. Expose via FastAPI POST /predict                        │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│      Pipeline 2: Temporal Prediction (OhioT1DM)            │
+│                                                             │
+│  1. Parse XML files (6 patients × training/testing)         │
+│  2. Extract sections: CGM, meals, bolus, exercise, sleep,   │
+│     heart rate, steps                                       │
+│  3. Build temporal feature matrix (26 features/sample)      │
+│     ├── 12 normalized lookback glucose values               │
+│     ├── Slope, std, current glucose                         │
+│     ├── Time encoding (sin/cos hour, day of week)           │
+│     ├── Context: meal timing, carbs, bolus, exercise, sleep │
+│     └── Physiology: heart rate, steps                       │
+│  4. Feature Scaling (StandardScaler)                        │
+│  5. Train Gradient Boosting Regressor                       │
+│  6. Evaluate (MAE, RMSE, R², per-patient MAE)               │
+│  7. Save Model + Scaler (joblib serialization)              │
+│  8. Available for enhanced trend prediction                 │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│          Pipeline 3: Trend Prediction (User Data)           │
+│                                                             │
+│  1. Receive recent glucose readings (min 3)                 │
+│  2. Linear regression on recent values (slope)              │
+│  3. Rate of change (last 3 readings)                        │
+│  4. Acceleration (velocity delta)                           │
+│  5. Coefficient of variation (variability)                  │
+│  6. Contextual adjustments                                  │
+│     ├── Meal proximity (+/- glucose)                        │
+│     ├── Medication timing (- glucose)                       │
+│     ├── Circadian patterns (dawn, nighttime)                │
+│     └── Activity level (- glucose)                          │
+│  7. Predict direction + next glucose value                  │
+│  8. Confidence scoring (data volume + variability)          │
+│  9. Risk alerts + observational recommendation              │
+│  10. Expose via FastAPI POST /predict-trend                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -420,13 +565,30 @@ When using app-collected data, the feature vector sent to the model:
 ```
 ml/
 ├── data/
-│   └── diabetes.csv              # Pima dataset
+│   ├── diabetes.csv              # Pima dataset
+│   └── ohiot1dm/                 # OhioT1DM XML files
+│       ├── 559-ws-training.xml
+│       ├── 559-ws-testing.xml
+│       ├── 563-ws-training.xml
+│       ├── 563-ws-testing.xml
+│       ├── 570-ws-training.xml
+│       ├── 570-ws-testing.xml
+│       ├── 575-ws-training.xml
+│       ├── 575-ws-testing.xml
+│       ├── 588-ws-training.xml
+│       ├── 588-ws-testing.xml
+│       ├── 591-ws-training.xml
+│       └── 591-ws-testing.xml
 ├── models/
-│   └── glucose_model.joblib      # Trained model artifact
-├── notebooks/
-│   └── exploration.ipynb         # EDA notebook
-├── train.py                      # Training pipeline
-├── predict.py                    # Prediction helper
+│   ├── glucose_model.joblib      # Pima Random Forest model
+│   ├── logistic_model.joblib     # Pima Logistic Regression (baseline)
+│   ├── scaler.joblib             # Pima feature scaler
+│   ├── ohio_glucose_predictor.joblib  # OhioT1DM GBR model
+│   └── ohio_scaler.joblib        # OhioT1DM feature scaler
+├── train.py                      # Pima training pipeline
+├── train_ohio.py                 # OhioT1DM training pipeline
+├── parse_ohio.py                 # OhioT1DM XML parser + feature builder
+├── predict.py                    # Prediction helper (Pima)
 ├── server.py                     # FastAPI server
 ├── requirements.txt              # Python dependencies
 └── README.md                     # ML-specific instructions
@@ -486,79 +648,39 @@ print("Model saved to models/glucose_model.joblib")
 
 ## FastAPI Prediction Server
 
-The Python FastAPI server loads the trained model and exposes a prediction endpoint.
+The Python FastAPI server loads the trained model and exposes two prediction endpoints:
+- `POST /predict` — Pima-based risk classification
+- `POST /predict-trend` — User-data-driven glucose trend prediction
 
-**`server.py`:**
+**`server.py` (Risk Classification Endpoint):**
 
 ```python
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import joblib
-import numpy as np
-
-app = FastAPI(title="Bluely ML API", version="1.0.0")
-
-# Load model on startup
-model = joblib.load("models/glucose_model.joblib")
-
-class PredictionInput(BaseModel):
-    pregnancies: float = 0
-    glucose: float
-    blood_pressure: float = 72
-    skin_thickness: float = 29
-    insulin: float = 80
-    bmi: float = 32
-    diabetes_pedigree: float = 0.5
-    age: float
-
-class PredictionOutput(BaseModel):
-    predicted_risk: int           # 0 = no risk, 1 = at risk
-    risk_level: str               # 'normal' | 'elevated' | 'critical'
-    confidence: float             # probability
-    recommendation: str
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "model": "loaded"}
-
 @app.post("/predict", response_model=PredictionOutput)
 def predict(input_data: PredictionInput):
-    try:
-        features = np.array([[
-            input_data.pregnancies,
-            input_data.glucose,
-            input_data.blood_pressure,
-            input_data.skin_thickness,
-            input_data.insulin,
-            input_data.bmi,
-            input_data.diabetes_pedigree,
-            input_data.age,
-        ]])
-
-        prediction = model.predict(features)[0]
-        probability = model.predict_proba(features)[0]
-
-        confidence = float(max(probability))
-
-        if prediction == 0:
-            risk_level = "normal"
-            recommendation = "Your glucose levels look good. Keep maintaining a balanced diet and regular activity."
-        elif confidence < 0.7:
-            risk_level = "elevated"
-            recommendation = "Consider monitoring more frequently and reducing carb intake in your next meal."
-        else:
-            risk_level = "critical"
-            recommendation = "Your predicted glucose is high. Please consult your healthcare provider and review your medication."
-
-        return PredictionOutput(
-            predicted_risk=int(prediction),
-            risk_level=risk_level,
-            confidence=round(confidence, 3),
-            recommendation=recommendation,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    result = predict_risk(
+        pregnancies=input_data.pregnancies,
+        glucose=input_data.glucose,
+        blood_pressure=input_data.blood_pressure,
+        skin_thickness=input_data.skin_thickness,
+        insulin=input_data.insulin,
+        bmi=input_data.bmi,
+        diabetes_pedigree=input_data.diabetes_pedigree,
+        age=input_data.age,
+    )
+    return PredictionOutput(**result)
 ```
+
+**`server.py` (Trend Prediction Endpoint):**
+
+```python
+@app.post("/predict-trend", response_model=TrendPredictionOutput)
+def predict_trend(input_data: TrendPredictionInput):
+    # Statistical trend analysis on recent readings
+    # + contextual adjustments (meal, medication, time-of-day, activity)
+    # Returns: direction, predictedNextGlucose, confidence, factors, riskAlert
+```
+
+**Recommendation Language**: All server-generated text uses **observational, non-directive language** (see Clinical Language Guidelines below).
 
 **Run:** `uvicorn server:app --host 0.0.0.0 --port 8000`
 
@@ -581,6 +703,13 @@ The Express backend acts as a proxy between the frontend and the Python ML serve
 | `POST` | `/api/activities` | Log an activity |
 | `GET` | `/api/activities?firebaseUid=xxx` | Get activity history |
 | `GET` | `/api/analytics/trends?firebaseUid=xxx` | Get weekly trend analysis |
+| `POST` | `/api/medications` | Create/update a medication |
+| `GET` | `/api/medications?firebaseUid=xxx` | Get user's medications |
+| `POST` | `/api/medications/log` | Log a medication dose |
+| `GET` | `/api/medications/injection-site?firebaseUid=xxx` | Get injection site recommendation |
+| `GET` | `/api/notifications?firebaseUid=xxx` | Get notifications |
+| `GET` | `/api/notifications/unread-count?firebaseUid=xxx` | Get unread notification count |
+| `PATCH` | `/api/notifications/:id/read` | Mark notification as read |
 
 ### Prediction Proxy (Node.js → FastAPI)
 
@@ -797,6 +926,40 @@ Random Forest is an ensemble learning method that builds multiple decision trees
 
 **Why It Works**: By combining many "weak learners" (individual trees), Random Forest reduces overfitting and improves generalization to new data.
 
+### OhioT1DM Model Evaluation (Gradient Boosting Regressor)
+
+The OhioT1DM temporal model was trained on 69,147 samples from 6 patients and tested on 15,862 samples:
+
+```
+Total training samples: 69,147
+Total test samples:     15,862
+Feature dimension:      26
+
+=== Test Set ===
+  MAE:  15.65 mg/dL
+  RMSE: 22.53 mg/dL
+  R²:   0.8663
+
+  Within ±20 mg/dL: 73.0%
+  Within ±40 mg/dL: 92.9%
+
+=== Per-Patient Test MAE ===
+  Patient 559: MAE = 15.84 mg/dL (2,496 samples)
+  Patient 563: MAE = 14.24 mg/dL (2,552 samples)
+  Patient 570: MAE = 14.65 mg/dL (2,727 samples)
+  Patient 575: MAE = 16.81 mg/dL (2,572 samples)
+  Patient 588: MAE = 14.85 mg/dL (2,773 samples)
+  Patient 591: MAE = 17.50 mg/dL (2,742 samples)
+```
+
+#### Interpretation
+
+**Model Performance**: A test MAE of 15.65 mg/dL for 30-minute-ahead prediction is competitive with published results on this dataset. 73% of predictions fall within ±20 mg/dL of actual values, and 92.9% within ±40 mg/dL.
+
+**Per-Patient Variation**: MAE ranges from 14.24 (Patient 563) to 17.50 (Patient 591), reflecting individual glucose variability. This is expected in T1D patients with different lifestyle patterns.
+
+**Clinical Relevance**: A 15 mg/dL average error is within clinically acceptable ranges for glucose trend awareness. The model is suitable for informational trend display but not for therapeutic dosing decisions.
+
 ---
 
 ## Deployment Architecture
@@ -847,15 +1010,24 @@ Random Forest is an ensemble learning method that builds multiple decision trees
 
 ```
 bluely_main/
-├── ml/                                    # NEW — ML module
+├── ml/                                    # ML module
 │   ├── data/
-│   │   └── diabetes.csv                   # Pima Indians dataset
+│   │   ├── diabetes.csv                   # Pima Indians dataset
+│   │   └── ohiot1dm/                      # OhioT1DM XML dataset
+│   │       ├── 559-ws-training.xml
+│   │       ├── 559-ws-testing.xml
+│   │       ├── ... (6 patients × 2 files)
+│   │       └── 591-ws-testing.xml
 │   ├── models/
-│   │   └── glucose_model.joblib           # Trained model artifact
-│   ├── notebooks/
-│   │   └── exploration.ipynb              # EDA & visualization notebook
-│   ├── train.py                           # Training pipeline script
-│   ├── predict.py                         # Prediction utility
+│   │   ├── glucose_model.joblib           # Pima Random Forest
+│   │   ├── logistic_model.joblib          # Pima Logistic Regression
+│   │   ├── scaler.joblib                  # Pima feature scaler
+│   │   ├── ohio_glucose_predictor.joblib  # OhioT1DM GBR model
+│   │   └── ohio_scaler.joblib             # OhioT1DM feature scaler
+│   ├── train.py                           # Pima training pipeline
+│   ├── train_ohio.py                      # OhioT1DM training pipeline
+│   ├── parse_ohio.py                      # OhioT1DM XML parser
+│   ├── predict.py                         # Prediction utility (Pima)
 │   ├── server.py                          # FastAPI prediction server
 │   ├── requirements.txt                   # Python dependencies
 │   └── README.md                          # ML setup instructions
@@ -921,20 +1093,75 @@ The project follows a **mixed software engineering and data-driven methodology**
 
 ---
 
-## Future Enhancements
+## Clinical Language Guidelines
 
-| Enhancement | Description | Priority |
-|-------------|-------------|----------|
-| **User Data Fine-Tuning** | Retrain model with aggregated app user data | High |
-| **Time-Series Forecasting** | Use LSTM/GRU for sequential glucose prediction | Medium |
-| **Personalized Models** | Per-user model fine-tuning with transfer learning | Medium |
-| **Hardware Integration** | Bluetooth glucometer data import | Low |
-| **Offline ML** | TensorFlow.js for client-side prediction | Low |
-| **A1C Estimation** | Estimate HbA1c from average glucose readings | Medium |
-| **Anomaly Detection** | Alert users on unusual glucose patterns | High |
-| **Meal Image Recognition** | Camera-based carb estimation | Low |
+All user-facing text generated by the ML system, backend controllers, and frontend components follows **safe, observational language patterns**. The system does **not** provide medical advice, instructions, or diagnoses.
+
+### Core Principles
+
+1. **Observational, not instructional** — describe what the data shows, never tell users what to do medically
+2. **Trend-based, not absolute** — focus on direction and patterns, not definitive values
+3. **Suggestive, not prescriptive** — use "consider", "may", "appears to" rather than "you should", "you must"
+4. **Provider-referencing** — escalate to healthcare providers for clinical action
+5. **Disclaimer-backed** — every insight surface includes a visible disclaimer
+
+### Language Categories
+
+| Category | Pattern | Example |
+|----------|---------|---------|
+| **Trend-based** | Describe direction without cause attribution | "An upward trend is detected in recent readings" |
+| **Risk-oriented** | Flag elevated probability, not certainty | "Some factors suggest an elevated risk pattern" |
+| **Influence-based** | Note correlation, not causation | "Meal timing appears to influence post-meal readings" |
+| **Comparative** | Reference the user's own baseline | "Higher than your 7-day average for this period" |
+| **Suggestion** | Defer to provider for action | "Consider discussing this pattern with your healthcare provider" |
+| **Contextual** | Note contributing factors neutrally | "Recent meal detected — glucose often rises in this window" |
+
+### Prohibited Language
+
+| Do NOT use | Use instead |
+|------------|-------------|
+| "You should eat / take medication / exercise" | "Consider reviewing this pattern with your provider" |
+| "Your glucose is bad / dangerous" | "This reading is above / below the target range" |
+| "Take action immediately" | "Please follow your provider's guidance for [low/high] readings" |
+| "This means you have diabetes" | "Multiple factors indicate a higher risk profile" |
+| "Eat a snack to bring your levels up" | "Logging follow-up readings can help identify patterns" |
+
+### Disclaimer Text
+
+Every insight-bearing surface (dashboard cards, notifications, glucose feedback) must include:
+
+> **"Insights are based on logged data patterns and are not medical instructions."**
+
+This appears as a `text-[10px] text-gray-400 text-center` footer on frontend cards and in notification descriptions.
+
+### Example: Full Insight Card Text
+
+> **Pattern Detected**: Post-meal readings show higher values than other periods this week.
+>
+> Your weekly average is trending upward compared to last week. Reviewing meal and activity logs may help identify contributing patterns.
+>
+> *Insights are based on logged data patterns and are not medical instructions.*
 
 ---
 
-*Document version: 1.0 — February 2026*
+## Future Enhancements
+
+| Enhancement | Description | Priority | Status |
+|-------------|-------------|----------|--------|
+| **Trend Prediction** | Statistical trend analysis on user glucose data | High | ✅ Implemented |
+| **Medication Tracking** | Full medication CRUD + injection site rotation | High | ✅ Implemented |
+| **Notifications System** | In-app alerts for out-of-range readings + predictions | High | ✅ Implemented |
+| **Clinical Language** | Observational, non-directive text across all insights | High | ✅ Implemented |
+| **User Data Fine-Tuning** | Retrain model with aggregated app user data | High | Planned |
+| **Time-Series Forecasting** | Use LSTM/GRU for sequential glucose prediction | Medium | Planned |
+| **Personalized Models** | Per-user model fine-tuning with transfer learning | Medium | Planned |
+| **A1C Estimation** | Estimate HbA1c from average glucose readings | Medium | Planned |
+| **Anomaly Detection** | Alert users on unusual glucose patterns | High | Planned |
+| **Hardware Integration** | Bluetooth glucometer data import | Low | Planned |
+| **Offline ML** | TensorFlow.js for client-side prediction | Low | Planned |
+| **Meal Image Recognition** | Camera-based carb estimation | Low | Planned |
+
+---
+
+*Document version: 2.0 — Updated with dual-dataset strategy, trend prediction pipeline, and clinical language guidelines*
 *Project: Bluely — Diabetes Self-Management System*

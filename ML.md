@@ -208,3 +208,5 @@ The system uses progressive data collection, where non-essential attributes are 
   "sleepQuality": 1,
   "stressLevel": 3
 }
+
+Marling C, Bunescu R. The OhioT1DM Dataset for Blood Glucose Level Prediction: Update 2020. CEUR Workshop Proc. 2020 Sep;2675:71-74. PMID: 33584164; PMCID: PMC7881904.

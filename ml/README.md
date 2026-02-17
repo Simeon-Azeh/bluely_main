@@ -25,16 +25,24 @@ pip install -r requirements.txt
 
 Download the [Pima Indians Diabetes Dataset](https://www.kaggle.com/datasets/uciml/pima-indians-diabetes-database) and place `diabetes.csv` inside `ml/data/`.
 
-### 4. Train the model
+### 4. Train the models
 
+**Pima risk classifier:**
 ```bash
 python train.py
 ```
 
+**OhioT1DM temporal predictor:**
+```bash
+python train_ohio.py
+```
+
 This will output evaluation metrics and save:
-- `models/glucose_model.joblib` — Random Forest model
-- `models/scaler.joblib` — Feature scaler
-- `models/logistic_model.joblib` — Logistic Regression baseline
+- `models/glucose_model.joblib` — Random Forest model (Pima)
+- `models/scaler.joblib` — Feature scaler (Pima)
+- `models/logistic_model.joblib` — Logistic Regression baseline (Pima)
+- `models/ohio_glucose_predictor.joblib` — Gradient Boosting Regressor (OhioT1DM)
+- `models/ohio_scaler.joblib` — Feature scaler (OhioT1DM)
 
 ### 5. Start the prediction server
 
@@ -61,21 +69,34 @@ curl -X POST http://localhost:8000/predict \
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check |
-| POST | `/predict` | Run prediction |
+| POST | `/predict` | Run Pima risk prediction |
+| POST | `/predict-trend` | User-data glucose trend prediction |
+
+## Datasets
+
+| Dataset | Purpose | Files |
+|---------|---------|-------|
+| Pima Indians Diabetes | Static risk classification | `data/diabetes.csv` |
+| OhioT1DM (Marling & Bunescu, 2020) | Temporal glucose prediction | `data/ohiot1dm/*.xml` |
 
 ## Project Structure
 
 ```
 ml/
 ├── data/
-│   └── diabetes.csv          # Pima Indians dataset
+│   ├── diabetes.csv              # Pima Indians dataset
+│   └── ohiot1dm/                 # OhioT1DM XML dataset (6 patients)
 ├── models/
-│   ├── glucose_model.joblib  # Trained Random Forest
-│   ├── scaler.joblib         # Feature scaler
-│   └── logistic_model.joblib # Baseline model
-├── train.py                  # Training pipeline
-├── predict.py                # Prediction utility
-├── server.py                 # FastAPI server
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+│   ├── glucose_model.joblib      # Pima Random Forest
+│   ├── logistic_model.joblib     # Pima Logistic Regression
+│   ├── scaler.joblib             # Pima feature scaler
+│   ├── ohio_glucose_predictor.joblib  # OhioT1DM GBR
+│   └── ohio_scaler.joblib        # OhioT1DM scaler
+├── train.py                      # Pima training pipeline
+├── train_ohio.py                 # OhioT1DM training pipeline
+├── parse_ohio.py                 # OhioT1DM XML parser
+├── predict.py                    # Prediction utility
+├── server.py                     # FastAPI server
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
 ```
