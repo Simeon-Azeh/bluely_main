@@ -64,6 +64,41 @@ curl -X POST http://localhost:8000/predict \
   -d '{"glucose": 148, "age": 33, "bmi": 28.5}'
 ```
 
+## Deploying to Render
+
+### Quick Setup
+
+1. **Ensure models are committed** — `ml/models/*.joblib` must be in git (not gitignored)
+2. Create a **Web Service** on Render with the settings below
+3. Set `PYTHON_VERSION=3.12.7` in environment variables
+
+### Render Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Root Directory** | `ml` |
+| **Runtime** | Python |
+| **Build Command** | `chmod +x build.sh && ./build.sh` |
+| **Start Command** | `gunicorn server:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120` |
+
+### Environment Variables
+
+| Variable | Value | Required |
+|----------|-------|----------|
+| `PYTHON_VERSION` | `3.12.7` | **Yes** — pandas/numpy fail on Python 3.14 |
+| `PORT` | `8000` | Optional (Render auto-injects on paid plans) |
+
+### Why Python 3.12?
+
+Render defaults to Python 3.14, which is too new for scientific Python packages. `pandas 2.x` fails to compile its Cython/C++ extensions on 3.14. Python 3.12 is the latest fully compatible version.
+
+### Verify Deploy
+
+```bash
+curl https://your-service.onrender.com/health
+# {"status":"ok","models":{"pima":"loaded","ohio":"loaded"}}
+```
+
 ## API
 
 | Method | Endpoint | Description |

@@ -964,19 +964,17 @@ Feature dimension:      26
 
 ## Deployment Architecture
 
-## Deployment Architecture
-
 ```
 ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
 │                  │     │                  │     │                  │
 │   Next.js App    │────▶│  Express API     │────▶│  FastAPI (ML)    │
-│   (Vercel)       │     │  (Render)        │     │  (Render/Railway)│
+│   (Render)       │     │  (Render)        │     │  (Render)        │
 │                  │     │                  │     │                  │
 │  - Dashboard     │     │  - User CRUD     │     │  - /predict      │
-│  - Cards UI      │     │  - Glucose CRUD  │     │  - /health       │
-│  - Prediction    │     │  - Health Profile │     │  - Model loaded  │
-│    display       │     │  - Proxy to ML   │     │    via joblib     │
-│                  │     │  - Analytics     │     │                  │
+│  - Cards UI      │     │  - Glucose CRUD  │     │  - /predict-trend│
+│  - Prediction    │     │  - Health Profile │     │  - /predict-     │
+│    display       │     │  - Proxy to ML   │     │    glucose-30    │
+│                  │     │  - Analytics     │     │  - /health       │
 └──────────────────┘     └────────┬─────────┘     └──────────────────┘
                                   │
                          ┌────────▼─────────┐
@@ -986,9 +984,13 @@ Feature dimension:      26
                          │  - Users         │
                          │  - GlucoseReadings│
                          │  - Meals         │
+                         │  - Medications   │
+                         │  - MedicationLogs│
                          │  - Activities    │
                          │  - HealthProfiles│
                          │  - Predictions   │
+                         │  - ForecastLogs  │
+                         │  - Notifications │
                          └──────────────────┘
 ```
 
@@ -996,11 +998,172 @@ Feature dimension:      26
 
 | Service | Platform | Notes |
 |---------|----------|-------|
-| Frontend | Vercel | Auto-deploy from GitHub |
-| Backend API | Render | Node.js Express server |
-| ML Server | Render (or Railway) | Python FastAPI + model file |
-| Database | MongoDB Atlas | Shared cluster |
+| Frontend | Render (Static Site) | Next.js static export |
+| Backend API | Render (Web Service) | Node.js Express server |
+| ML Server | Render (Web Service) | Python FastAPI + pre-trained models |
+| Database | MongoDB Atlas | Shared M0 cluster (free tier) |
 | Auth | Firebase | Google Cloud hosted |
+
+### Render Blueprint
+
+The project includes a `render.yaml` blueprint that can auto-configure all three services. Push to GitHub and connect the repo to Render — it will detect the blueprint automatically.
+
+---
+
+### ML Service — Render Deployment (Step-by-Step)
+
+#### Prerequisites
+
+- Pre-trained model files committed to `ml/models/` (`.joblib` files, ~2.7 MB total)
+- Python 3.12 specified via `ml/.python-version` or `PYTHON_VERSION` env var
+
+#### Why Python 3.12?
+
+Render defaults to the latest Python (currently 3.14). Scientific packages like `pandas`, `numpy`, and `scikit-learn` use compiled C/Cython extensions that require explicit support for each Python version. **Python 3.14 is too new** — `pandas 2.x` fails to compile its C++ aggregation modules on 3.14 (`CYTHON_UNUSED [[maybe_unused]]` attribute error). Python 3.12 is the latest version with full support from all dependencies.
+
+#### Step 1: Ensure model files are in git
+
+The `.gitignore` excludes `ml/data/` (training datasets, ~27 MB) but **includes** `ml/models/` (pre-trained models, ~2.7 MB). Verify:
+
+```bash
+git add ml/models/*.joblib
+git status  # Should show the .joblib files as staged
+git commit -m "Add pre-trained ML models for deployment"
+git push
+```
+
+> **Note**: Training datasets (`ml/data/`) are NOT committed to git. They are only needed locally for retraining. The deployed server loads pre-trained `.joblib` files directly.
+
+#### Step 2: Create a Web Service on Render
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Web Service**
+2. Connect your GitHub repo (`Simeon-Azeh/bluely_main`)
+3. Configure:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `bluely-ml` |
+| **Root Directory** | `ml` |
+| **Runtime** | Python |
+| **Build Command** | `chmod +x build.sh && ./build.sh` |
+| **Start Command** | `gunicorn server:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120` |
+| **Plan** | Free (or Starter for better performance) |
+
+#### Step 3: Set environment variables
+
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `PYTHON_VERSION` | `3.12.7` | **Critical** — prevents the pandas build failure |
+| `PORT` | `8000` | Render injects this automatically on paid plans |
+
+#### Step 4: Verify deployment
+
+After deploy completes, test the health endpoint:
+
+```bash
+curl https://bluely-ml.onrender.com/health
+# Expected: {"status":"ok","models":{"pima":"loaded","ohio":"loaded"}}
+```
+
+#### ML Build Script (`ml/build.sh`)
+
+The build script handles installation and optional model training:
+
+```bash
+#!/usr/bin/env bash
+set -o errexit
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# If model files are missing (e.g., gitignore issue), retrain from data
+if [ ! -f "models/glucose_model.joblib" ]; then
+    python train.py      # Only works if data/diabetes.csv exists
+fi
+if [ ! -f "models/ohio_glucose_predictor.joblib" ]; then
+    python train_ohio.py # Only works if data/ohiot1dm/*.xml exists
+fi
+```
+
+> On Render, the model files come from git. The build script is a safety net — if models are somehow missing AND training data is available, it retrains.
+
+---
+
+### Backend Service — Render Deployment
+
+#### Step 1: Create a Web Service on Render
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `bluely-backend` |
+| **Root Directory** | `backend` |
+| **Runtime** | Node |
+| **Build Command** | `npm install && npx tsc` |
+| **Start Command** | `node dist/server.js` |
+| **Plan** | Free |
+
+#### Step 2: Set environment variables
+
+| Variable | Value |
+|----------|-------|
+| `NODE_VERSION` | `20.11.0` |
+| `MONGODB_URI` | `mongodb+srv://...` (from MongoDB Atlas) |
+| `ML_API_URL` | `https://bluely-ml.onrender.com` (your ML service URL) |
+| `FIREBASE_PROJECT_ID` | Your Firebase project ID |
+| `FIREBASE_CLIENT_EMAIL` | Firebase service account email |
+| `FIREBASE_PRIVATE_KEY` | Firebase service account private key |
+| `PORT` | `5000` |
+
+---
+
+### Frontend Service — Render Deployment
+
+#### Option A: Static Site (recommended for free tier)
+
+Requires adding `output: 'export'` to `next.config.ts`:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `bluely-frontend` |
+| **Root Directory** | `frontend` |
+| **Build Command** | `npm install && npm run build` |
+| **Publish Directory** | `out` |
+
+#### Option B: Web Service (supports SSR)
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `bluely-frontend` |
+| **Root Directory** | `frontend` |
+| **Build Command** | `npm install && npm run build` |
+| **Start Command** | `npm start` |
+
+#### Environment variables
+
+| Variable | Value |
+|----------|-------|
+| `NODE_VERSION` | `20.11.0` |
+| `NEXT_PUBLIC_API_URL` | `https://bluely-backend.onrender.com/api` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Your Firebase Web API key |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `your-project.firebaseapp.com` |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Your Firebase project ID |
+
+---
+
+### Deployment Order
+
+Deploy services in this order (each depends on the previous):
+
+1. **ML Service** (`bluely-ml`) — deploy first, note the URL
+2. **Backend** (`bluely-backend`) — set `ML_API_URL` to the ML service URL
+3. **Frontend** (`bluely-frontend`) — set `NEXT_PUBLIC_API_URL` to the backend URL
+
+### Free Tier Considerations
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| Services spin down after 15 min inactivity | First request after idle takes 30–60s | Users see a loading state; acceptable for demo/capstone |
+| 750 free hours/month shared across all services | 3 services × 24h = 2,160h needed vs 750h available | Services sleep when unused; sufficient for low traffic |
+| No persistent disk on free tier | Model files must come from git, not filesystem | Models are committed to `ml/models/` (~2.7 MB) |
 
 ---
 
@@ -1010,15 +1173,18 @@ Feature dimension:      26
 
 ```
 bluely_main/
+├── render.yaml                            # Render blueprint (3 services)
 ├── ml/                                    # ML module
-│   ├── data/
+│   ├── .python-version                    # Pin Python 3.12.7 for Render
+│   ├── build.sh                           # Render build script
+│   ├── data/                              # Training data (NOT in git)
 │   │   ├── diabetes.csv                   # Pima Indians dataset
 │   │   └── ohiot1dm/                      # OhioT1DM XML dataset
 │   │       ├── 559-ws-training.xml
 │   │       ├── 559-ws-testing.xml
 │   │       ├── ... (6 patients × 2 files)
 │   │       └── 591-ws-testing.xml
-│   ├── models/
+│   ├── models/                            # Pre-trained models (IN git, ~2.7 MB)
 │   │   ├── glucose_model.joblib           # Pima Random Forest
 │   │   ├── logistic_model.joblib          # Pima Logistic Regression
 │   │   ├── scaler.joblib                  # Pima feature scaler
@@ -1029,8 +1195,8 @@ bluely_main/
 │   ├── parse_ohio.py                      # OhioT1DM XML parser
 │   ├── predict.py                         # Prediction utility (Pima)
 │   ├── server.py                          # FastAPI prediction server
-│   ├── requirements.txt                   # Python dependencies
-│   └── README.md                          # ML setup instructions
+│   ├── requirements.txt                   # Python dependencies (flexible versions)
+│   └── README.md                          # ML setup + deploy instructions
 │
 ├── backend/src/
 │   ├── models/
