@@ -138,6 +138,7 @@ export default function DashboardPage() {
             factors: string[];
             modelUsed: string;
             predictionTimestamp?: string;
+            suggestions?: string[] | null;
         } | null;
     }>({ hasData: false, prediction: null });
     const [showInsightsCard, setShowInsightsCard] = useState(false);
@@ -364,6 +365,7 @@ export default function DashboardPage() {
                             factors={glucose30.prediction.factors}
                             modelUsed={glucose30.prediction.modelUsed}
                             predictionTimestamp={glucose30.prediction.predictionTimestamp}
+                            suggestions={glucose30.prediction.suggestions}
                             onRefresh={async () => {
                                 if (!user) return;
                                 try {

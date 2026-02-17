@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { PredictionAnalysis, User, GlucoseReading, UserHealthProfile, Notification, ForecastLog } from '../models';
+import { PredictionAnalysis, User, GlucoseReading, UserHealthProfile, Notification, ForecastLog, MedicationLog, Meal } from '../models';
+import type { IMedicationLog } from '../models/MedicationLog';
+import type { IMeal } from '../models/Meal';
 
 const ML_API_URL = process.env.ML_API_URL || 'http://localhost:8000';
 
@@ -21,6 +23,7 @@ interface Glucose30MLResult {
     riskAlert: string | null;
     factors: string[];
     modelUsed: string;
+    suggestions?: string[] | null;
 }
 
 // Helper: calculate age from DOB
@@ -381,15 +384,44 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
         const healthProfile = await UserHealthProfile.findOne({ firebaseUid: firebaseUid as string });
         const user = await User.findOne({ firebaseUid: firebaseUid as string });
 
+        // Query recent medication logs (last 6 hours) for insulin/med context
+        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+        const recentMedLogs = await MedicationLog.find({
+            firebaseUid: firebaseUid as string,
+            takenAt: { $gte: sixHoursAgo },
+        }).sort({ takenAt: -1 }).limit(10);
+
+        // Query recent meals (last 4 hours) for carb context
+        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+        const recentMeals = await Meal.find({
+            firebaseUid: firebaseUid as string,
+            timestamp: { $gte: fourHoursAgo },
+        }).sort({ timestamp: -1 }).limit(5);
+
         // Build payload for ML
         const mlReadings = ordered.map((r) => ({
             value: r.value,
             readingType: r.readingType || 'random',
             hour: new Date(r.recordedAt).getHours(),
             dayOfWeek: new Date(r.recordedAt).getDay(),
-            medicationTaken: false,
+            medicationTaken: r.medicationTaken || false,
             mealContext: r.mealContext || null,
             activityContext: r.activityContext || null,
+        }));
+
+        // Build medication context for ML
+        const recentMedications = recentMedLogs.map((log: IMedicationLog) => ({
+            medicationType: log.medicationType,
+            dosage: log.dosage,
+            doseUnit: log.doseUnit,
+            hoursSincesTaken: Math.round(((Date.now() - new Date(log.takenAt).getTime()) / (1000 * 60 * 60)) * 10) / 10,
+        }));
+
+        // Build meal context for ML
+        const recentMealData = recentMeals.map((meal: IMeal) => ({
+            mealType: meal.mealType,
+            carbsEstimate: meal.carbsEstimate || null,
+            hoursSinceMeal: Math.round(((Date.now() - new Date(meal.timestamp).getTime()) / (1000 * 60 * 60)) * 10) / 10,
         }));
 
         const payload = {
@@ -399,16 +431,23 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             onMedication: healthProfile?.onMedication || false,
             lastMealHoursAgo: null as number | null,
             activityLevel: healthProfile?.activityLevel || null,
+            recentMedications,
+            recentMeals: recentMealData,
         };
 
-        // Try to determine time since last meal
-        const lastMealReading = ordered.find(
-            (r) => r.readingType === 'after_meal' || r.mealContext
-        );
-        if (lastMealReading) {
-            const hoursSince =
-                (Date.now() - new Date(lastMealReading.recordedAt).getTime()) / (1000 * 60 * 60);
+        // Try to determine time since last meal (from Meal model first, fallback to reading context)
+        if (recentMeals.length > 0) {
+            const hoursSince = (Date.now() - new Date(recentMeals[0].timestamp).getTime()) / (1000 * 60 * 60);
             payload.lastMealHoursAgo = Math.round(hoursSince * 10) / 10;
+        } else {
+            const lastMealReading = ordered.find(
+                (r) => r.readingType === 'after_meal' || r.mealContext
+            );
+            if (lastMealReading) {
+                const hoursSince =
+                    (Date.now() - new Date(lastMealReading.recordedAt).getTime()) / (1000 * 60 * 60);
+                payload.lastMealHoursAgo = Math.round(hoursSince * 10) / 10;
+            }
         }
 
         let result: Glucose30MLResult;

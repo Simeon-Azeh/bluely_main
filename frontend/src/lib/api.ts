@@ -244,6 +244,7 @@ interface Glucose30Prediction {
     factors: string[];
     modelUsed: string;
     predictionTimestamp?: string;
+    suggestions?: string[] | null;
 }
 
 interface Glucose30Response {
@@ -361,6 +362,7 @@ class ApiClient {
         notes?: string;
         recordedAt?: string;
         medicationTaken?: boolean;
+        medicationTiming?: string;
         medicationName?: string;
         medicationType?: string;
         medicationDose?: number;

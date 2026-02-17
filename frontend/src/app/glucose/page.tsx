@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +29,7 @@ const glucoseSchema = z.object({
     notes: z.string().optional(),
     recordedAt: z.string().optional(),
     medicationTaken: z.boolean().optional(),
+    medicationTiming: z.string().optional(),
     medicationName: z.string().optional(),
     medicationType: z.string().optional(),
     medicationDose: z.string().optional(),
@@ -116,7 +118,10 @@ export default function GlucosePage() {
     const [error, setError] = useState<string | null>(null);
     const [showMedication, setShowMedication] = useState(false);
     const [medications, setMedications] = useState<Array<{ _id: string; medicationName: string; medicationType: string; dosage: number; doseUnit: string; isInjectable: boolean }>>([]);
-    const [injectionRec, setInjectionRec] = useState<{ recommendedSite: string } | null>(null);
+    const [injectionRec, setInjectionRec] = useState<{
+        recommendedSite: string;
+        siteUsage?: Record<string, { count: number; lastUsed: string | null }>;
+    } | null>(null);
 
     const {
         register,
@@ -138,6 +143,7 @@ export default function GlucosePage() {
     const watchedValue = watch('value');
     const watchedMedTaken = watch('medicationTaken');
     const watchedMedType = watch('medicationType');
+    const watchedReadingType = watch('readingType');
     const glucoseNum = watchedValue ? parseFloat(watchedValue) : null;
     const glucoseMessage = glucoseNum && !isNaN(glucoseNum) && glucoseNum >= 20 && glucoseNum <= 600
         ? getGlucoseMessage(glucoseNum, user?.displayName || undefined)
@@ -201,6 +207,7 @@ export default function GlucosePage() {
                 notes: data.notes,
                 recordedAt: data.recordedAt ? new Date(data.recordedAt).toISOString() : new Date().toISOString(),
                 medicationTaken: data.medicationTaken,
+                medicationTiming: data.medicationTaken ? data.medicationTiming : undefined,
                 medicationName: data.medicationTaken ? data.medicationName : undefined,
                 medicationType: data.medicationTaken ? data.medicationType : undefined,
                 medicationDose: data.medicationTaken && data.medicationDose ? parseFloat(data.medicationDose) : undefined,
@@ -240,9 +247,10 @@ export default function GlucosePage() {
                 console.warn('Forecast refresh after glucose log failed (non-critical):', forecastErr);
             }
 
+            // Brief delay so user sees success flash, then redirect to dashboard
             setTimeout(() => {
-                setIsSuccess(false);
-            }, 3000);
+                router.push('/dashboard');
+            }, 1200);
         } catch (err) {
             console.error('Error saving reading:', err);
             setError('Failed to save reading. Please try again.');
@@ -357,6 +365,24 @@ export default function GlucosePage() {
                             </div>
                         </div>
 
+                        {/* Meal logging nudge when "After meal" is selected */}
+                        {watchedReadingType === 'after_meal' && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+                                <FiInfo className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="text-sm text-amber-800">
+                                        Logging your meal helps improve glucose predictions.
+                                    </p>
+                                    <Link
+                                        href="/meals"
+                                        className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-[#1F2F98] hover:underline"
+                                    >
+                                        Log your meal →
+                                    </Link>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Context — side by side */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <Input
@@ -403,6 +429,38 @@ export default function GlucosePage() {
 
                                     {watchedMedTaken && (
                                         <>
+                                            {/* When was medication taken relative to this reading */}
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-2">When did you take it?</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {[
+                                                        { value: 'with_reading', label: 'Just now' },
+                                                        { value: 'just_before', label: 'Right before reading' },
+                                                        { value: '30min_before', label: '30 min before' },
+                                                        { value: '1hr_before', label: '1 hour before' },
+                                                        { value: '2hr_before', label: '2 hours before' },
+                                                        { value: 'earlier_today', label: 'Earlier today' },
+                                                        { value: 'previous_night', label: 'Last night' },
+                                                    ].map((opt) => (
+                                                        <label
+                                                            key={opt.value}
+                                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${watch('medicationTiming') === opt.value
+                                                                ? 'border-[#1F2F98] bg-blue-50 text-[#1F2F98] font-medium'
+                                                                : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                                                                }`}
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                value={opt.value}
+                                                                className="sr-only"
+                                                                {...register('medicationTiming')}
+                                                            />
+                                                            {opt.label}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             {/* Quick-select from user's medications */}
                                             {medications.length > 0 && (
                                                 <div>
@@ -491,6 +549,35 @@ export default function GlucosePage() {
                                                         <div className="flex items-center gap-2 mt-1.5 text-xs text-violet-600">
                                                             <TbTargetArrow className="w-3.5 h-3.5" />
                                                             Rotate sites to prevent lipohypertrophy
+                                                        </div>
+                                                    )}
+
+                                                    {/* Site usage stats */}
+                                                    {injectionRec?.siteUsage && Object.keys(injectionRec.siteUsage).length > 0 && (
+                                                        <div className="mt-2.5 p-2.5 bg-gray-50 rounded-lg">
+                                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Recent site usage</label>
+                                                            <div className="grid grid-cols-3 gap-1">
+                                                                {[
+                                                                    { value: 'abdomen', label: 'Abdomen' },
+                                                                    { value: 'thigh_left', label: 'L Thigh' },
+                                                                    { value: 'thigh_right', label: 'R Thigh' },
+                                                                    { value: 'arm_left', label: 'L Arm' },
+                                                                    { value: 'arm_right', label: 'R Arm' },
+                                                                    { value: 'buttock', label: 'Buttock' },
+                                                                ].map((site) => {
+                                                                    const count = injectionRec.siteUsage?.[site.value]?.count || 0;
+                                                                    const isRec = injectionRec.recommendedSite === site.value;
+                                                                    return (
+                                                                        <div
+                                                                            key={site.value}
+                                                                            className={`text-center px-1.5 py-1 rounded text-xs ${isRec ? 'bg-green-50 text-green-700 font-medium' : count > 5 ? 'bg-orange-50 text-orange-600' : 'bg-white text-gray-500'
+                                                                                }`}
+                                                                        >
+                                                                            {site.label} <span className="font-semibold">{count}×</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>

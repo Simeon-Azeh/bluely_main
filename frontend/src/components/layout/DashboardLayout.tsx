@@ -372,24 +372,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
             {/* Mobile Bottom Tab Navigation */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-2xl">
-                <div className="flex items-center justify-around h-20 px-2">
-                    {navItems.slice(0, 5).map((item) => {
+                <div className="flex items-center justify-around h-20 px-1">
+                    {[
+                        { href: '/dashboard', label: 'Home', icon: FiHome },
+                        { href: '/glucose', label: 'Log', icon: FiDroplet },
+                        { href: '/meals', label: 'Meals', icon: FiCoffee },
+                        { href: '/medications', label: 'Meds', icon: TbPill },
+                        { href: '/insights', label: 'Insights', icon: FiTrendingUp },
+                        { href: '/history', label: 'History', icon: FiBarChart2 },
+                        { href: '/settings', label: 'Settings', icon: FiSettings },
+                    ].map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.href);
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all ${active
+                                className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all min-w-0 ${active
                                     ? 'text-[#1F2F98]'
                                     : 'text-gray-400'
                                     }`}
                             >
-                                <div className={`p-2 rounded-xl transition-all ${active ? 'bg-blue-50' : ''}`}>
+                                <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50' : ''}`}>
                                     <Icon className="w-5 h-5" />
                                 </div>
-                                <span className={`text-xs mt-1 font-medium ${active ? 'text-[#1F2F98]' : 'text-gray-500'}`}>
-                                    {item.label.split(' ')[0]}
+                                <span className={`text-[10px] mt-0.5 font-medium truncate ${active ? 'text-[#1F2F98]' : 'text-gray-500'}`}>
+                                    {item.label}
                                 </span>
                             </Link>
                         );

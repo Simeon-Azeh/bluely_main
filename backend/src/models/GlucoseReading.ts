@@ -12,6 +12,7 @@ export interface IGlucoseReading extends Document {
 
     // Medication tracking when logging glucose
     medicationTaken?: boolean;
+    medicationTiming?: string;
     medicationName?: string;
     medicationType?: string;
     medicationDose?: number;
@@ -69,6 +70,10 @@ const GlucoseReadingSchema = new Schema<IGlucoseReading>(
         },
         medicationTaken: {
             type: Boolean,
+        },
+        medicationTiming: {
+            type: String,
+            enum: ['just_before', 'with_reading', '30min_before', '1hr_before', '2hr_before', 'previous_night', 'earlier_today'],
         },
         medicationName: {
             type: String,
