@@ -79,6 +79,13 @@ class GlucoseReading(BaseModel):
     medicationTaken: bool = False
     mealContext: Optional[str] = None
     activityContext: Optional[str] = None
+    # Inline medication context from the glucose reading itself
+    medicationTiming: Optional[str] = None   # e.g. '30min_before', 'just_before', 'with_reading'
+    medicationName: Optional[str] = None
+    medicationType: Optional[str] = None     # e.g. 'insulin_rapid', 'insulin_long'
+    medicationDose: Optional[float] = None
+    medicationDoseUnit: Optional[str] = None
+    injectionSite: Optional[str] = None
 
 
 class TrendPredictionInput(BaseModel):
@@ -284,6 +291,14 @@ class Glucose30Input(BaseModel):
     recentMeals: Optional[List[dict]] = None         # [{mealType, carbsEstimate, hoursSinceMeal}]
 
 
+class MissingDataAction(BaseModel):
+    """An actionable button for the forecast card when data is missing."""
+    label: str              # Button text, e.g. "Log Meal"
+    href: str               # Frontend route, e.g. "/meals"
+    reason: str             # Why this matters
+    icon: Optional[str] = None  # icon hint: 'meal', 'medication', 'glucose', 'activity'
+
+
 class Glucose30Output(BaseModel):
     predictedGlucose: float
     direction: str          # 'rising' | 'stable' | 'dropping'
@@ -295,7 +310,8 @@ class Glucose30Output(BaseModel):
     riskAlert: Optional[str] = None
     factors: List[str]
     modelUsed: str          # 'ohiot1dm' | 'statistical'
-    suggestions: Optional[List[str]] = None  # actionable suggestions (e.g., "Log your meal")
+    suggestions: Optional[List[str]] = None
+    missingDataActions: Optional[List[MissingDataAction]] = None  # buttons for missing context
 
 
 def _build_ohio_features(readings: List[GlucoseReading], current: float) -> np.ndarray:
@@ -381,14 +397,22 @@ def predict_glucose_30(input_data: Glucose30Input):
     Predict glucose level 30 minutes from now.
     Uses the OhioT1DM Gradient-Boosting model when available,
     falls back to statistical extrapolation otherwise.
+
+    Multi-factor approach:
+    1. Base prediction from model or stats
+    2. Gather ALL context (readings inline meds, MedicationLog, Meal log, time, activity)
+    3. Cross-compare factors — never let a single factor dominate
+    4. Detect missing data and suggest actions
     """
     try:
         readings = input_data.readings
         current = input_data.currentGlucose
         values = [r.value for r in readings]
         factors: List[str] = []
+        suggestions: List[str] = []
+        missing_actions: List[MissingDataAction] = []
 
-        # ── Try OhioT1DM model first ──
+        # ── 1. Base prediction from model ──
         model_used = "statistical"
         if OHIO_MODEL_LOADED and ohio_model is not None and ohio_scaler is not None:
             try:
@@ -406,200 +430,357 @@ def predict_glucose_30(input_data: Glucose30Input):
             predicted = _statistical_30min(readings, current)
             factors.append("Statistical extrapolation from recent readings")
 
-        # ── Contextual adjustments for sparse data ──
-        adjustment = 0.0
+        # ── 2. Gather ALL available context ──
+        last_reading = readings[-1]
+        n_readings = len(values)
 
-        # ── Meal-aware adjustments ──
-        # Use detailed meal data if available, else fall back to lastMealHoursAgo
-        meal_adjustment_applied = False
-        if input_data.recentMeals:
+        # --- Context flags ---
+        has_logged_meal = bool(input_data.recentMeals and len(input_data.recentMeals) > 0)
+        has_meal_in_reading = any(
+            r.readingType == "after_meal" or r.readingType == "before_meal"
+            or (r.mealContext and r.mealContext.strip())
+            for r in readings
+        )
+        has_med_log = bool(input_data.recentMedications and len(input_data.recentMedications) > 0)
+        has_inline_med = any(r.medicationTaken for r in readings)
+        has_activity = bool(
+            input_data.activityLevel in ("high", "frequent", "very_active", "active")
+            or any(r.activityContext and r.activityContext.strip() for r in readings)
+        )
+
+        # Extract inline medication data from the most recent reading that has it
+        inline_med = None
+        for r in reversed(readings):
+            if r.medicationTaken and r.medicationType:
+                inline_med = r
+                break
+
+        # ── 3. Contextual adjustments (multi-factor, capped per-factor) ──
+        adjustment = 0.0
+        factor_count = 0  # Track how many factors contributed
+
+        # --- MEAL FACTOR ---
+        meal_adjustment = 0.0
+        if has_logged_meal and input_data.recentMeals:
             for meal in input_data.recentMeals:
                 hours = meal.get("hoursSinceMeal", None)
                 carbs = meal.get("carbsEstimate", None)
                 if hours is not None and hours < 3:
-                    # Carb-proportional glucose rise
                     if carbs and carbs > 0:
                         if hours < 0.5:
-                            # Peak absorption phase
-                            carb_effect = min(carbs * 0.15, 25)
-                            adjustment += carb_effect
-                            factors.append(f"Recent meal ({int(carbs)}g carbs, {int(hours*60)}min ago). Glucose likely still rising")
+                            meal_adjustment = min(carbs * 0.12, 20)
+                            factors.append(f"Recent meal ({int(carbs)}g carbs, {int(hours*60)}min ago) — glucose likely still rising")
                         elif hours < 1.5:
-                            carb_effect = min(carbs * 0.08, 15)
-                            adjustment += carb_effect
+                            meal_adjustment = min(carbs * 0.06, 12)
                             factors.append(f"Post-meal window ({int(carbs)}g carbs, {round(hours, 1)}hrs ago)")
                         else:
-                            adjustment += 2
+                            meal_adjustment = 2
                             factors.append(f"Late post-meal phase ({round(hours, 1)}hrs since {int(carbs)}g carbs)")
                     else:
-                        # No carb estimate, use generic meal timing
                         if hours < 1:
-                            adjustment += 10
-                            factors.append("Recent meal. Glucose may still be rising")
+                            meal_adjustment = 8
+                            factors.append("Recent meal logged. Glucose may still be rising")
                         elif hours < 2:
-                            adjustment += 3
+                            meal_adjustment = 3
                             factors.append("Post-meal window (1-2 hrs)")
-                    meal_adjustment_applied = True
-                    break  # Use most recent meal
-
-        if not meal_adjustment_applied and input_data.lastMealHoursAgo is not None:
+                    factor_count += 1
+                    break
+        elif has_meal_in_reading and not has_logged_meal:
+            # User said "after meal" in reading but no actual meal logged
+            # We KNOW they ate, so apply a generic post-meal rise
+            if input_data.lastMealHoursAgo is not None and input_data.lastMealHoursAgo < 2:
+                meal_adjustment = 8
+                factors.append("After-meal reading detected. Applying estimated post-meal glucose rise")
+            else:
+                meal_adjustment = 5
+                factors.append("After-meal reading detected (no meal details logged)")
+            factor_count += 1
+        elif input_data.lastMealHoursAgo is not None:
             if input_data.lastMealHoursAgo < 1:
-                adjustment += 10
+                meal_adjustment = 8
                 factors.append("Recent meal. Glucose may still be rising")
+                factor_count += 1
             elif input_data.lastMealHoursAgo < 2:
-                adjustment += 3
+                meal_adjustment = 3
                 factors.append("Post-meal window (1-2 hrs)")
+                factor_count += 1
             elif input_data.lastMealHoursAgo > 4:
-                adjustment -= 3
+                meal_adjustment = -3
                 factors.append("Extended time since last meal")
+                factor_count += 1
 
-        # ── Insulin/medication-aware adjustments ──
-        # Use detailed medication logs if available for insulin-type-specific effects
-        med_adjustment_applied = False
-        if input_data.recentMedications:
+        adjustment += meal_adjustment
+
+        # --- MEDICATION/INSULIN FACTOR ---
+        # Combine MedicationLog data + inline reading medication data
+        med_adjustment = 0.0
+        med_factor_applied = False
+
+        # First: use MedicationLog entries (more detailed)
+        if has_med_log and input_data.recentMedications:
             for med in input_data.recentMedications:
                 med_type = med.get("medicationType", "")
                 dosage = med.get("dosage", 0)
                 hours = med.get("hoursSincesTaken", None)
-
                 if hours is None:
                     continue
 
+                effect = 0.0
                 if med_type == "insulin_rapid":
-                    # Rapid-acting insulin: onset 15min, peak 1-2hr, duration 3-5hr
                     if hours < 0.25:
-                        # Just taken — onset beginning
-                        effect = min(dosage * 0.3, 8)
-                        adjustment -= effect
-                        factors.append(f"Rapid insulin ({dosage} units, {int(hours*60)}min ago). Effect beginning")
+                        effect = min(dosage * 0.2, 6)
+                        factors.append(f"Rapid insulin ({dosage}u, {int(hours*60)}min ago) — onset beginning")
                     elif hours < 2:
-                        # Peak effect window
-                        effect = min(dosage * 0.8, 20)
-                        adjustment -= effect
-                        factors.append(f"Rapid insulin at peak effect ({dosage} units, {round(hours, 1)}hrs ago)")
-                    elif hours < 4:
-                        # Waning effect
-                        effect = min(dosage * 0.3, 10)
-                        adjustment -= effect
-                        factors.append(f"Rapid insulin still active ({dosage} units, {round(hours, 1)}hrs ago)")
-                    med_adjustment_applied = True
-
-                elif med_type == "insulin_long":
-                    # Long-acting insulin: gradual, steady effect over 20-24hr
-                    if hours < 24:
-                        effect = min(dosage * 0.15, 8)
-                        adjustment -= effect
-                        factors.append(f"Long-acting insulin active ({dosage} units, {round(hours, 1)}hrs ago)")
-                    med_adjustment_applied = True
-
-                elif med_type == "insulin_mixed":
-                    # Mixed insulin: combination of rapid + long effects
-                    if hours < 2:
                         effect = min(dosage * 0.5, 15)
-                        adjustment -= effect
-                        factors.append(f"Mixed insulin peak phase ({dosage} units, {round(hours, 1)}hrs ago)")
-                    elif hours < 6:
+                        factors.append(f"Rapid insulin at peak ({dosage}u, {round(hours,1)}hrs ago)")
+                    elif hours < 4:
                         effect = min(dosage * 0.2, 8)
-                        adjustment -= effect
-                        factors.append(f"Mixed insulin active ({dosage} units, {round(hours, 1)}hrs ago)")
-                    med_adjustment_applied = True
-
+                        factors.append(f"Rapid insulin waning ({dosage}u, {round(hours,1)}hrs ago)")
+                elif med_type == "insulin_long":
+                    if hours < 24:
+                        effect = min(dosage * 0.1, 6)
+                        factors.append(f"Long-acting insulin active ({dosage}u, {round(hours,1)}hrs ago)")
+                elif med_type == "insulin_mixed":
+                    if hours < 2:
+                        effect = min(dosage * 0.35, 12)
+                        factors.append(f"Mixed insulin peak ({dosage}u, {round(hours,1)}hrs ago)")
+                    elif hours < 6:
+                        effect = min(dosage * 0.15, 6)
+                        factors.append(f"Mixed insulin active ({dosage}u, {round(hours,1)}hrs ago)")
                 elif med_type == "metformin":
-                    # Metformin: gradual, modest glucose-lowering
                     if hours < 6:
-                        adjustment -= 3
-                        factors.append(f"Metformin taken {round(hours, 1)}hrs ago")
-                    med_adjustment_applied = True
+                        effect = 3
+                        factors.append(f"Metformin taken {round(hours,1)}hrs ago")
 
-        if not med_adjustment_applied and input_data.onMedication:
-            adjustment -= 5
-            factors.append("Medication logged. May influence trend")
+                if effect > 0:
+                    med_adjustment -= effect
+                    med_factor_applied = True
+                    factor_count += 1
+                    break  # Use the most impactful recent medication
 
-        last = readings[-1]
-        if 4 <= last.hour <= 7:
-            adjustment += 5
-            factors.append("Early morning. Dawn effect possible")
-        elif 22 <= last.hour or last.hour <= 3:
-            adjustment -= 3
-            factors.append("Nighttime. Levels tend to stabilize")
+        # Second: if no MedicationLog but inline med data exists on the reading
+        if not med_factor_applied and has_inline_med and inline_med:
+            dosage = inline_med.medicationDose or 0
+            med_type = inline_med.medicationType or ""
+            timing = inline_med.medicationTiming or ""
 
-        if input_data.activityLevel in ("high", "frequent", "very_active", "active"):
-            adjustment -= 5
-            factors.append("Active lifestyle may lower readings")
+            # Calculate approximate hours since medication based on timing + reading time
+            timing_hours_map = {
+                "just_before": 0.05,
+                "with_reading": 0.0,
+                "30min_before": 0.5,
+                "1hr_before": 1.0,
+                "2hr_before": 2.0,
+                "previous_night": 10.0,
+                "earlier_today": 4.0,
+            }
+            hours_since = timing_hours_map.get(timing, 0.5)
 
-        # ── Clamp total adjustment to prevent unrealistic predictions ──
-        # The contextual adjustments should nudge the prediction, not dominate it.
-        # Max adjustment is ±30 mg/dL or ±15% of current glucose (whichever is smaller)
-        max_adj = min(30, current * 0.15)
-        if abs(adjustment) > max_adj:
-            adjustment = max_adj if adjustment > 0 else -max_adj
-            factors.append("Adjustment clamped to prevent over-correction")
+            effect = 0.0
+            if med_type == "insulin_rapid":
+                if hours_since < 0.25:
+                    effect = min(dosage * 0.2, 6)
+                    factors.append(f"Rapid insulin ({inline_med.medicationName}, {dosage}u, just taken) — onset beginning")
+                elif hours_since < 2:
+                    effect = min(dosage * 0.5, 15)
+                    factors.append(f"Rapid insulin ({inline_med.medicationName}, {dosage}u, ~{round(hours_since,1)}hrs ago) — peak effect")
+                elif hours_since < 4:
+                    effect = min(dosage * 0.2, 8)
+                    factors.append(f"Rapid insulin ({inline_med.medicationName}, {dosage}u) — waning effect")
+            elif med_type == "insulin_long":
+                effect = min(dosage * 0.1, 6)
+                factors.append(f"Long-acting insulin ({inline_med.medicationName}, {dosage}u) — steady effect")
+            elif med_type == "insulin_mixed":
+                if hours_since < 2:
+                    effect = min(dosage * 0.35, 12)
+                    factors.append(f"Mixed insulin ({inline_med.medicationName}, {dosage}u) — peak phase")
+                else:
+                    effect = min(dosage * 0.15, 6)
+                    factors.append(f"Mixed insulin ({inline_med.medicationName}, {dosage}u) — active")
+            elif med_type == "metformin":
+                effect = 3
+                factors.append(f"Metformin ({inline_med.medicationName}) taken")
 
-        # ── Anchor prediction toward current glucose when data is sparse ──
-        n_readings = len(values)
-        if n_readings <= 2:
-            # Very sparse data: weight prediction 60% toward current glucose
-            predicted = current * 0.6 + (predicted + adjustment) * 0.4
-            factors.append(f"Limited data ({n_readings} readings). Prediction anchored closer to current level")
-        elif n_readings <= 4:
-            # Moderate data: weight 30% toward current
-            predicted = current * 0.3 + (predicted + adjustment) * 0.7
-            factors.append(f"Moderate data ({n_readings} readings). Prediction partially anchored")
+            if effect > 0:
+                med_adjustment -= effect
+                med_factor_applied = True
+                factor_count += 1
+
+        if not med_factor_applied and input_data.onMedication:
+            med_adjustment = -4
+            factors.append("User is on medication (details not logged)")
+            factor_count += 1
+
+        adjustment += med_adjustment
+
+        # --- MEAL + INSULIN INTERACTION ---
+        # When insulin was taken before a meal, the two factors partially cancel out.
+        # A post-meal rise + active insulin = net effect is more moderate
+        if meal_adjustment > 0 and med_adjustment < 0:
+            # They counteract each other — the model already considers the net,
+            # so reduce the combined magnitude slightly to avoid double-counting
+            interaction_reduction = min(abs(meal_adjustment), abs(med_adjustment)) * 0.3
+            if adjustment > 0:
+                adjustment -= interaction_reduction
+            else:
+                adjustment += interaction_reduction
+            factors.append("Meal + insulin interaction: effects partially offset each other")
+
+        # --- TIME-OF-DAY FACTOR ---
+        if 4 <= last_reading.hour <= 7:
+            adjustment += 4
+            factors.append("Early morning — dawn effect possible")
+            factor_count += 1
+        elif 22 <= last_reading.hour or last_reading.hour <= 3:
+            adjustment -= 2
+            factors.append("Nighttime — levels tend to stabilize")
+            factor_count += 1
+
+        # --- ACTIVITY FACTOR ---
+        if has_activity:
+            adjustment -= 4
+            factors.append("Physical activity noted — may lower readings")
+            factor_count += 1
+
+        # ── 4. CLAMP: prevent unrealistic predictions ──
+        # Per-factor cap: each factor can contribute at most ±15 mg/dL
+        # Total cap: ±25 mg/dL or ±12% of current (whichever is smaller)
+        max_total_adj = min(25, current * 0.12)
+        if abs(adjustment) > max_total_adj:
+            adjustment = max_total_adj if adjustment > 0 else -max_total_adj
+
+        # ── 5. ANCHOR to current glucose (sparse data protection) ──
+        if n_readings == 1:
+            # Single reading: prediction is 70% current, 30% model+adjustment
+            predicted = current * 0.7 + (predicted + adjustment) * 0.3
+            factors.append(f"Single reading — prediction heavily anchored to current level ({int(current)} mg/dL)")
+        elif n_readings <= 3:
+            predicted = current * 0.5 + (predicted + adjustment) * 0.5
+            factors.append(f"Limited data ({n_readings} readings) — prediction anchored to current level")
+        elif n_readings <= 6:
+            predicted = current * 0.25 + (predicted + adjustment) * 0.75
         else:
             predicted = predicted + adjustment
 
-        # ── Final safety clamp: prediction should not deviate more than 40% from current ──
-        lower_bound = max(55, current * 0.6)
-        upper_bound = min(400, current * 1.4)
+        # ── 6. FINAL SAFETY BOUNDS ──
+        # Never predict more than 30% away from current within 30 min
+        lower_bound = max(60, current * 0.70)
+        upper_bound = min(400, current * 1.30)
         if predicted < lower_bound:
             predicted = lower_bound
-            factors.append("Prediction floor applied for safety")
+            factors.append(f"Safety floor: prediction clamped (min {int(lower_bound)} mg/dL)")
         elif predicted > upper_bound:
             predicted = upper_bound
-            factors.append("Prediction ceiling applied for safety")
+            factors.append(f"Safety ceiling: prediction clamped (max {int(upper_bound)} mg/dL)")
 
-        predicted = max(40, min(400, predicted))
+        predicted = max(55, min(400, predicted))
 
         if not factors:
             factors.append("Based on recent glucose trend patterns")
 
-        # ── Direction ──
+        # ── 7. MISSING DATA DETECTION — actionable buttons ──
+        # If user marked "after_meal" but never logged a meal
+        if has_meal_in_reading and not has_logged_meal:
+            missing_actions.append(MissingDataAction(
+                label="Log Meal",
+                href="/meals",
+                reason="You selected 'After meal' but haven't logged what you ate. Logging your meal improves this prediction.",
+                icon="meal",
+            ))
+            suggestions.append("You mentioned eating — log your meal for a more accurate forecast!")
+
+        # If prediction is low (potential hypo) and user has eaten or should eat
+        if predicted < 90 and not has_logged_meal and not has_meal_in_reading:
+            missing_actions.append(MissingDataAction(
+                label="Log Meal",
+                href="/meals",
+                reason="Prediction suggests glucose may drop. If you've eaten recently, logging it helps. If not, consider having a snack.",
+                icon="meal",
+            ))
+            suggestions.append("Glucose may drop. If you've eaten, log it. If not, consider having a snack.")
+        elif predicted < 90 and has_meal_in_reading and not has_logged_meal:
+            suggestions.append("You ate recently — logging the meal details will help track how food affects your levels.")
+
+        # If no medication data at all but glucose is elevated
+        if current > 180 and not has_inline_med and not has_med_log and not input_data.onMedication:
+            missing_actions.append(MissingDataAction(
+                label="Log Medication",
+                href="/medications",
+                reason="Your glucose is elevated. If you've taken medication, logging it helps improve predictions.",
+                icon="medication",
+            ))
+            suggestions.append("Glucose is elevated. If you've taken medication, log it for better predictions.")
+
+        # If user took insulin (inline) but we have no MedicationLog for it
+        if has_inline_med and not has_med_log:
+            # Don't add a missing action (they logged it inline), but note the data source
+            factors.append("Medication data sourced from glucose reading (not separate medication log)")
+
+        # If only 1 reading, suggest logging more
+        if n_readings <= 2:
+            missing_actions.append(MissingDataAction(
+                label="Log Reading",
+                href="/glucose",
+                reason="More readings throughout the day help the model learn your patterns and improve accuracy.",
+                icon="glucose",
+            ))
+            suggestions.append("Log more readings for better forecast accuracy.")
+
+        # If no activity data
+        if not has_activity:
+            missing_actions.append(MissingDataAction(
+                label="Log Activity",
+                href="/glucose",
+                reason="Activity affects glucose levels. Noting your activity context improves predictions.",
+                icon="activity",
+            ))
+
+        # ── 8. Direction, confidence, risk alert, recommendation ──
         delta = predicted - current
         if delta > 8:
             direction = "rising"
-            arrow = "↑"
+            arrow = "\u2191"
             label = "Trend is rising. Glucose may increase over the next 30 minutes"
         elif delta < -8:
             direction = "dropping"
-            arrow = "↓"
+            arrow = "\u2193"
             label = "Trend is dropping. Glucose may decrease over the next 30 minutes"
         else:
             direction = "stable"
-            arrow = "→"
+            arrow = "\u2192"
             label = "Trend is stable. Glucose is expected to stay near current level"
 
-        # ── Confidence ──
+        # Confidence: penalize for fewer readings AND fewer context factors
         n = len(values)
-        base_conf = min(0.45 + (n / 15) * 0.35, 0.85)
+        base_conf = min(0.40 + (n / 15) * 0.30, 0.80)
         if model_used == "ohiot1dm":
-            base_conf = min(base_conf + 0.1, 0.92)
+            base_conf = min(base_conf + 0.1, 0.90)
+        # Bonus for having more context
+        context_bonus = min(factor_count * 0.03, 0.12)
+        base_conf = min(base_conf + context_bonus, 0.92)
         cv = np.std(values) / np.mean(values) if np.mean(values) > 0 else 0
-        confidence = round(max(0.25, base_conf - min(cv * 0.4, 0.25)), 2)
+        # Penalize more for missing key data
+        missing_penalty = 0.0
+        if has_meal_in_reading and not has_logged_meal:
+            missing_penalty += 0.05
+        if not has_inline_med and not has_med_log and current > 150:
+            missing_penalty += 0.05
+        confidence = round(max(0.25, base_conf - min(cv * 0.4, 0.25) - missing_penalty), 2)
 
-        # ── Risk alert ──
         risk_alert = None
         if predicted < 70:
-            risk_alert = "Glucose may drop below target. Monitor closely"
+            risk_alert = "Glucose may drop below target. Monitor closely and consider a snack if needed"
         elif predicted > 250:
             risk_alert = "Glucose may remain significantly elevated"
         elif predicted > 180:
             risk_alert = "Glucose may stay above target range"
 
-        # ── Recommendation ──
         if direction == "rising" and predicted > 180:
             recommendation = "An upward trend is detected. Consider discussing this pattern with your healthcare provider."
         elif direction == "dropping" and predicted < 80:
             recommendation = "A downward trend is detected approaching lower range. More frequent monitoring may be helpful."
+            if has_meal_in_reading and not has_logged_meal:
+                recommendation += " Since you've eaten, logging meal details will help refine this prediction."
         elif direction == "stable" and 70 <= predicted <= 140:
             recommendation = "Levels appear stable and within target. Keep up the great work!"
         elif direction == "rising":
@@ -608,28 +789,6 @@ def predict_glucose_30(input_data: Glucose30Input):
             recommendation = "A downward trend is noted. This may reflect normal variation."
         else:
             recommendation = "Levels appear stable. Continue logging to track patterns."
-
-        # ── Suggestions (actionable nudges) ──
-        suggestions: List[str] = []
-
-        # Check if user indicated a meal in their reading but didn't log a meal
-        has_meal_reading = any(
-            r.readingType == "after_meal" or (r.mealContext and r.mealContext.strip())
-            for r in readings
-        )
-        has_logged_meal = bool(input_data.recentMeals and len(input_data.recentMeals) > 0)
-
-        if has_meal_reading and not has_logged_meal:
-            suggestions.append("You mentioned eating in your glucose reading. Log your meal for a more accurate prediction!")
-            factors.append("Meal context detected in reading but no meal logged — prediction may be less accurate")
-
-        # Suggest medication logging if glucose is high and no meds logged
-        if current > 180 and not med_adjustment_applied and not input_data.onMedication:
-            suggestions.append("Your glucose is elevated. If you've taken medication, logging it helps improve predictions.")
-
-        # Suggest more readings for better predictions
-        if n_readings <= 2:
-            suggestions.append("Log more readings throughout the day for more accurate forecasts.")
 
         return Glucose30Output(
             predictedGlucose=round(predicted, 1),
@@ -643,6 +802,7 @@ def predict_glucose_30(input_data: Glucose30Input):
             factors=factors,
             modelUsed=model_used,
             suggestions=suggestions if suggestions else None,
+            missingDataActions=missing_actions if missing_actions else None,
         )
 
     except HTTPException:

@@ -2,9 +2,17 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui';
-import { FiClock, FiInfo, FiZap, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
+import { FiClock, FiInfo, FiZap, FiRefreshCw, FiAlertCircle, FiDroplet, FiActivity, FiCoffee } from 'react-icons/fi';
+import { TbPill } from 'react-icons/tb';
 import { IoArrowUp, IoArrowDown, IoArrowForward } from 'react-icons/io5';
 import Link from 'next/link';
+
+interface MissingDataAction {
+    label: string;
+    href: string;
+    reason: string;
+    icon?: string;
+}
 
 interface GlucoseForecastCardProps {
     predictedGlucose: number;
@@ -20,6 +28,7 @@ interface GlucoseForecastCardProps {
     predictionTimestamp?: string;
     onRefresh?: () => void;
     suggestions?: string[] | null;
+    missingDataActions?: MissingDataAction[] | null;
 }
 
 const directionConfig = {
@@ -78,6 +87,7 @@ export default function GlucoseForecastCard({
     predictionTimestamp,
     onRefresh,
     suggestions,
+    missingDataActions,
 }: GlucoseForecastCardProps) {
     const [showTooltip, setShowTooltip] = useState(false);
     const [showFactors, setShowFactors] = useState(false);
@@ -293,6 +303,41 @@ export default function GlucoseForecastCard({
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+
+                {/* Missing Data Actions — quick-log buttons */}
+                {!isExpired && missingDataActions && missingDataActions.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Log more data for better accuracy:</p>
+                        <div className="flex flex-wrap gap-2">
+                            {missingDataActions.map((action, i) => {
+                                const iconMap: Record<string, React.ReactNode> = {
+                                    meal: <FiCoffee className="w-3.5 h-3.5" />,
+                                    medication: <TbPill className="w-3.5 h-3.5" />,
+                                    glucose: <FiDroplet className="w-3.5 h-3.5" />,
+                                    activity: <FiActivity className="w-3.5 h-3.5" />,
+                                };
+                                const colorMap: Record<string, string> = {
+                                    meal: 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100',
+                                    medication: 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100',
+                                    glucose: 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100',
+                                    activity: 'bg-green-50 border-green-200 text-green-800 hover:bg-green-100',
+                                };
+                                const iconKey = action.icon || 'glucose';
+                                return (
+                                    <Link
+                                        key={i}
+                                        href={action.href}
+                                        title={action.reason}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${colorMap[iconKey] || colorMap.glucose}`}
+                                    >
+                                        {iconMap[iconKey] || <FiDroplet className="w-3.5 h-3.5" />}
+                                        {action.label}
+                                    </Link>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
 
