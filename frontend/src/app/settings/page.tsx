@@ -577,23 +577,23 @@ export default function SettingsPage() {
                                                         </div>
                                                     </div>
                                                     {pushPermission === 'granted' ? (
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => fireReminder()}
-                                                className="px-3 py-1.5 text-xs font-medium text-[#1F2F98] bg-[#1F2F98]/10 rounded-lg hover:bg-[#1F2F98]/20 transition-colors"
-                                            >
-                                                Test
-                                            </button>
-                                            <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                                                <FiCheck className="w-4 h-4" /> Enabled
-                                            </span>
-                                        </div>
-                                    ) : pushPermission !== 'denied' && pushPermission !== 'unsupported' ? (
-                                        <Button type="button" size="sm" onClick={requestPushPermission}>
-                                            Enable
-                                        </Button>
-                                    ) : null}
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => fireReminder()}
+                                                                className="px-3 py-1.5 text-xs font-medium text-[#1F2F98] bg-[#1F2F98]/10 rounded-lg hover:bg-[#1F2F98]/20 transition-colors"
+                                                            >
+                                                                Test
+                                                            </button>
+                                                            <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
+                                                                <FiCheck className="w-4 h-4" /> Enabled
+                                                            </span>
+                                                        </div>
+                                                    ) : pushPermission !== 'denied' && pushPermission !== 'unsupported' ? (
+                                                        <Button type="button" size="sm" onClick={requestPushPermission}>
+                                                            Enable
+                                                        </Button>
+                                                    ) : null}
                                                 </div>
                                             </div>
 

@@ -139,6 +139,7 @@ export default function DashboardPage() {
             modelUsed: string;
             predictionTimestamp?: string;
             suggestions?: string[] | null;
+            missingDataActions?: { label: string; href: string; reason: string; icon?: string }[] | null;
         } | null;
     }>({ hasData: false, prediction: null });
     const [showInsightsCard, setShowInsightsCard] = useState(false);
@@ -366,6 +367,7 @@ export default function DashboardPage() {
                             modelUsed={glucose30.prediction.modelUsed}
                             predictionTimestamp={glucose30.prediction.predictionTimestamp}
                             suggestions={glucose30.prediction.suggestions}
+                            missingDataActions={glucose30.prediction.missingDataActions}
                             onRefresh={async () => {
                                 if (!user) return;
                                 try {

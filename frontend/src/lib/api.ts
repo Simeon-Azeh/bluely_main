@@ -245,6 +245,7 @@ interface Glucose30Prediction {
     modelUsed: string;
     predictionTimestamp?: string;
     suggestions?: string[] | null;
+    missingDataActions?: { label: string; href: string; reason: string; icon?: string }[] | null;
 }
 
 interface Glucose30Response {

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Medication, MedicationLog, User } from '../models';
+import type { IMedicationLog } from '../models/MedicationLog';
 
 // Create a medication
 export const createMedication = async (req: Request, res: Response): Promise<void> => {
@@ -221,7 +222,7 @@ export const getInjectionSiteRecommendation = async (req: Request, res: Response
             siteUsage[site] = { count: 0, lastUsed: null };
         });
 
-        recentLogs.forEach((log) => {
+        recentLogs.forEach((log: IMedicationLog) => {
             const site = log.injectionSite as string;
             if (siteUsage[site]) {
                 siteUsage[site].count++;

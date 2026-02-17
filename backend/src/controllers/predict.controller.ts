@@ -24,6 +24,7 @@ interface Glucose30MLResult {
     factors: string[];
     modelUsed: string;
     suggestions?: string[] | null;
+    missingDataActions?: { label: string; href: string; reason: string; icon?: string }[] | null;
 }
 
 // Helper: calculate age from DOB
@@ -407,6 +408,12 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             medicationTaken: r.medicationTaken || false,
             mealContext: r.mealContext || null,
             activityContext: r.activityContext || null,
+            medicationTiming: r.medicationTiming || null,
+            medicationName: r.medicationName || null,
+            medicationType: r.medicationType || null,
+            medicationDose: r.medicationDose || null,
+            medicationDoseUnit: r.medicationDoseUnit || null,
+            injectionSite: r.injectionSite || null,
         }));
 
         // Build medication context for ML
@@ -538,6 +545,7 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             prediction: {
                 ...result,
                 predictionTimestamp,
+                missingDataActions: result.missingDataActions || null,
             },
         });
     } catch (error) {
