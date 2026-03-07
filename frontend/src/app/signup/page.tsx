@@ -310,13 +310,13 @@ export default function SignupPage() {
                             />
                             <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-gray-600">
                                 I agree to the{' '}
-                                <a href="#" className="text-[#1F2F98] hover:text-[#1F2F98]/80 font-medium">
+                                <Link href="/terms" target="_blank" className="text-[#1F2F98] hover:text-[#1F2F98]/80 font-medium">
                                     Terms of Service
-                                </a>{' '}
+                                </Link>{' '}
                                 &{' '}
-                                <a href="#" className="text-[#1F2F98] hover:text-[#1F2F98]/80 font-medium">
+                                <Link href="/privacy" target="_blank" className="text-[#1F2F98] hover:text-[#1F2F98]/80 font-medium">
                                     Privacy Policy
-                                </a>
+                                </Link>
                             </label>
                         </div>
                         {errors.agreeToTerms && (

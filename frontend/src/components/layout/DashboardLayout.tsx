@@ -18,12 +18,14 @@ import {
     FiChevronLeft,
     FiChevronRight,
     FiUser,
-    FiHelpCircle,
+    FiMessageCircle,
     FiSun,
-    FiMoon
+    FiMoon,
+    FiLock
 } from 'react-icons/fi';
 import { TbPill } from 'react-icons/tb';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import FloatingChat from '../dashboard/FloatingChat';
 import api from '@/lib/api';
 
 interface DashboardLayoutProps {
@@ -44,12 +46,16 @@ const bottomNavItems = [
     { href: '/settings', label: 'Settings', icon: FiSettings },
 ];
 
+// Pages that require email verification
+const emailVerificationRequired = new Set(['/glucose', '/meals', '/medications', '/insights', '/history', '/notifications', '/chat']);
+
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const { user, userProfile, loading, signOut } = useAuth();
     const pathname = usePathname();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [showFloatingChat, setShowFloatingChat] = useState(false);
 
     const isActive = (path: string) => pathname === path;
 
@@ -103,7 +109,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                             alt="Bluely"
                             width={48}
                             height={48}
-                            className="w-32 h-12"
+                            className="w-48 h-12"
                         />
                     </div>
                     <LoadingSpinner size="lg" />
@@ -141,7 +147,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 alt="Bluely"
                                 width={140}
                                 height={40}
-                                className="h-10 w-auto"
+                                className="h-32 w-auto"
                             />
                         )}
                     </Link>
@@ -175,6 +181,29 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.href);
+                        const locked = !user?.emailVerified && emailVerificationRequired.has(item.href);
+
+                        if (locked) {
+                            return (
+                                <div
+                                    key={item.href}
+                                    className={`group relative flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium text-gray-300 cursor-not-allowed`}
+                                    title="Verify your email to unlock"
+                                >
+                                    <Icon className="w-5 h-5 flex-shrink-0" />
+                                    {!sidebarCollapsed && (
+                                        <>
+                                            <span>{item.label}</span>
+                                            <FiLock className="w-3.5 h-3.5 ml-auto text-gray-300" />
+                                        </>
+                                    )}
+                                    {sidebarCollapsed && (
+                                        <FiLock className="absolute -top-1 -right-1 w-3 h-3 text-gray-400" />
+                                    )}
+                                </div>
+                            );
+                        }
+
                         return (
                             <Link
                                 key={item.href}
@@ -297,28 +326,45 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         </div>
 
                         {/* Quick Actions */}
-                        <Link
-                            href="/glucose"
-                            className="hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
-                        >
-                            <FiDroplet className="w-4 h-4" />
-                            <span>Log Reading</span>
-                        </Link>
+                        {user?.emailVerified ? (
+                            <Link
+                                href="/glucose"
+                                className="hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
+                            >
+                                <FiDroplet className="w-4 h-4" />
+                                <span>Log Reading</span>
+                            </Link>
+                        ) : (
+                            <div className="group relative hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gray-200 text-gray-400 rounded-xl text-sm font-medium cursor-not-allowed" title="Verify your email to unlock">
+                                <FiLock className="w-4 h-4" />
+                                <span>Log Reading</span>
+                            </div>
+                        )}
 
                         {/* Notifications */}
-                        <Link href="/notifications" className="relative p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
-                            <FiBell className="w-5 h-5" />
-                            {unreadCount > 0 && (
-                                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
-                                    {unreadCount > 9 ? '9+' : unreadCount}
-                                </span>
-                            )}
-                        </Link>
+                        {user?.emailVerified ? (
+                            <Link href="/notifications" className="relative p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
+                                <FiBell className="w-5 h-5" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                )}
+                            </Link>
+                        ) : (
+                            <div className="group relative p-2.5 rounded-xl bg-gray-100 text-gray-300 cursor-not-allowed" title="Verify your email to unlock">
+                                <FiBell className="w-5 h-5" />
+                            </div>
+                        )}
 
-                        {/* Help */}
-                        <button className="hidden sm:flex p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
-                            <FiHelpCircle className="w-5 h-5" />
-                        </button>
+                        {/* DiaBuddy Chat */}
+                        <Link
+                            href="/dashboard/chat"
+                            className="hidden sm:flex p-2.5 rounded-xl bg-gradient-to-br from-[#1F2F98]/10 to-[#4F5FD8]/10 text-[#1F2F98] hover:from-[#1F2F98]/20 hover:to-[#4F5FD8]/20 transition-colors"
+                            title="Chat with DiaBuddy"
+                        >
+                            <FiMessageCircle className="w-5 h-5" />
+                        </Link>
 
                         {/* User Avatar (Mobile) */}
                         <div className="relative md:hidden">
@@ -384,6 +430,25 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     ].map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.href);
+                        const locked = !user?.emailVerified && emailVerificationRequired.has(item.href);
+
+                        if (locked) {
+                            return (
+                                <div
+                                    key={item.href}
+                                    className="flex flex-col items-center justify-center py-1.5 px-1 rounded-xl min-w-0 text-gray-300 cursor-not-allowed"
+                                    title="Verify email to unlock"
+                                >
+                                    <div className="p-1.5 rounded-xl">
+                                        <FiLock className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-[10px] mt-0.5 font-medium truncate text-gray-300">
+                                        {item.label}
+                                    </span>
+                                </div>
+                            );
+                        }
+
                         return (
                             <Link
                                 key={item.href}
@@ -404,6 +469,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     })}
                 </div>
             </nav>
+
+            {/* Floating DiaBuddy Chat */}
+            {pathname !== '/dashboard/chat' && (
+                <>
+                    <FloatingChat isOpen={showFloatingChat} onClose={() => setShowFloatingChat(false)} />
+                    <button
+                        onClick={() => setShowFloatingChat((v) => !v)}
+                        className="fixed z-50 bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full shadow-lg shadow-[#1F2F98]/25 hover:shadow-xl hover:shadow-[#1F2F98]/30 transition-all hover:scale-105 active:scale-95 overflow-hidden ring-2 ring-white"
+                        title="Chat with DiaBuddy"
+                    >
+                        {showFloatingChat ? (
+                            <div className="w-full h-full bg-[#1F2F98] flex items-center justify-center">
+                                <FiMessageCircle className="w-6 h-6 text-white" />
+                            </div>
+                        ) : (
+                            <Image
+                                src="/diabuddy.png"
+                                alt="Chat with DiaBuddy"
+                                width={56}
+                                height={56}
+                                className="w-full h-full object-cover"
+                            />
+                        )}
+                    </button>
+                </>
+            )}
 
             {/* Click outside to close user menu */}
             {showUserMenu && (

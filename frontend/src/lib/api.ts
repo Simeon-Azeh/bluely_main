@@ -291,6 +291,13 @@ interface ForecastLogEntry {
     createdAt: string;
 }
 
+interface DiaBuddySummaryResponse {
+    summary: string;
+    source: 'ai' | 'rule-based';
+    provider?: string | null;
+    readingCount: number;
+}
+
 class ApiClient {
     private baseUrl: string;
 
@@ -665,6 +672,31 @@ class ApiClient {
     async getLifestyleLogs(firebaseUid: string, limit: number = 20): Promise<{ logs: LifestyleLogEntry[] }> {
         return this.request<{ logs: LifestyleLogEntry[] }>(
             `/wellness/lifestyle?firebaseUid=${firebaseUid}&limit=${limit}`
+        );
+    }
+
+    // ── DiaBuddy AI Summary ─────────────────────────────────────────────
+
+    async getDiaBuddySummary(firebaseUid: string): Promise<DiaBuddySummaryResponse> {
+        return this.request<DiaBuddySummaryResponse>(
+            `/predict/diabuddy/summarize?firebaseUid=${firebaseUid}`
+        );
+    }
+
+    // ── DiaBuddy Chat ───────────────────────────────────────────────────
+
+    async chatWithDiaBuddy(
+        firebaseUid: string,
+        message: string,
+        history: Array<{ role: string; content: string }> = [],
+        displayName?: string | null
+    ): Promise<{ reply: string; source: string; provider?: string | null; actions?: Array<{ type: string; data: Record<string, string> }> }> {
+        return this.request<{ reply: string; source: string; provider?: string | null; actions?: Array<{ type: string; data: Record<string, string> }> }>(
+            '/predict/diabuddy/chat',
+            {
+                method: 'POST',
+                body: JSON.stringify({ firebaseUid, message, history, displayName: displayName || undefined }),
+            }
         );
     }
 

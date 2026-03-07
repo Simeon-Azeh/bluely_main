@@ -1,6 +1,8 @@
 # Bluely ML Module
 
-## Setup
+Machine learning service for glucose prediction, risk classification, HbA1c estimation, and weekly analysis. Uses physiologically realistic synthetic data - no external datasets required.
+
+## Quick Start
 
 ### 1. Create a virtual environment
 
@@ -21,28 +23,29 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Download the dataset
+### 3. Generate synthetic training data
 
-Download the [Pima Indians Diabetes Dataset](https://www.kaggle.com/datasets/uciml/pima-indians-diabetes-database) and place `diabetes.csv` inside `ml/data/`.
+```bash
+python generate_synthetic_data.py
+```
+
+This simulates 200 virtual patients over 10 days each, producing ~135,000 physiologically realistic glucose samples in `data/synthetic_training_data.csv`.
 
 ### 4. Train the models
 
-**Pima risk classifier:**
 ```bash
-python train.py
+python train_bluely.py
 ```
 
-**OhioT1DM temporal predictor:**
-```bash
-python train_ohio.py
-```
+Trains two models on the synthetic data:
+- **Forecast**: Gradient Boosting Regressor (predicts glucose 30 min ahead) - MAE: 2.46 mg/dL
+- **Risk**: Random Forest Classifier (classifies low/normal/high risk) - Accuracy: 99.3%
 
-This will output evaluation metrics and save:
-- `models/glucose_model.joblib` — Random Forest model (Pima)
-- `models/scaler.joblib` — Feature scaler (Pima)
-- `models/logistic_model.joblib` — Logistic Regression baseline (Pima)
-- `models/ohio_glucose_predictor.joblib` — Gradient Boosting Regressor (OhioT1DM)
-- `models/ohio_scaler.joblib` — Feature scaler (OhioT1DM)
+Output files:
+- `models/bluely_forecast_model.joblib`
+- `models/bluely_forecast_scaler.joblib`
+- `models/bluely_risk_model.joblib`
+- `models/bluely_risk_scaler.joblib`
 
 ### 5. Start the prediction server
 
@@ -50,29 +53,43 @@ This will output evaluation metrics and save:
 uvicorn server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Or simply:
+### 6. Test the endpoints
 
+**Risk prediction:**
 ```bash
-python server.py
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d "{\"currentGlucose\": 165, \"diabetesType\": \"type2\", \"meal\": {\"carbsEstimate\": 45, \"mealType\": \"lunch\", \"minutesSinceMeal\": 90}, \"medication\": {\"dose\": 500, \"medicationType\": \"metformin\", \"minutesSinceTaken\": 120}, \"activity\": {\"intensity\": \"low\", \"durationMinutes\": 20, \"minutesSinceActivity\": 180}, \"wellness\": {\"sleepQuality\": 4, \"stressLevel\": 2, \"mood\": \"Good\"}, \"glucoseHistory\": [140, 155, 160, 162, 165], \"hour\": 14}"
 ```
 
-### 6. Test the endpoint
+**Health check:**
+```bash
+curl http://localhost:8000/health
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/predict` | Glucose risk classification (requires full context) |
+| POST | `/predict-glucose-30` | 30-minute glucose forecast (requires full context) |
+| POST | `/predict-trend` | Trend direction from readings |
+| POST | `/estimate-hba1c` | HbA1c estimation from glucose values |
+| POST | `/analyze-weekly` | Weekly time-in-range analysis |
+| GET | `/health` | Service health check |
+
+All strict endpoints return 422 with `missingInputs` details when required data is absent.
+
+## Hybrid Fine-Tuning
+
+Once real user data is available (>=21 readings), blend it with synthetic data:
 
 ```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"glucose": 148, "age": 33, "bmi": 28.5}'
+python train_bluely.py --finetune path/to/real_data.csv
 ```
 
 ## Deploying to Render
 
-### Quick Setup
-
-1. **Ensure models are committed** — `ml/models/*.joblib` must be in git (not gitignored)
-2. Create a **Web Service** on Render with the settings below
-3. Set `PYTHON_VERSION=3.12.7` in environment variables
-
-### Render Configuration
+1. Ensure `ml/models/*.joblib` files are committed to git
+2. Create a **Web Service** on Render:
 
 | Setting | Value |
 |---------|-------|
@@ -81,57 +98,29 @@ curl -X POST http://localhost:8000/predict \
 | **Build Command** | `chmod +x build.sh && ./build.sh` |
 | **Start Command** | `gunicorn server:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120` |
 
-### Environment Variables
+3. Set environment variables:
 
 | Variable | Value | Required |
 |----------|-------|----------|
-| `PYTHON_VERSION` | `3.12.7` | **Yes** — pandas/numpy fail on Python 3.14 |
-| `PORT` | `8000` | Optional (Render auto-injects on paid plans) |
+| `PYTHON_VERSION` | `3.12.7` | **Yes** - pandas/numpy fail on 3.14 |
 
-### Why Python 3.12?
-
-Render defaults to Python 3.14, which is too new for scientific Python packages. `pandas 2.x` fails to compile its Cython/C++ extensions on 3.14. Python 3.12 is the latest fully compatible version.
-
-### Verify Deploy
-
-```bash
-curl https://your-service.onrender.com/health
-# {"status":"ok","models":{"pima":"loaded","ohio":"loaded"}}
-```
-
-## API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| POST | `/predict` | Run Pima risk prediction |
-| POST | `/predict-trend` | User-data glucose trend prediction |
-
-## Datasets
-
-| Dataset | Purpose | Files |
-|---------|---------|-------|
-| Pima Indians Diabetes | Static risk classification | `data/diabetes.csv` |
-| OhioT1DM (Marling & Bunescu, 2020) | Temporal glucose prediction | `data/ohiot1dm/*.xml` |
-
-## Project Structure
+## File Structure
 
 ```
 ml/
-├── data/
-│   ├── diabetes.csv              # Pima Indians dataset
-│   └── ohiot1dm/                 # OhioT1DM XML dataset (6 patients)
-├── models/
-│   ├── glucose_model.joblib      # Pima Random Forest
-│   ├── logistic_model.joblib     # Pima Logistic Regression
-│   ├── scaler.joblib             # Pima feature scaler
-│   ├── ohio_glucose_predictor.joblib  # OhioT1DM GBR
-│   └── ohio_scaler.joblib        # OhioT1DM scaler
-├── train.py                      # Pima training pipeline
-├── train_ohio.py                 # OhioT1DM training pipeline
-├── parse_ohio.py                 # OhioT1DM XML parser
-├── predict.py                    # Prediction utility
-├── server.py                     # FastAPI server
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+|-- generate_synthetic_data.py  # Physiological glucose simulation
+|-- train_bluely.py             # Train forecast + risk models
+|-- predict_bluely.py           # Feature engineering + predictions
+|-- server.py                   # FastAPI v3.0 server
+|-- requirements.txt            # Python dependencies
+|-- build.sh                    # Render build script
+|-- data/
+|   +-- synthetic_training_data.csv
+|-- models/
+|   |-- bluely_forecast_model.joblib
+|   |-- bluely_forecast_scaler.joblib
+|   |-- bluely_risk_model.joblib
+|   +-- bluely_risk_scaler.joblib
 ```
+
+See [ML_DOCUMENTATION.md](../ML_DOCUMENTATION.md) for full technical documentation.

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { Card, CardContent, Button } from '@/components/ui';
-import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle } from 'react-icons/fi';
+import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle, FiSend } from 'react-icons/fi';
 import { IoFastFoodOutline } from 'react-icons/io5';
 
 // Carb level types
@@ -78,6 +79,11 @@ export default function MealsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
+    const [aiDescription, setAiDescription] = useState('');
+    const [aiEstimating, setAiEstimating] = useState(false);
+    const [aiResult, setAiResult] = useState<string | null>(null);
+    const [aiParsed, setAiParsed] = useState<{ carbsEstimate: number; carbLevel: CarbLevel; description: string } | null>(null);
+    const [aiLogging, setAiLogging] = useState(false);
 
     const handleDishSelect = (dish: CamerooniaDish) => {
         if (selectedDishes.includes(dish.id)) {
@@ -113,6 +119,78 @@ export default function MealsPage() {
             [customId]: customCarbLevel,
         }));
         setCustomDish('');
+    };
+
+    // Parse AI response to extract carbs and level
+    const parseAiResponse = (reply: string, desc: string): { carbsEstimate: number; carbLevel: CarbLevel; description: string } | null => {
+        const lower = reply.toLowerCase();
+        // Try to extract grams number
+        const carbMatch = reply.match(/(\d{1,4})\s*(?:[-–]\s*\d{1,4}\s*)?(?:g(?:rams)?|carb)/i)
+            || reply.match(/about\s+(\d{1,4})/i)
+            || reply.match(/(\d{1,4})\s*(?:total|estimated)/i);
+        const carbs = carbMatch ? parseInt(carbMatch[1], 10) : null;
+
+        // Determine level
+        let level: CarbLevel = 'medium';
+        if (lower.includes('high carb') || lower.includes('**high**') || lower.includes('high level')) level = 'high';
+        else if (lower.includes('low carb') || lower.includes('**low**') || lower.includes('low level')) level = 'low';
+        else if (lower.includes('medium carb') || lower.includes('**medium**') || lower.includes('moderate') || lower.includes('medium level')) level = 'medium';
+
+        if (carbs && carbs >= 1 && carbs <= 500) {
+            return { carbsEstimate: carbs, carbLevel: level, description: desc.trim() };
+        }
+        return null;
+    };
+
+    const handleAiEstimate = async () => {
+        if (!user || !aiDescription.trim()) return;
+        setAiEstimating(true);
+        setAiResult(null);
+        setAiParsed(null);
+        try {
+            const result = await api.chatWithDiaBuddy(
+                user.uid,
+                `I just ate: ${aiDescription.trim()}. Please estimate the total carbohydrate content in grams and the carb level (low/medium/high). Start your reply with the number of grams. Be brief — just give the estimate and a one-line note.`,
+                [],
+                user.displayName
+            );
+            setAiResult(result.reply);
+            setAiParsed(parseAiResponse(result.reply, aiDescription));
+        } catch {
+            setAiResult('Sorry, I couldn\'t estimate carbs right now. Please try again.');
+        } finally {
+            setAiEstimating(false);
+        }
+    };
+
+    const handleAiAccept = async () => {
+        if (!user || !aiParsed || !selectedMealType) return;
+        setAiLogging(true);
+        try {
+            await api.createMeal({
+                firebaseUid: user.uid,
+                mealType: selectedMealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+                carbsEstimate: aiParsed.carbsEstimate,
+                description: aiParsed.description.slice(0, 300),
+                timestamp: new Date().toISOString(),
+            });
+            try { await api.getGlucose30(user.uid, 'meal_log'); } catch { /* non-critical */ }
+            setIsSuccess(true);
+            setAiDescription('');
+            setAiResult(null);
+            setAiParsed(null);
+            setTimeout(() => {
+                setSelectedMealType('');
+                setSelectedDishes([]);
+                setDishCarbLevels({});
+                setNotes('');
+                setIsSuccess(false);
+            }, 2000);
+        } catch {
+            console.error('Failed to log AI meal');
+        } finally {
+            setAiLogging(false);
+        }
     };
 
     const handleSubmit = async () => {
@@ -185,7 +263,7 @@ export default function MealsPage() {
     };
 
     return (
-        <div className="space-y-5 max-w-2xl mx-auto">
+        <div className="space-y-5 max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-3">
                 <div className="w-11 h-11 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
@@ -277,13 +355,112 @@ export default function MealsPage() {
                 </CardContent>
             </Card>
 
+            {/* AI Meal Description */}
+            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-gradient-to-r from-[#1F2F98]/[0.03] to-[#4F5FD8]/[0.03]">
+                <CardContent>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Image src="/diabuddy.png" alt="DiaBuddy" width={28} height={28} className="rounded-full" />
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Describe your meal to DiaBuddy</h3>
+                            <p className="text-[11px] text-gray-400">AI will estimate the carb content for you</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={aiDescription}
+                            onChange={(e) => setAiDescription(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAiEstimate(); } }}
+                            placeholder="e.g. A plate of rice with stew and fried plantain"
+                            className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/15 focus:border-[#1F2F98]/30"
+                            disabled={aiEstimating}
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAiEstimate}
+                            disabled={!aiDescription.trim() || aiEstimating}
+                            className="px-4 py-2.5 bg-[#1F2F98] text-white rounded-xl text-sm font-medium disabled:opacity-30 hover:bg-[#1a2880] transition-colors flex items-center gap-1.5 shrink-0"
+                        >
+                            {aiEstimating ? (
+                                <FiSend className="w-4 h-4" />
+                            ) : (
+                                <FiSend className="w-4 h-4" />
+                            )}
+                            Estimate
+                        </button>
+                    </div>
+
+                    {/* Thinking animation */}
+                    {aiEstimating && (
+                        <div className="mt-3 p-3 bg-white rounded-xl border border-gray-100">
+                            <div className="flex items-center gap-2">
+                                <Image src="/diabuddy.png" alt="" width={20} height={20} className="rounded-full shrink-0" />
+                                <div className="flex items-center gap-1.5 text-sm text-[#1F2F98]">
+                                    <span className="font-medium">DiaBuddy is thinking</span>
+                                    <span className="flex gap-0.5">
+                                        <span className="w-1 h-1 bg-[#1F2F98]/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                        <span className="w-1 h-1 bg-[#1F2F98]/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                        <span className="w-1 h-1 bg-[#1F2F98]/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* AI Result */}
+                    {aiResult && !aiEstimating && (
+                        <div className="mt-3 space-y-2">
+                            <div className="p-3 bg-white rounded-xl border border-gray-100 text-sm text-gray-700 whitespace-pre-wrap">
+                                <div className="flex items-start gap-2">
+                                    <Image src="/diabuddy.png" alt="" width={20} height={20} className="rounded-full mt-0.5 shrink-0" />
+                                    <p>{aiResult}</p>
+                                </div>
+                            </div>
+
+                            {/* Parsed preview + Accept button */}
+                            {aiParsed && selectedMealType && (
+                                <div className="p-3 bg-[#1F2F98]/[0.04] rounded-xl border border-[#1F2F98]/10">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-semibold text-gray-700">Ready to log</p>
+                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${carbLevelConfig[aiParsed.carbLevel].bg} ${carbLevelConfig[aiParsed.carbLevel].color}`}>
+                                            {carbLevelConfig[aiParsed.carbLevel].label}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
+                                        <span><strong>{aiParsed.carbsEstimate}g</strong> carbs</span>
+                                        <span className="text-gray-300">·</span>
+                                        <span className="truncate">{aiParsed.description}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleAiAccept}
+                                        disabled={aiLogging}
+                                        className="w-full py-2 bg-[#1F2F98] text-white rounded-xl text-sm font-medium hover:bg-[#1a2880] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {aiLogging ? (
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <FiCheck className="w-4 h-4" />
+                                        )}
+                                        Accept & Log Meal
+                                    </button>
+                                </div>
+                            )}
+                            {aiParsed && !selectedMealType && (
+                                <p className="text-xs text-amber-600 px-1">Select a meal type above to accept this estimate.</p>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
             {/* Step 2: Select Foods */}
             <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                 <CardContent>
                     <h3 className="text-sm font-semibold text-gray-900 mb-1">2. What did you eat?</h3>
                     <p className="text-xs text-gray-400 mb-3">Select dishes. Carb estimates are for guidance only.</p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                         {cameroonianDishes.map((dish) => {
                             const isSelected = selectedDishes.includes(dish.id);
                             const config = carbLevelConfig[dish.carbLevel];

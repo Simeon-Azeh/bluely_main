@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui';
-import { FiDroplet, FiActivity, FiHeart, FiSmile } from 'react-icons/fi';
+import { FiDroplet, FiActivity, FiHeart, FiSmile, FiLock } from 'react-icons/fi';
 import { IoFastFoodOutline } from 'react-icons/io5';
 
 interface QuickAction {
@@ -55,11 +55,34 @@ const quickActions: QuickAction[] = [
     },
 ];
 
-export default function QuickActionsGrid() {
+interface QuickActionsGridProps {
+    emailVerified?: boolean;
+}
+
+export default function QuickActionsGrid({ emailVerified = true }: QuickActionsGridProps) {
     return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {quickActions.map((action) => {
                 const Icon = action.icon;
+
+                if (!emailVerified) {
+                    return (
+                        <div key={action.id} title="Verify your email to unlock">
+                            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.04)] opacity-50 cursor-not-allowed h-full">
+                                <CardContent className="p-4">
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="w-14 h-14 bg-gray-200 rounded-2xl flex items-center justify-center mb-3">
+                                            <FiLock className="w-6 h-6 text-gray-400" />
+                                        </div>
+                                        <h3 className="font-semibold text-gray-400 mb-1">{action.label}</h3>
+                                        <p className="text-xs text-gray-300">{action.description}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    );
+                }
+
                 return (
                     <Link key={action.id} href={action.href}>
                         <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">

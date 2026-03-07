@@ -36,7 +36,7 @@ export default function Footer() {
                             Bluely helps people living with diabetes understand their daily habits and turn them into simple, actionable insights. Built for African realities.
                         </p>
                         <div className="mt-6 flex items-center gap-2">
-                          
+
                             <span className="text-sm text-gray-500">Diabetes self-management for Africa</span>
                         </div>
                     </div>
@@ -89,12 +89,12 @@ export default function Footer() {
                         <h4 className="font-semibold text-white mb-4">Support</h4>
                         <ul className="space-y-3">
                             <li>
-                                <Link href="#" className="hover:text-white transition-colors">
+                                <Link href="/privacy" className="hover:text-white transition-colors">
                                     Privacy & Data Protection
                                 </Link>
                             </li>
                             <li>
-                                <Link href="#" className="hover:text-white transition-colors">
+                                <Link href="/terms" className="hover:text-white transition-colors">
                                     Terms of Service
                                 </Link>
                             </li>

@@ -31,13 +31,37 @@ const frequencies = [
 ];
 
 const injectionSites = [
-    { value: 'abdomen', label: 'Abdomen' },
+    { value: 'abdomen_left', label: 'Abdomen (Left)' },
+    { value: 'abdomen_right', label: 'Abdomen (Right)' },
     { value: 'thigh_left', label: 'Left Thigh' },
     { value: 'thigh_right', label: 'Right Thigh' },
     { value: 'arm_left', label: 'Left Arm' },
     { value: 'arm_right', label: 'Right Arm' },
-    { value: 'buttock', label: 'Buttock' },
+    { value: 'buttock_left', label: 'Buttock (Left)' },
+    { value: 'buttock_right', label: 'Buttock (Right)' },
 ];
+
+// Common diabetic medications found in Africa
+const commonMedSuggestions: Array<{
+    name: string;
+    type: string;
+    injectable: boolean;
+    doseUnit: string;
+    typicalDose: string;
+}> = [
+        { name: 'Metformin', type: 'metformin', injectable: false, doseUnit: 'mg', typicalDose: '500' },
+        { name: 'Glibenclamide', type: 'sulfonylurea', injectable: false, doseUnit: 'mg', typicalDose: '5' },
+        { name: 'Gliclazide', type: 'sulfonylurea', injectable: false, doseUnit: 'mg', typicalDose: '80' },
+        { name: 'Glimepiride', type: 'sulfonylurea', injectable: false, doseUnit: 'mg', typicalDose: '2' },
+        { name: 'Actrapid (Rapid)', type: 'insulin_rapid', injectable: true, doseUnit: 'units', typicalDose: '10' },
+        { name: 'NovoRapid', type: 'insulin_rapid', injectable: true, doseUnit: 'units', typicalDose: '10' },
+        { name: 'Humalog', type: 'insulin_rapid', injectable: true, doseUnit: 'units', typicalDose: '10' },
+        { name: 'Lantus (Glargine)', type: 'insulin_long', injectable: true, doseUnit: 'units', typicalDose: '20' },
+        { name: 'Levemir', type: 'insulin_long', injectable: true, doseUnit: 'units', typicalDose: '20' },
+        { name: 'Mixtard 30/70', type: 'insulin_mixed', injectable: true, doseUnit: 'units', typicalDose: '20' },
+        { name: 'Humulin 70/30', type: 'insulin_mixed', injectable: true, doseUnit: 'units', typicalDose: '20' },
+        { name: 'Pioglitazone', type: 'other', injectable: false, doseUnit: 'mg', typicalDose: '15' },
+    ];
 
 interface Medication {
     _id: string;
@@ -358,6 +382,40 @@ export default function MedicationsPage() {
                                 {editingMed ? 'Edit Medication' : 'New Medication'}
                             </h2>
                             <form onSubmit={editingMed ? handleEditMedication : handleAddMedication} className="space-y-4">
+                                {/* Common medication quick-fill */}
+                                {!editingMed && (
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-2">Common Medications</label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {commonMedSuggestions.map((med) => (
+                                                <button
+                                                    key={med.name}
+                                                    type="button"
+                                                    onClick={() => setForm({
+                                                        ...form,
+                                                        medicationName: med.name,
+                                                        medicationType: med.type,
+                                                        isInjectable: med.injectable,
+                                                        doseUnit: med.doseUnit,
+                                                        dosage: med.typicalDose,
+                                                    })}
+                                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${form.medicationName === med.name
+                                                            ? 'border-[#1F2F98] bg-[#1F2F98]/5 text-[#1F2F98]'
+                                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    {med.injectable ? (
+                                                        <TbVaccine className="w-3 h-3 text-violet-500" />
+                                                    ) : (
+                                                        <TbPill className="w-3 h-3 text-blue-500" />
+                                                    )}
+                                                    {med.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Medication Name
@@ -475,10 +533,10 @@ export default function MedicationsPage() {
                                                             <div
                                                                 key={site.value}
                                                                 className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${isRecommended
-                                                                        ? 'bg-green-100 border border-green-200'
-                                                                        : count > 5
-                                                                            ? 'bg-orange-50 border border-orange-100'
-                                                                            : 'bg-white border border-gray-100'
+                                                                    ? 'bg-green-100 border border-green-200'
+                                                                    : count > 5
+                                                                        ? 'bg-orange-50 border border-orange-100'
+                                                                        : 'bg-white border border-gray-100'
                                                                     }`}
                                                             >
                                                                 <span className={isRecommended ? 'font-medium text-green-700' : 'text-gray-600'}>

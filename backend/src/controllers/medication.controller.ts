@@ -206,7 +206,7 @@ export const getInjectionSiteRecommendation = async (req: Request, res: Response
             return;
         }
 
-        const allSites = ['abdomen', 'thigh_left', 'thigh_right', 'arm_left', 'arm_right', 'buttock'];
+        const allSites = ['abdomen_left', 'abdomen_right', 'thigh_left', 'thigh_right', 'arm_left', 'arm_right', 'buttock_left', 'buttock_right'];
 
         // Get recent injection logs
         const recentLogs = await MedicationLog.find({
@@ -243,12 +243,14 @@ export const getInjectionSiteRecommendation = async (req: Request, res: Response
         }
 
         const siteLabels: Record<string, string> = {
-            abdomen: 'Abdomen',
+            abdomen_left: 'Abdomen (Left)',
+            abdomen_right: 'Abdomen (Right)',
             thigh_left: 'Left Thigh',
             thigh_right: 'Right Thigh',
             arm_left: 'Left Arm',
             arm_right: 'Right Arm',
-            buttock: 'Buttock',
+            buttock_left: 'Buttock (Left)',
+            buttock_right: 'Buttock (Right)',
         };
 
         res.status(200).json({

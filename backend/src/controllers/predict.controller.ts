@@ -1,15 +1,28 @@
 import { Request, Response } from 'express';
-import { PredictionAnalysis, User, GlucoseReading, UserHealthProfile, Notification, ForecastLog, MedicationLog, Meal } from '../models';
-import type { IMedicationLog } from '../models/MedicationLog';
-import type { IMeal } from '../models/Meal';
+import {
+    PredictionAnalysis, User, GlucoseReading,
+    Notification, ForecastLog, MedicationLog, Meal, Activity, MoodLog, LifestyleLog,
+} from '../models';
 
 const ML_API_URL = process.env.ML_API_URL || 'http://localhost:8000';
 
-interface MLResult {
-    predicted_risk: number;
-    risk_level: string;
+// ── ML API v3 Response Types ────────────────────────────────────────────────
+
+interface MissingInput {
+    field: string;
+    label: string;
+    reason: string;
+    href: string;
+    icon: string;
+}
+
+interface MLRiskResult {
+    riskLevel: string;
+    riskCode: number;
     confidence: number;
     recommendation: string;
+    inputsComplete: boolean;
+    missingInputs?: MissingInput[] | null;
 }
 
 interface Glucose30MLResult {
@@ -23,18 +36,110 @@ interface Glucose30MLResult {
     riskAlert: string | null;
     factors: string[];
     modelUsed: string;
-    suggestions?: string[] | null;
-    missingDataActions?: { label: string; href: string; reason: string; icon?: string }[] | null;
+    inputsComplete: boolean;
+    missingInputs?: MissingInput[] | null;
+    personalized?: boolean;
+    personalizedGlucose?: number | null;
+    trainingSamples?: number | null;
+    aiInsight?: string | null;
+    aiInsightSource?: string | null;
 }
 
-// Helper: calculate age from DOB
-function calculateAge(dob?: Date): number {
-    if (!dob) return 30; // default
-    const diff = Date.now() - dob.getTime();
-    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+interface HbA1cMLResult {
+    estimatedHbA1c: number | null;
+    averageGlucose: number | null;
+    glucoseStd: number | null;
+    readingCount: number;
+    readingsNeeded: number;
+    confidenceNote: string;
+    interpretation: string | null;
 }
 
-// Request a prediction from the ML service
+interface WeeklyAnalysisMLResult {
+    averageGlucose: number;
+    glucoseStd: number;
+    timeInRange: number;
+    timeBelowRange: number;
+    timeAboveRange: number;
+    fastingAverage: number | null;
+    postMealAverage: number | null;
+    bestDay: string | null;
+    worstDay: string | null;
+    insights: string[];
+}
+
+// ── Context Gathering Helper ────────────────────────────────────────────────
+
+interface PredictionContext {
+    meal: { carbsEstimate: number; mealType: string; minutesSinceMeal: number } | null;
+    medication: { dose: number; medicationType: string; minutesSinceTaken: number } | null;
+    activity: { intensity: string; durationMinutes: number; minutesSinceActivity: number } | null;
+    wellness: { sleepQuality: number; stressLevel: number; mood: string } | null;
+    glucoseHistory: number[];
+    currentGlucose: number;
+    diabetesType: string;
+}
+
+async function gatherPredictionContext(firebaseUid: string): Promise<PredictionContext> {
+    const now = Date.now();
+    const sixHoursAgo = new Date(now - 6 * 60 * 60 * 1000);
+    const fourHoursAgo = new Date(now - 4 * 60 * 60 * 1000);
+
+    // Fetch all context in parallel
+    const [user, readings, recentMeal, recentMedLog, recentActivity, recentMood, recentLifestyle] =
+        await Promise.all([
+            User.findOne({ firebaseUid }),
+            GlucoseReading.find({ firebaseUid }).sort({ recordedAt: -1 }).limit(20),
+            Meal.findOne({ firebaseUid, timestamp: { $gte: fourHoursAgo } }).sort({ timestamp: -1 }),
+            MedicationLog.findOne({ firebaseUid, takenAt: { $gte: sixHoursAgo } }).sort({ takenAt: -1 }),
+            Activity.findOne({ firebaseUid, timestamp: { $gte: sixHoursAgo } }).sort({ timestamp: -1 }),
+            MoodLog.findOne({ firebaseUid }).sort({ createdAt: -1 }),
+            LifestyleLog.findOne({ firebaseUid }).sort({ createdAt: -1 }),
+        ]);
+
+    // Current glucose
+    const currentGlucose = readings.length > 0 ? readings[0].value : 0;
+
+    // Glucose history (oldest→newest, excluding current)
+    const glucoseHistory = readings.length > 1
+        ? readings.slice(1).reverse().map(r => r.value)
+        : [];
+
+    // Meal context
+    const meal = recentMeal ? {
+        carbsEstimate: recentMeal.carbsEstimate || 0,
+        mealType: recentMeal.mealType || 'snack',
+        minutesSinceMeal: Math.round((now - new Date(recentMeal.timestamp).getTime()) / 60000),
+    } : null;
+
+    // Medication context
+    const medication = recentMedLog ? {
+        dose: recentMedLog.dosage || 0,
+        medicationType: recentMedLog.medicationType || 'other',
+        minutesSinceTaken: Math.round((now - new Date(recentMedLog.takenAt).getTime()) / 60000),
+    } : null;
+
+    // Activity context
+    const activity = recentActivity ? {
+        intensity: recentActivity.activityLevel || 'low',
+        durationMinutes: recentActivity.durationMinutes || 30,
+        minutesSinceActivity: Math.round((now - new Date(recentActivity.timestamp).getTime()) / 60000),
+    } : null;
+
+    // Wellness context (combine mood + lifestyle logs)
+    const wellness = (recentMood || recentLifestyle) ? {
+        sleepQuality: recentLifestyle?.sleepQuality ?? 3,
+        stressLevel: recentLifestyle?.stressLevel ?? 3,
+        mood: recentMood?.mood ?? 'Okay',
+    } : null;
+
+    // Diabetes type
+    const diabetesType = user?.diabetesType || 'type2';
+
+    return { meal, medication, activity, wellness, glucoseHistory, currentGlucose, diabetesType };
+}
+
+// Request a risk prediction from the ML service (v3 — requires full context)
 export const getPrediction = async (req: Request, res: Response): Promise<void> => {
     try {
         const { firebaseUid } = req.body;
@@ -44,92 +149,107 @@ export const getPrediction = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        // 1. Gather user data
         const user = await User.findOne({ firebaseUid });
         if (!user) {
             res.status(404).json({ error: 'User not found' });
             return;
         }
 
-        const latestReading = await GlucoseReading.findOne({ firebaseUid }).sort({ recordedAt: -1 });
-        const healthProfile = await UserHealthProfile.findOne({ firebaseUid });
+        // Gather all context the ML model needs
+        const ctx = await gatherPredictionContext(firebaseUid);
 
-        // 2. Build features for the Pima-trained model
-        const features = {
-            pregnancies: 0,
-            glucose: latestReading?.value || 100,
-            blood_pressure: 72,
-            skin_thickness: 29,
-            insulin: 80,
-            bmi: 32,
-            diabetes_pedigree: 0.5,
-            age: calculateAge(user.dateOfBirth),
+        if (ctx.currentGlucose === 0) {
+            res.status(400).json({ error: 'No glucose readings found. Log a reading first.' });
+            return;
+        }
+
+        // Build ML API v3 payload
+        const payload = {
+            currentGlucose: ctx.currentGlucose,
+            diabetesType: ctx.diabetesType,
+            meal: ctx.meal,
+            medication: ctx.medication,
+            activity: ctx.activity,
+            wellness: ctx.wellness,
+            glucoseHistory: ctx.glucoseHistory.length >= 3 ? ctx.glucoseHistory : null,
+            hour: new Date().getHours(),
         };
 
-        // 3. Call the FastAPI ML service
-        let mlResult: MLResult;
+        let mlResult: MLRiskResult;
         try {
             const response = await fetch(`${ML_API_URL}/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(features),
+                body: JSON.stringify(payload),
             });
+
+            if (response.status === 422) {
+                // Input completeness error — return missing fields to frontend
+                const detail = await response.json() as { detail: { message: string; missingInputs: MissingInput[]; missingCount: number } };
+                res.status(422).json({
+                    error: 'incomplete_inputs',
+                    message: detail.detail.message,
+                    missingInputs: detail.detail.missingInputs,
+                    missingCount: detail.detail.missingCount,
+                });
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(`ML API responded with ${response.status}`);
             }
 
-            mlResult = await response.json() as MLResult;
+            mlResult = await response.json() as MLRiskResult;
         } catch (mlError) {
             console.warn('ML API unavailable, using fallback logic:', mlError);
             // Fallback: rule-based prediction when ML service is down
-            const glucoseValue = latestReading?.value || 100;
-            let riskLevel: 'normal' | 'elevated' | 'critical' = 'normal';
+            const glucoseValue = ctx.currentGlucose;
+            let riskLevel = 'normal';
             let recommendation = 'Current readings are within expected range. Consistent logging helps track patterns over time.';
 
-            if (glucoseValue > 180) {
-                riskLevel = 'critical';
+            if (glucoseValue > 250) {
+                riskLevel = 'high';
                 recommendation = 'Recent readings are above target range. Consider reviewing this pattern with your healthcare provider.';
-            } else if (glucoseValue > 140) {
-                riskLevel = 'elevated';
-                recommendation = 'Recent readings are slightly above target. More frequent monitoring may help clarify the trend.';
+            } else if (glucoseValue < 75) {
+                riskLevel = 'low';
+                recommendation = 'Recent readings are below target. Consider having a snack and monitoring closely.';
             }
 
             mlResult = {
-                predicted_risk: riskLevel === 'normal' ? 0 : 1,
-                risk_level: riskLevel,
-                confidence: 0.65,
+                riskLevel,
+                riskCode: riskLevel === 'normal' ? 1 : riskLevel === 'low' ? 0 : 2,
+                confidence: 0.5,
                 recommendation,
+                inputsComplete: false,
             };
         }
 
-        // 4. Save prediction
+        // Save prediction
         const prediction = await PredictionAnalysis.create({
             userId: user._id,
             firebaseUid,
-            predictedGlucose: latestReading?.value || 100,
-            riskLevel: mlResult.risk_level,
+            predictedGlucose: ctx.currentGlucose,
+            riskLevel: mlResult.riskLevel,
             confidence: mlResult.confidence,
-            features,
-            modelVersion: 'v1.0',
+            features: payload,
+            modelVersion: 'v3.0-bluely-synthetic',
             recommendation: mlResult.recommendation,
         });
 
-        // 5. Create notification for prediction
+        // Create notification
         try {
-            const notifTitle = mlResult.risk_level === 'critical'
+            const notifTitle = mlResult.riskLevel === 'high'
                 ? 'Elevated Risk Pattern Detected'
-                : mlResult.risk_level === 'elevated'
-                    ? 'Moderate Risk Pattern Noted'
+                : mlResult.riskLevel === 'low'
+                    ? 'Low Glucose Risk Noted'
                     : 'Risk Assessment Updated';
-            const notifMessage = mlResult.recommendation;
 
             await Notification.create({
                 userId: user._id,
                 firebaseUid,
                 type: 'prediction',
                 title: notifTitle,
-                message: notifMessage,
+                message: mlResult.recommendation,
                 data: {
                     predictedGlucose: prediction.predictedGlucose,
                     riskLevel: prediction.riskLevel,
@@ -315,7 +435,7 @@ export const getTrends = async (req: Request, res: Response): Promise<void> => {
     }
 };
 
-// 30-minute glucose forecast using OhioT1DM model
+// 30-minute glucose forecast using Bluely synthetic model (v3)
 export const getGlucose30 = async (req: Request, res: Response): Promise<void> => {
     try {
         const { firebaseUid } = req.query;
@@ -325,12 +445,10 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        // Get recent readings (up to 20)
+        // Check for recent readings
         const readings = await GlucoseReading.find({
             firebaseUid: firebaseUid as string,
-        })
-            .sort({ recordedAt: -1 })
-            .limit(20);
+        }).sort({ recordedAt: -1 }).limit(20);
 
         if (readings.length === 0) {
             res.status(200).json({ hasData: false, prediction: null });
@@ -339,9 +457,7 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
 
         const triggerEvent = (req.query.trigger as string) || 'auto';
 
-        // ── Cache check: return the most recent forecast if no new data since ──
-        // Only recalculate when triggered by a new log event or when readings
-        // are newer than the last forecast.
+        // Cache check: return recent forecast if no new data
         const lastForecast = await ForecastLog.findOne({
             firebaseUid: firebaseUid as string,
         }).sort({ createdAt: -1 });
@@ -352,9 +468,6 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             const forecastAge = Date.now() - lastForecastTime;
             const THIRTY_MINUTES = 30 * 60 * 1000;
 
-            // Return cached forecast if:
-            // 1. No new readings since the last forecast, AND
-            // 2. The forecast is less than 30 minutes old
             if (newestReadingTime <= lastForecastTime && forecastAge < THIRTY_MINUTES) {
                 res.status(200).json({
                     hasData: true,
@@ -376,86 +489,21 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             }
         }
 
-        // Reverse to oldest→newest
-        const ordered = readings.reverse();
-        const currentGlucose = ordered[ordered.length - 1].value;
-        const lastHour = new Date(ordered[ordered.length - 1].recordedAt).getHours();
+        // Gather full context for the ML v3 API
+        const ctx = await gatherPredictionContext(firebaseUid as string);
 
-        // Get health profile for context
-        const healthProfile = await UserHealthProfile.findOne({ firebaseUid: firebaseUid as string });
-        const user = await User.findOne({ firebaseUid: firebaseUid as string });
-
-        // Query recent medication logs (last 6 hours) for insulin/med context
-        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-        const recentMedLogs = await MedicationLog.find({
-            firebaseUid: firebaseUid as string,
-            takenAt: { $gte: sixHoursAgo },
-        }).sort({ takenAt: -1 }).limit(10);
-
-        // Query recent meals (last 4 hours) for carb context
-        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-        const recentMeals = await Meal.find({
-            firebaseUid: firebaseUid as string,
-            timestamp: { $gte: fourHoursAgo },
-        }).sort({ timestamp: -1 }).limit(5);
-
-        // Build payload for ML
-        const mlReadings = ordered.map((r) => ({
-            value: r.value,
-            readingType: r.readingType || 'random',
-            hour: new Date(r.recordedAt).getHours(),
-            dayOfWeek: new Date(r.recordedAt).getDay(),
-            medicationTaken: r.medicationTaken || false,
-            mealContext: r.mealContext || null,
-            activityContext: r.activityContext || null,
-            medicationTiming: r.medicationTiming || null,
-            medicationName: r.medicationName || null,
-            medicationType: r.medicationType || null,
-            medicationDose: r.medicationDose || null,
-            medicationDoseUnit: r.medicationDoseUnit || null,
-            injectionSite: r.injectionSite || null,
-        }));
-
-        // Build medication context for ML
-        const recentMedications = recentMedLogs.map((log: IMedicationLog) => ({
-            medicationType: log.medicationType,
-            dosage: log.dosage,
-            doseUnit: log.doseUnit,
-            hoursSincesTaken: Math.round(((Date.now() - new Date(log.takenAt).getTime()) / (1000 * 60 * 60)) * 10) / 10,
-        }));
-
-        // Build meal context for ML
-        const recentMealData = recentMeals.map((meal: IMeal) => ({
-            mealType: meal.mealType,
-            carbsEstimate: meal.carbsEstimate || null,
-            hoursSinceMeal: Math.round(((Date.now() - new Date(meal.timestamp).getTime()) / (1000 * 60 * 60)) * 10) / 10,
-        }));
-
+        // Build ML API v3 payload
         const payload = {
-            readings: mlReadings,
-            currentGlucose,
-            diabetesType: user?.diabetesType || null,
-            onMedication: healthProfile?.onMedication || false,
-            lastMealHoursAgo: null as number | null,
-            activityLevel: healthProfile?.activityLevel || null,
-            recentMedications,
-            recentMeals: recentMealData,
+            currentGlucose: ctx.currentGlucose,
+            diabetesType: ctx.diabetesType,
+            meal: ctx.meal,
+            medication: ctx.medication,
+            activity: ctx.activity,
+            wellness: ctx.wellness,
+            glucoseHistory: ctx.glucoseHistory.length >= 3 ? ctx.glucoseHistory : null,
+            hour: new Date().getHours(),
+            userId: firebaseUid as string,
         };
-
-        // Try to determine time since last meal (from Meal model first, fallback to reading context)
-        if (recentMeals.length > 0) {
-            const hoursSince = (Date.now() - new Date(recentMeals[0].timestamp).getTime()) / (1000 * 60 * 60);
-            payload.lastMealHoursAgo = Math.round(hoursSince * 10) / 10;
-        } else {
-            const lastMealReading = ordered.find(
-                (r) => r.readingType === 'after_meal' || r.mealContext
-            );
-            if (lastMealReading) {
-                const hoursSince =
-                    (Date.now() - new Date(lastMealReading.recordedAt).getTime()) / (1000 * 60 * 60);
-                payload.lastMealHoursAgo = Math.round(hoursSince * 10) / 10;
-            }
-        }
 
         let result: Glucose30MLResult;
 
@@ -466,6 +514,18 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
                 body: JSON.stringify(payload),
             });
 
+            if (response.status === 422) {
+                // Input completeness error — return missing fields to frontend
+                const detail = await response.json() as { detail: { message: string; missingInputs: MissingInput[]; missingCount: number } };
+                res.status(422).json({
+                    error: 'incomplete_inputs',
+                    message: detail.detail.message,
+                    missingInputs: detail.detail.missingInputs,
+                    missingCount: detail.detail.missingCount,
+                });
+                return;
+            }
+
             if (!response.ok) {
                 throw new Error(`ML API responded with ${response.status}`);
             }
@@ -475,8 +535,10 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             console.warn('ML predict-glucose-30 unavailable, using fallback:', mlError);
 
             // Fallback: simple extrapolation
+            const ordered = readings.slice().reverse();
             const values = ordered.map((r) => r.value);
             const n = values.length;
+            const currentGlucose = readings[0].value;
             let predicted = currentGlucose;
 
             if (n >= 2) {
@@ -511,12 +573,14 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
                 riskAlert: predicted < 70 ? 'Glucose may drop below target' : predicted > 180 ? 'Glucose may stay above target' : null,
                 factors: ['Statistical extrapolation (ML service unavailable)'],
                 modelUsed: 'fallback',
+                inputsComplete: false,
             };
         }
 
         const predictionTimestamp = new Date().toISOString();
+        const user = await User.findOne({ firebaseUid: firebaseUid as string });
 
-        // Save forecast to ForecastLog for historical tracking
+        // Save forecast to ForecastLog
         try {
             if (user) {
                 await ForecastLog.create({
@@ -532,7 +596,7 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
                     riskAlert: result.riskAlert || null,
                     factors: result.factors || [],
                     modelUsed: result.modelUsed,
-                    currentGlucose,
+                    currentGlucose: ctx.currentGlucose,
                     triggerEvent,
                 });
             }
@@ -545,7 +609,6 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             prediction: {
                 ...result,
                 predictionTimestamp,
-                missingDataActions: result.missingDataActions || null,
             },
         });
     } catch (error) {
@@ -572,5 +635,504 @@ export const getForecastHistory = async (req: Request, res: Response): Promise<v
     } catch (error) {
         console.error('Error fetching forecast history:', error);
         res.status(500).json({ error: 'Failed to fetch forecast history' });
+    }
+};
+
+// Estimate HbA1c from ≥21 glucose readings
+export const getHbA1cEstimate = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid } = req.query;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        // Fetch all readings for this user (last 90 days for best accuracy)
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        const readings = await GlucoseReading.find({
+            firebaseUid: firebaseUid as string,
+            recordedAt: { $gte: ninetyDaysAgo },
+        }).sort({ recordedAt: -1 });
+
+        const glucoseValues = readings.map(r => r.value);
+
+        try {
+            const response = await fetch(`${ML_API_URL}/estimate-hba1c`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ glucoseValues }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json() as HbA1cMLResult;
+            res.status(200).json(result);
+        } catch (mlError) {
+            console.warn('ML estimate-hba1c unavailable, using local calculation:', mlError);
+
+            // Local fallback using ADAG formula
+            if (glucoseValues.length < 21) {
+                res.status(200).json({
+                    estimatedHbA1c: null,
+                    averageGlucose: null,
+                    glucoseStd: null,
+                    readingCount: glucoseValues.length,
+                    readingsNeeded: 21 - glucoseValues.length,
+                    confidenceNote: `Need ${21 - glucoseValues.length} more readings for estimation.`,
+                    interpretation: null,
+                });
+                return;
+            }
+
+            const avg = glucoseValues.reduce((s, v) => s + v, 0) / glucoseValues.length;
+            const std = Math.sqrt(glucoseValues.reduce((s, v) => s + (v - avg) ** 2, 0) / glucoseValues.length);
+            const hba1c = Math.round(((avg + 46.7) / 28.7) * 10) / 10;
+
+            let interpretation = 'Within normal range';
+            if (hba1c >= 6.5) interpretation = 'Diabetic range — discuss with your healthcare provider';
+            else if (hba1c >= 5.7) interpretation = 'Prediabetic range — lifestyle modifications may help';
+
+            res.status(200).json({
+                estimatedHbA1c: hba1c,
+                averageGlucose: Math.round(avg * 10) / 10,
+                glucoseStd: Math.round(std * 10) / 10,
+                readingCount: glucoseValues.length,
+                readingsNeeded: 0,
+                confidenceNote: glucoseValues.length >= 50
+                    ? 'Good confidence — based on many readings'
+                    : 'Moderate confidence — more readings improve accuracy',
+                interpretation,
+            });
+        }
+    } catch (error) {
+        console.error('Error estimating HbA1c:', error);
+        res.status(500).json({ error: 'Failed to estimate HbA1c' });
+    }
+};
+
+// Weekly glucose analysis (TIR, insights, patterns)
+export const getWeeklyAnalysis = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid } = req.query;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        const user = await User.findOne({ firebaseUid: firebaseUid as string });
+
+        // Fetch readings from the past week
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const readings = await GlucoseReading.find({
+            firebaseUid: firebaseUid as string,
+            recordedAt: { $gte: oneWeekAgo },
+        }).sort({ recordedAt: 1 });
+
+        if (readings.length < 7) {
+            res.status(200).json({
+                hasData: false,
+                message: `Need at least 7 readings for weekly analysis. You have ${readings.length}.`,
+            });
+            return;
+        }
+
+        // Build ML payload
+        const mlReadings = readings.map(r => ({
+            value: r.value,
+            readingType: r.readingType || 'random',
+            hour: new Date(r.recordedAt).getHours(),
+            day: new Date(r.recordedAt).getDay() === 0 ? 6 : new Date(r.recordedAt).getDay() - 1, // Convert to Mon=0
+        }));
+
+        try {
+            const response = await fetch(`${ML_API_URL}/analyze-weekly`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    readings: mlReadings,
+                    diabetesType: user?.diabetesType || null,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json() as WeeklyAnalysisMLResult;
+            res.status(200).json({ hasData: true, analysis: result });
+        } catch (mlError) {
+            console.warn('ML analyze-weekly unavailable, using local calculation:', mlError);
+
+            // Local fallback
+            const values = readings.map(r => r.value);
+            const avg = values.reduce((s, v) => s + v, 0) / values.length;
+            const std = Math.sqrt(values.reduce((s, v) => s + (v - avg) ** 2, 0) / values.length);
+            const inRange = values.filter(v => v >= 70 && v <= 180).length;
+            const below = values.filter(v => v < 70).length;
+            const above = values.filter(v => v > 180).length;
+
+            res.status(200).json({
+                hasData: true,
+                analysis: {
+                    averageGlucose: Math.round(avg * 10) / 10,
+                    glucoseStd: Math.round(std * 10) / 10,
+                    timeInRange: Math.round(inRange / values.length * 1000) / 10,
+                    timeBelowRange: Math.round(below / values.length * 1000) / 10,
+                    timeAboveRange: Math.round(above / values.length * 1000) / 10,
+                    fastingAverage: null,
+                    postMealAverage: null,
+                    bestDay: null,
+                    worstDay: null,
+                    insights: ['Weekly analysis computed locally (ML service unavailable).'],
+                },
+            });
+        }
+    } catch (error) {
+        console.error('Error in weekly analysis:', error);
+        res.status(500).json({ error: 'Failed to perform weekly analysis' });
+    }
+};
+
+// DiaBuddy AI Summary
+export const getDiaBuddySummary = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid } = req.query;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        // Get recent readings
+        const readings = await GlucoseReading.find({
+            firebaseUid: firebaseUid as string,
+        }).sort({ recordedAt: -1 }).limit(50);
+
+        // Get user profile
+        const user = await User.findOne({ firebaseUid: firebaseUid as string });
+        const firstName = user?.displayName?.split(' ')[0] || 'there';
+
+        if (readings.length < 3) {
+            res.status(200).json({
+                summary: `Hey ${firstName}! I'm DiaBuddy, your glucose companion. I need at least 3 readings to create a summary for you. Keep logging and I'll have insights ready soon!`,
+                source: 'rule-based',
+                readingCount: readings.length,
+            });
+            return;
+        }
+
+        const readingsData = readings.map(r => ({
+            value: r.value,
+            readingType: r.readingType || 'random',
+        }));
+
+        const profileData = {
+            name: user?.displayName?.split(' ')[0] || 'there',
+            diabetes_type: user?.diabetesType || 'unknown',
+            targetMin: user?.targetGlucoseMin || 70,
+            targetMax: user?.targetGlucoseMax || 180,
+        };
+
+        try {
+            const response = await fetch(`${ML_API_URL}/diabuddy/summarize`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    readings: readingsData,
+                    profile: profileData,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json() as { summary: string; source: string; provider: string | null };
+            res.status(200).json({
+                ...result,
+                readingCount: readings.length,
+            });
+        } catch (mlError) {
+            // Fallback: generate a basic summary locally
+            const values = readings.map(r => r.value);
+            const avg = values.reduce((a, b) => a + b, 0) / values.length;
+            const inRange = values.filter(v => v >= 70 && v <= 180).length;
+            const tir = Math.round((inRange / values.length) * 100);
+
+            const name = user?.displayName?.split(' ')[0] || 'there';
+            let summary = `Hey ${name}! `;
+
+            if (tir >= 70) {
+                summary += `Great news — ${tir}% of your recent readings are within target range. That's really solid! `;
+            } else if (tir >= 50) {
+                summary += `You're at ${tir}% time in range — you're making progress! `;
+            } else {
+                summary += `Your time in range is ${tir}% right now. Let's work on improving that together. `;
+            }
+
+            summary += `Your average glucose is around ${Math.round(avg)} mg/dL across ${readings.length} readings. `;
+            summary += 'Keep logging consistently — the more data we have, the better insights I can provide!';
+
+            res.status(200).json({
+                summary,
+                source: 'rule-based',
+                provider: null,
+                readingCount: readings.length,
+            });
+        }
+    } catch (error) {
+        console.error('Error in DiaBuddy summary:', error);
+        res.status(500).json({ error: 'Failed to generate DiaBuddy summary' });
+    }
+};
+
+// Update personalization parameters
+export const updatePersonalization = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid, predictedGlucose, actualGlucose } = req.body;
+
+        if (!firebaseUid || predictedGlucose === undefined || actualGlucose === undefined) {
+            res.status(400).json({ error: 'firebaseUid, predictedGlucose, and actualGlucose are required' });
+            return;
+        }
+
+        // Get recent context for learning
+        const ctx = await gatherPredictionContext(firebaseUid);
+        const context: Record<string, number> = {};
+        if (ctx.medication) context.insulin_dose = ctx.medication.dose;
+        if (ctx.meal) context.carb_intake = ctx.meal.carbsEstimate;
+        if (ctx.activity) context.activity_minutes = ctx.activity.durationMinutes;
+
+        const response = await fetch(`${ML_API_URL}/personalization/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: firebaseUid,
+                predictedGlucose,
+                actualGlucose,
+                context,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`ML API responded with ${response.status}`);
+        }
+
+        const result = await response.json() as { updated: boolean; trainingSamples: number; isPersonalized: boolean; message: string };
+
+        // Sync to MongoDB
+        try {
+            const user = await User.findOne({ firebaseUid });
+            if (user) {
+                const { PatientModelProfile } = await import('../models/PatientModelProfile');
+                await PatientModelProfile.findOneAndUpdate(
+                    { firebaseUid },
+                    {
+                        userId: user._id,
+                        firebaseUid,
+                        trainingSamples: result.trainingSamples,
+                        isPersonalized: result.isPersonalized,
+                        lastUpdated: new Date(),
+                    },
+                    { upsert: true, new: true }
+                );
+            }
+        } catch (syncErr) {
+            console.warn('Failed to sync personalization to MongoDB (non-critical):', syncErr);
+        }
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error updating personalization:', error);
+        res.status(500).json({ error: 'Failed to update personalization' });
+    }
+};
+
+// Get personalization profile
+export const getPersonalizationProfile = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid } = req.query;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        try {
+            const response = await fetch(`${ML_API_URL}/personalization/profile/${firebaseUid}`);
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json();
+            res.status(200).json(result);
+        } catch {
+            // Return default profile if ML API unavailable
+            res.status(200).json({
+                userId: firebaseUid,
+                trainingSamples: 0,
+                isPersonalized: false,
+                baselineGlucoseBias: 0,
+                insulinSensitivityFactor: 1.0,
+                carbResponseFactor: 1.0,
+                activityResponseFactor: 1.0,
+                ewmaResidual: 0,
+            });
+        }
+    } catch (error) {
+        console.error('Error getting personalization profile:', error);
+        res.status(500).json({ error: 'Failed to get personalization profile' });
+    }
+};
+
+// DiaBuddy Chat
+export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid, message, history, displayName: clientDisplayName } = req.body;
+
+        if (!firebaseUid || !message) {
+            res.status(400).json({ error: 'firebaseUid and message are required' });
+            return;
+        }
+
+        // Get user name for personalization
+        // Prefer the MongoDB displayName (set during onboarding), fall back to Firebase
+        const user = await User.findOne({ firebaseUid: firebaseUid as string });
+        const candidateName = user?.displayName || clientDisplayName || null;
+        // Only use names that look like real names (not email-derived like "ksazeh29")
+        const firstName = candidateName && !candidateName.includes('@') && /[A-Z]/.test(candidateName)
+            ? candidateName.split(' ')[0]
+            : null;
+
+        // ── Fetch recent user data for context ──────────────────────────
+        let userDataContext: string | null = null;
+        try {
+            const now = new Date();
+            const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+            const [recentGlucose, recentMeals, recentMeds, recentActivity, recentMood] = await Promise.all([
+                GlucoseReading.find({ firebaseUid, recordedAt: { $gte: threeDaysAgo } })
+                    .sort({ recordedAt: -1 }).limit(8).lean(),
+                Meal.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
+                    .sort({ timestamp: -1 }).limit(5).lean(),
+                MedicationLog.find({ firebaseUid, takenAt: { $gte: threeDaysAgo } })
+                    .sort({ takenAt: -1 }).limit(5).lean(),
+                Activity.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
+                    .sort({ timestamp: -1 }).limit(5).lean(),
+                MoodLog.find({ firebaseUid, createdAt: { $gte: threeDaysAgo } })
+                    .sort({ createdAt: -1 }).limit(2).lean(),
+            ]);
+
+            const parts: string[] = [];
+
+            if (recentGlucose.length > 0) {
+                const readings = recentGlucose.map((r: any) => {
+                    const time = new Date(r.recordedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${r.value} mg/dL (${r.mealContext || 'unknown'}, ${time})`;
+                });
+                parts.push(`Recent glucose readings: ${readings.join('; ')}`);
+            }
+
+            if (recentMeals.length > 0) {
+                const meals = recentMeals.map((m: any) => {
+                    const time = new Date(m.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${m.mealType}: ${m.description || 'meal'} (${m.carbsEstimate ? m.carbsEstimate + 'g carbs, ' : ''}${time})`;
+                });
+                parts.push(`Recent meals: ${meals.join('; ')}`);
+            }
+
+            if (recentMeds.length > 0) {
+                const meds = recentMeds.map((m: any) => {
+                    const time = new Date(m.takenAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${m.medicationName} ${m.dosage}${m.doseUnit} (${time})`;
+                });
+                parts.push(`Recent medications: ${meds.join('; ')}`);
+            }
+
+            if (recentActivity.length > 0) {
+                const activities = recentActivity.map((a: any) => {
+                    const time = new Date(a.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                    return `${a.activityType || a.activityLevel} ${a.durationMinutes || '?'}min, intensity ${a.activityLevel} (${time})`;
+                });
+                parts.push(`Recent activities: ${activities.join('; ')}`);
+            }
+
+            if (recentMood.length > 0) {
+                const moods = recentMood.map((m: any) => {
+                    const time = new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                    return `mood: ${m.mood}${m.period ? ', ' + m.period : ''}${m.note ? ' — ' + m.note : ''} (${time})`;
+                });
+                parts.push(`Recent wellness: ${moods.join('; ')}`);
+            }
+
+            if (parts.length > 0) {
+                userDataContext = parts.join('. ');
+            }
+        } catch (dataErr) {
+            console.warn('Failed to fetch user data context for chat:', dataErr);
+        }
+
+        // Build messages array from history + current message
+        const messages: Array<{ role: string; content: string }> = [];
+        if (Array.isArray(history)) {
+            for (const msg of history.slice(-20)) {
+                if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+                    messages.push({ role: msg.role, content: String(msg.content).slice(0, 2000) });
+                }
+            }
+        }
+        messages.push({ role: 'user', content: String(message).slice(0, 2000) });
+
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 60000);
+
+            const response = await fetch(`${ML_API_URL}/diabuddy/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages,
+                    userName: firstName,
+                    userDataContext,
+                }),
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json() as {
+                reply: string;
+                source: string;
+                provider: string | null;
+                actions?: Array<{ type: string; data: Record<string, string> }> | null;
+            };
+
+            // Pass through parsed action proposals for the frontend to handle
+            res.status(200).json({
+                reply: result.reply,
+                source: result.source,
+                provider: result.provider,
+                actions: result.actions || undefined,
+            });
+        } catch (mlError) {
+            console.warn('ML diabuddy/chat unavailable:', mlError);
+            res.status(200).json({
+                reply: "I'm having trouble connecting right now. Please try again in a moment!",
+                source: 'fallback',
+                provider: null,
+            });
+        }
+    } catch (error) {
+        console.error('Error in DiaBuddy chat:', error);
+        res.status(500).json({ error: 'Failed to process chat message' });
     }
 };

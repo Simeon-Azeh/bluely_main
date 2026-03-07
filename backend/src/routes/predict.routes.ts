@@ -6,6 +6,12 @@ import {
     getTrends,
     getGlucose30,
     getForecastHistory,
+    getHbA1cEstimate,
+    getWeeklyAnalysis,
+    getDiaBuddySummary,
+    chatWithDiaBuddy,
+    updatePersonalization,
+    getPersonalizationProfile,
 } from '../controllers/predict.controller';
 
 const router = Router();
@@ -134,5 +140,134 @@ router.get('/glucose-30', getGlucose30);
  *         description: List of saved forecasts
  */
 router.get('/forecast-history', getForecastHistory);
+
+/**
+ * @swagger
+ * /predict/estimate-hba1c:
+ *   get:
+ *     summary: Estimate HbA1c from glucose readings
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: HbA1c estimation result
+ */
+router.get('/estimate-hba1c', getHbA1cEstimate);
+
+/**
+ * @swagger
+ * /predict/analyze-weekly:
+ *   get:
+ *     summary: Weekly glucose analysis with time-in-range
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Weekly analysis result
+ */
+router.get('/analyze-weekly', getWeeklyAnalysis);
+
+/**
+ * @swagger
+ * /predict/diabuddy/summarize:
+ *   get:
+ *     summary: Get DiaBuddy AI health summary
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: AI-generated health summary
+ */
+router.get('/diabuddy/summarize', getDiaBuddySummary);
+
+/**
+ * @swagger
+ * /predict/personalization/update:
+ *   post:
+ *     summary: Update patient personalization parameters
+ *     tags: [Predictions]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firebaseUid
+ *               - predictedGlucose
+ *               - actualGlucose
+ *             properties:
+ *               firebaseUid:
+ *                 type: string
+ *               predictedGlucose:
+ *                 type: number
+ *               actualGlucose:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Personalization update result
+ */
+router.post('/personalization/update', updatePersonalization);
+
+/**
+ * @swagger
+ * /predict/personalization/profile:
+ *   get:
+ *     summary: Get patient personalization profile
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Personalization profile data
+ */
+router.get('/personalization/profile', getPersonalizationProfile);
+
+/**
+ * @swagger
+ * /predict/diabuddy/chat:
+ *   post:
+ *     summary: Chat with DiaBuddy AI assistant
+ *     tags: [Predictions]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firebaseUid
+ *               - message
+ *             properties:
+ *               firebaseUid:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               history:
+ *                 type: array
+ *     responses:
+ *       200:
+ *         description: DiaBuddy chat response
+ */
+router.post('/diabuddy/chat', chatWithDiaBuddy);
 
 export default router;

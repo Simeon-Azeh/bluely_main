@@ -11,3 +11,5 @@ export { default as LifestyleCheckIn } from './LifestyleCheckIn';
 export { default as PredictionCard } from './PredictionCard';
 export { default as WeeklyTrendCard } from './WeeklyTrendCard';
 export { default as GlucoseForecastCard } from './GlucoseForecastCard';
+export { default as EmailVerificationCard } from './EmailVerificationCard';
+export { default as DiaBuddyCard } from './DiaBuddyCard';

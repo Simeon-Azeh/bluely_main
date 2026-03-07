@@ -14,7 +14,7 @@
 - [Demo Video](https://youtu.be/g1m0TP3f2tU)
 - [Figma Designs](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1)
 
-A web-based diabetes self-management system designed for users in low- and middle-income settings, with initial deployment targeting Cameroon.
+A web-based diabetes self-management system designed for users in low- and middle-income settings, with initial deployment targeting Cameroon. Features ML-powered glucose predictions, risk classification, HbA1c estimation, and weekly time-in-range analysis.
 
 ## Overview
 
@@ -23,7 +23,10 @@ Bluely is a digital health MVP that enables individuals living with diabetes to:
 - **Create an account** and securely authenticate using Firebase
 - **Complete onboarding** to personalize their experience
 - **Log blood glucose readings** with contextual factors (time, meals, activity)
-- **View historical data** in a clean, simple dashboard
+- **Log meals, medications, activities, mood, and lifestyle data**
+- **Get ML-powered glucose predictions** — 30-minute forecasts and risk classification
+- **View HbA1c estimates** and weekly time-in-range analysis
+- **View historical data** in a clean, simple dashboard with trend insights
 
 ## Supervisor
 
@@ -34,47 +37,67 @@ Bluely is a digital health MVP that enables individuals living with diabetes to:
 | Component | Technology |
 |-----------|------------|
 | **Frontend** | Next.js 15 (React 19) |
-| **Backend** | Next.js API Routes (Node.js) |
+| **Backend** | Express.js (TypeScript) |
+| **ML Service** | Python FastAPI + scikit-learn |
 | **Authentication** | Firebase Authentication |
-| **Database** | MongoDB with Mongoose ODM |
+| **Database** | MongoDB Atlas with Mongoose ODM |
+| **ML Models** | Gradient Boosting Regressor (forecast), Random Forest Classifier (risk) |
+| **Training Data** | Physiologically realistic synthetic data (200 patients, ~135K samples) |
 | **Styling** | Tailwind CSS |
 | **Forms** | React Hook Form + Zod validation |
 | **Charts** | Recharts |
-| **Icons** | React Icons (Feather) |
+| **Deployment** | Render (3 services) |
 
 ## Project Structure
 
 ```
 bluely_main/
-├── src/
-│   ├── app/                    # Next.js App Router pages
-│   │   ├── api/               # API routes
-│   │   │   ├── users/         # User management endpoints
-│   │   │   └── glucose/       # Glucose readings endpoints
-│   │   ├── dashboard/         # Dashboard page
-│   │   ├── glucose/           # Log glucose page
-│   │   ├── history/           # History page
-│   │   ├── settings/          # Settings page
-│   │   ├── login/             # Login page
-│   │   ├── signup/            # Signup page
-│   │   ├── forgot-password/   # Password reset page
-│   │   └── onboarding/        # Onboarding flow
-│   ├── components/
-│   │   ├── ui/                # Reusable UI components
-│   │   └── layout/            # Layout components
-│   ├── contexts/              # React contexts (Auth)
-│   └── lib/
-│       ├── firebase/          # Firebase configuration
-│       └── mongodb/           # MongoDB connection & models
-├── public/                    # Static assets
-└── .env.local                 # Environment variables
+├── frontend/                   # Next.js 15 frontend
+│   ├── src/
+│   │   ├── app/               # App Router pages
+│   │   │   ├── dashboard/     # Main dashboard
+│   │   │   ├── glucose/       # Log glucose
+│   │   │   ├── meals/         # Log meals
+│   │   │   ├── medications/   # Medication tracking
+│   │   │   ├── history/       # Reading history
+│   │   │   ├── insights/      # ML insights page
+│   │   │   ├── settings/      # User settings
+│   │   │   ├── login/         # Authentication
+│   │   │   ├── signup/
+│   │   │   └── onboarding/    # Onboarding flow
+│   │   ├── components/        # Reusable components
+│   │   ├── contexts/          # Auth context
+│   │   └── lib/               # API client, Firebase config
+│   └── public/                # Static assets, PWA manifest
+│
+├── backend/                    # Express.js API (TypeScript)
+│   └── src/
+│       ├── server.ts          # Express entry point
+│       ├── config/            # DB, Firebase, Swagger config
+│       ├── controllers/       # Route handlers
+│       ├── middleware/         # Auth, error handling
+│       ├── models/            # Mongoose models (12 models)
+│       └── routes/            # API route definitions
+│
+├── ml/                         # Python ML service
+│   ├── generate_synthetic_data.py  # Physiological simulation
+│   ├── train_bluely.py        # Model training pipeline
+│   ├── predict_bluely.py      # Feature engineering
+│   ├── server.py              # FastAPI v3.0 server
+│   ├── data/                  # Training data (generated)
+│   └── models/                # Trained model files (.joblib)
+│
+├── render.yaml                # Render deployment blueprint
+├── ML_DOCUMENTATION.md        # Full ML technical docs
+└── README.md                  # This file
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
+- Python 3.12
 - npm or yarn
 - MongoDB database (Atlas recommended)
 - Firebase project
@@ -87,58 +110,81 @@ bluely_main/
    cd bluely_main
    ```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### Running the ML Service
 
-3. **Configure environment variables**
+```bash
+cd ml
+python -m venv venv
 
-   Copy `.env.example` to `.env.local` and fill in your credentials:
-   ```bash
-   cp .env.example .env.local
-   ```
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
 
-   Required variables:
-   ```
-   # Firebase Configuration
-   NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+pip install -r requirements.txt
 
-   # MongoDB
-   MONGODB_URI=mongodb+srv://...
+# Generate training data (first time only)
+python generate_synthetic_data.py
 
-   # App
-   NEXTAUTH_SECRET=your_secret
-   NEXTAUTH_URL=http://localhost:3000
-   ```
+# Train models (first time only)
+python train_bluely.py
 
-4. **Set up Firebase**
-   - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-   - Enable Email/Password authentication
-   - Enable Google auth 
-   - Copy your web app configuration to `.env.local`
+# Start the server
+uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+```
 
-5. **Set up MongoDB**
-   - Create a MongoDB Atlas cluster at [cloud.mongodb.com](https://cloud.mongodb.com)
-   - Create a database user with read/write permissions
-   - **Important**: Add your IP address to the IP whitelist:
-     - Go to Network Access → Add IP Address
-     - Add your current IP address (or use `0.0.0.0/0` for development only)
-   - Copy your connection string to `.env.local` (replace `<password>` with your database user password)
+The ML server runs at `http://localhost:8000`. Test with `curl http://localhost:8000/health`.
 
-6. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+### Running the Backend
 
-7. **Open the app**
+```bash
+cd backend
+npm install
 
-   Navigate to [http://localhost:3000](http://localhost:3000)
+# Create .env file with:
+# MONGODB_URI=mongodb+srv://...
+# ML_API_URL=http://localhost:8000
+# FIREBASE_PROJECT_ID=your_project_id
+# FIREBASE_CLIENT_EMAIL=your_service_account_email
+# FIREBASE_PRIVATE_KEY=your_private_key
+# PORT=5000
+
+npm run dev
+```
+
+The backend runs at `http://localhost:5000`. API docs at `http://localhost:5000/api/docs`.
+
+### Running the Frontend
+
+```bash
+cd frontend
+npm install
+
+# Create .env.local file with:
+# NEXT_PUBLIC_API_URL=http://localhost:5000/api
+# NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+# NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+# NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+# NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+# NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+# NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+npm run dev
+```
+
+The frontend runs at `http://localhost:3000`.
+
+### Service Dependencies
+
+Start services in this order:
+1. **ML Service** (port 8000) — no dependencies
+2. **Backend** (port 5000) — depends on ML service + MongoDB
+3. **Frontend** (port 3000) — depends on Backend
+
+### External Services Setup
+
+1. **Firebase** — Create a project at [console.firebase.google.com](https://console.firebase.google.com), enable Email/Password and Google authentication
+2. **MongoDB Atlas** — Create a cluster at [cloud.mongodb.com](https://cloud.mongodb.com), add your IP to the whitelist
 
 ## Features
 
@@ -199,18 +245,42 @@ bluely_main/
 
 ## API Endpoints
 
-### Users
-- `GET /api/users?firebaseUid=xxx` - Get user profile
-- `POST /api/users` - Create new user
-- `PUT /api/users` - Update user profile
+### Backend API (Express)
 
-### Glucose Readings
-- `GET /api/glucose?firebaseUid=xxx` - Get readings (with pagination & date filters)
-- `POST /api/glucose` - Create new reading
-- `GET /api/glucose/[id]` - Get specific reading
-- `PUT /api/glucose/[id]` - Update reading
-- `DELETE /api/glucose/[id]` - Delete reading
-- `GET /api/glucose/stats?firebaseUid=xxx&days=7` - Get glucose statistics
+**Users**: `POST /api/users`, `GET /api/users`, `PUT /api/users`
+
+**Glucose Readings**: `POST /api/glucose`, `GET /api/glucose`, `GET /api/glucose/stats`, `DELETE /api/glucose/:id`
+
+**Meals**: `POST /api/meals`, `GET /api/meals`, `DELETE /api/meals/:id`
+
+**Medications**: `POST /api/medications`, `GET /api/medications`, `POST /api/medications/log`, `GET /api/medications/injection-site`
+
+**Activities**: `POST /api/activities`, `GET /api/activities`
+
+**Predictions (ML proxy)**:
+- `POST /api/predict` — Risk classification with full context gathering
+- `GET /api/predict/glucose-30` — 30-minute glucose forecast
+- `GET /api/predict/estimate-hba1c` — HbA1c estimation from readings
+- `GET /api/predict/analyze-weekly` — Weekly time-in-range analysis
+- `GET /api/predict/history` — Prediction history
+- `GET /api/predict/trends` — Weekly trends
+
+**Health Profile**: `POST /api/health-profile`, `GET /api/health-profile`
+
+**Notifications**: `GET /api/notifications`, `PATCH /api/notifications/:id/read`
+
+### ML API (FastAPI)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/predict` | Glucose risk classification |
+| POST | `/predict-glucose-30` | 30-minute forecast |
+| POST | `/predict-trend` | Trend prediction |
+| POST | `/estimate-hba1c` | HbA1c estimation |
+| POST | `/analyze-weekly` | Weekly analysis |
+| GET | `/health` | Health check |
+
+Full API documentation: `http://localhost:8000/docs` (Swagger UI)
 
 ## Design Principles
 
@@ -219,46 +289,25 @@ bluely_main/
 - **Mobile-first**: Responsive design for all devices
 - **Contextual feedback**: Color-coded glucose levels
 
-## Deployment Plan
+## Deployment
 
-### Development Environment
-- **Local Development**: Node.js + Next.js development server
-- **Version Control**: Git with GitHub repository
-- **Code Quality**: ESLint, Prettier, TypeScript strict mode
+The project deploys as 3 services on Render using the `render.yaml` blueprint:
 
-### Staging Environment
-- **Platform**: Vercel or Railway for staging deployment
-- **Database**: MongoDB Atlas staging cluster
-- **Authentication**: Firebase staging project
-- **Testing**: End-to-end testing with Cypress or Playwright
+| Service | Type | Runtime | Root Dir |
+|---------|------|---------|----------|
+| `bluely-ml` | Web Service | Python 3.12 | `ml` |
+| `bluely-backend` | Web Service | Node 20 | `backend` |
+| `bluely-frontend` | Static Site | Node 20 | `frontend` |
 
-### Production Environment
-- **Platform**: Vercel for frontend, Railway or Heroku for backend API
-- **Database**: MongoDB Atlas production cluster with backup
-- **Authentication**: Firebase production project
-- **CDN**: Vercel automatic CDN for static assets
-- **Monitoring**: Application monitoring with Sentry or similar
-- **Analytics**: User analytics with Google Analytics or Mixpanel
+Deploy order: ML → Backend → Frontend (each depends on the previous).
 
-### Deployment Steps
-1. **Code Review**: Pull request review and approval
-2. **Automated Testing**: CI/CD pipeline with GitHub Actions
-3. **Staging Deployment**: Automatic deployment to staging on merge to develop branch
-4. **Production Deployment**: Manual deployment to production after staging verification
-5. **Database Migration**: Automated schema migrations with MongoDB migration tools
-6. **Rollback Plan**: Quick rollback capability with previous deployment versions
+See [ML_DOCUMENTATION.md](ML_DOCUMENTATION.md) for detailed deployment steps and environment variable configuration.
 
 ### Security Considerations
 - **Data Encryption**: End-to-end encryption for sensitive health data
 - **Compliance**: GDPR and HIPAA compliance for health data
-- **Access Control**: Role-based access control and API authentication
-- **Regular Audits**: Security audits and penetration testing
-
-### Scaling Strategy
-- **Horizontal Scaling**: Load balancer with multiple server instances
-- **Database Scaling**: MongoDB sharding for large datasets
-- **Caching**: Redis for session and data caching
-- **CDN**: Global CDN for static assets and API responses
+- **Access Control**: Firebase auth + middleware-based API protection
+- **Clinical Safety**: All ML outputs use observational language, never medical instructions
 
 ## License
 

@@ -10,3 +10,4 @@ export { Notification, INotification } from './Notification';
 export { MoodLog, IMoodLog } from './MoodLog';
 export { LifestyleLog, ILifestyleLog } from './LifestyleLog';
 export { ForecastLog, IForecastLog } from './ForecastLog';
+export { PatientModelProfile, IPatientModelProfile } from './PatientModelProfile';

@@ -18,8 +18,10 @@ import {
     PredictionCard,
     WeeklyTrendCard,
     GlucoseForecastCard,
+    EmailVerificationCard,
+    DiaBuddyCard,
 } from '@/components/dashboard';
-import { FiAlertCircle, FiCircle, FiArrowRight } from 'react-icons/fi';
+import { FiAlertCircle, FiCircle, FiArrowRight, FiTrendingUp, FiDroplet } from 'react-icons/fi';
 import { format, isToday } from 'date-fns';
 import api from '@/lib/api';
 
@@ -75,6 +77,14 @@ const motivationalMessages = [
     "Consistency is key. You're building great habits!",
     "Be proud of yourself for prioritizing your health.",
 ];
+
+function getFirstName(displayName: string | null | undefined): string {
+    if (!displayName) return '';
+    if (displayName.includes('@')) return '';
+    const first = displayName.split(' ')[0];
+    if (first.length > 20 || /[^a-zA-Z\-']/.test(first)) return '';
+    return first;
+}
 
 export default function DashboardPage() {
     const { user, userProfile } = useAuth();
@@ -286,7 +296,7 @@ export default function DashboardPage() {
 
             {/* Welcome Header */}
             <WelcomeHeader
-                userName={user?.displayName?.split(' ')[0]}
+                userName={getFirstName(user?.displayName)}
                 motivationalMessage={motivationalMessage}
                 isOnboardingComplete={isOnboardingComplete}
                 todaysReadingsCount={todaysReadingsCount}
@@ -328,7 +338,7 @@ export default function DashboardPage() {
                                 </p>
                                 <div className="flex flex-wrap gap-2 mb-5">
                                     {['Set diabetes type', 'Configure target range', 'Choose units'].map((item) => (
-                                        <span key={item} className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white text-amber-700 border border-amber-200 shadow-sm">
+                                        <span key={item} className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white text-amber-700 border border-amber-200 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                                             <FiCircle className="w-2 h-2 mr-1.5" />
                                             {item}
                                         </span>
@@ -349,133 +359,168 @@ export default function DashboardPage() {
             {/* Only show features if onboarding is complete */}
             {isOnboardingComplete && (
                 <>
+                    {/* Email Verification Card */}
+                    {user && !user.emailVerified && (
+                        <EmailVerificationCard user={user} />
+                    )}
+
                     {/* Quick Actions Grid */}
-                    <QuickActionsGrid />
+                    <QuickActionsGrid emailVerified={user?.emailVerified ?? false} />
 
-                    {/* ── 30-Minute Glucose Forecast (always prominent) ── */}
-                    {glucose30.hasData && glucose30.prediction && (
-                        <GlucoseForecastCard
-                            predictedGlucose={glucose30.prediction.predictedGlucose}
-                            direction={glucose30.prediction.direction}
-                            directionArrow={glucose30.prediction.directionArrow}
-                            directionLabel={glucose30.prediction.directionLabel}
-                            confidence={glucose30.prediction.confidence}
-                            timeframe={glucose30.prediction.timeframe}
-                            recommendation={glucose30.prediction.recommendation}
-                            riskAlert={glucose30.prediction.riskAlert}
-                            factors={glucose30.prediction.factors}
-                            modelUsed={glucose30.prediction.modelUsed}
-                            predictionTimestamp={glucose30.prediction.predictionTimestamp}
-                            suggestions={glucose30.prediction.suggestions}
-                            missingDataActions={glucose30.prediction.missingDataActions}
-                            onRefresh={async () => {
-                                if (!user) return;
-                                try {
-                                    const g30Data = await api.getGlucose30(user.uid);
-                                    setGlucose30(g30Data);
-                                } catch (err) {
-                                    console.warn('Failed to refresh forecast:', err);
-                                }
-                            }}
-                        />
+                    {/* ── Features below require email verification ── */}
+                    {user?.emailVerified && (
+                        <>
+                            {/* ── 30-Minute Glucose Forecast (always prominent) ── */}
+                            {glucose30.hasData && glucose30.prediction && (
+                                <GlucoseForecastCard
+                                    predictedGlucose={glucose30.prediction.predictedGlucose}
+                                    direction={glucose30.prediction.direction}
+                                    directionArrow={glucose30.prediction.directionArrow}
+                                    directionLabel={glucose30.prediction.directionLabel}
+                                    confidence={glucose30.prediction.confidence}
+                                    timeframe={glucose30.prediction.timeframe}
+                                    recommendation={glucose30.prediction.recommendation}
+                                    riskAlert={glucose30.prediction.riskAlert}
+                                    factors={glucose30.prediction.factors}
+                                    modelUsed={glucose30.prediction.modelUsed}
+                                    predictionTimestamp={glucose30.prediction.predictionTimestamp}
+                                    suggestions={glucose30.prediction.suggestions}
+                                    missingDataActions={glucose30.prediction.missingDataActions}
+                                    onRefresh={async () => {
+                                        if (!user) return;
+                                        try {
+                                            const g30Data = await api.getGlucose30(user.uid);
+                                            setGlucose30(g30Data);
+                                        } catch (err) {
+                                            console.warn('Failed to refresh forecast:', err);
+                                        }
+                                    }}
+                                />
+                            )}
+                            {!glucose30.hasData && (
+                                <div className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 border border-gray-200 rounded-2xl">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 bg-[#1F2F98]/10 rounded-xl flex items-center justify-center shrink-0">
+                                            <FiTrendingUp className="w-5 h-5 text-[#1F2F98]" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">30-Min Glucose Forecast</p>
+                                            <p className="text-sm text-gray-500 mt-0.5">
+                                                Log a glucose reading to generate your first prediction.
+                                            </p>
+                                            <Link
+                                                href="/glucose"
+                                                className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-[#1F2F98] hover:underline"
+                                            >
+                                                <FiDroplet className="w-3.5 h-3.5" />
+                                                Log a reading →
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Progressive Data Collection Cards (prominent placement) ── */}
+
+                            {/* Card 1: Personalize Insights — shown after 1+ readings if no profile */}
+                            {showInsightsCard && (
+                                <InsightsCard
+                                    onComplete={() => {
+                                        setShowInsightsCard(false);
+                                        if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
+                                    }}
+                                    onDismiss={() => setShowInsightsCard(false)}
+                                />
+                            )}
+
+                            {/* Card 2: Medication Info — shown if user said yes to medication */}
+                            {showMedicationCard && (
+                                <MedicationCard
+                                    onComplete={() => {
+                                        setShowMedicationCard(false);
+                                        if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
+                                    }}
+                                    onDismiss={() => setShowMedicationCard(false)}
+                                />
+                            )}
+
+                            {/* Card 3: Lifestyle Check-In — shown weekly */}
+                            {showLifestyleCard && (
+                                <LifestyleCheckIn
+                                    onComplete={() => {
+                                        setShowLifestyleCard(false);
+                                        if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
+                                    }}
+                                    onDismiss={() => setShowLifestyleCard(false)}
+                                />
+                            )}
+
+                            {/* Mood Tracker */}
+                            <MoodTracker />
+
+                            {/* Today's Progress */}
+                            <TodaysProgress
+                                todaysReadingsCount={todaysReadingsCount}
+                                recommendedReadings={recommendedReadings}
+                                userName={getFirstName(user?.displayName)}
+                            />
+
+                            {/* Stats Grid */}
+                            <StatsGrid
+                                averageGlucose={stats?.averageGlucose || null}
+                                inRangePercentage={stats?.inRangePercentage || null}
+                                minGlucose={stats?.minGlucose || null}
+                                maxGlucose={stats?.maxGlucose || null}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            {/* Weekly Chart */}
+                            <WeeklyChart
+                                chartData={chartData}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            {/* Recent Readings */}
+                            <RecentReadings
+                                readings={recentReadings}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            {/* ── ML Output Cards ── */}
+
+                            {/* Card 4: Glucose Prediction */}
+                            {prediction.exists && prediction.prediction && (
+                                <PredictionCard
+                                    predictedGlucose={prediction.prediction.predictedGlucose}
+                                    riskLevel={prediction.prediction.riskLevel}
+                                    confidence={prediction.prediction.confidence}
+                                    recommendation={prediction.prediction.recommendation}
+                                />
+                            )}
+
+                            {/* Card 5: Weekly Trend Summary */}
+                            {trends.hasData && trends.trend && (
+                                <WeeklyTrendCard
+                                    direction={trends.trend.direction}
+                                    currentAverage={trends.trend.currentAverage}
+                                    previousAverage={trends.trend.previousAverage}
+                                    percentageChange={trends.trend.percentageChange}
+                                    totalReadings={trends.trend.totalReadings}
+                                    riskPeriod={trends.trend.riskPeriod}
+                                    recommendation={trends.trend.recommendation}
+                                />
+                            )}
+
+                            {/* DiaBuddy AI Summary */}
+                            <DiaBuddyCard compact />
+
+                            {/* Install App Card (Alternative placement) */}
+                            <InstallPrompt variant="card" onDismiss={() => { }} />
+                        </>
                     )}
-
-                    {/* ── Progressive Data Collection Cards (prominent placement) ── */}
-
-                    {/* Card 1: Personalize Insights — shown after 1+ readings if no profile */}
-                    {showInsightsCard && (
-                        <InsightsCard
-                            onComplete={() => {
-                                setShowInsightsCard(false);
-                                if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
-                            }}
-                            onDismiss={() => setShowInsightsCard(false)}
-                        />
-                    )}
-
-                    {/* Card 2: Medication Info — shown if user said yes to medication */}
-                    {showMedicationCard && (
-                        <MedicationCard
-                            onComplete={() => {
-                                setShowMedicationCard(false);
-                                if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
-                            }}
-                            onDismiss={() => setShowMedicationCard(false)}
-                        />
-                    )}
-
-                    {/* Card 3: Lifestyle Check-In — shown weekly */}
-                    {showLifestyleCard && (
-                        <LifestyleCheckIn
-                            onComplete={() => {
-                                setShowLifestyleCard(false);
-                                if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
-                            }}
-                            onDismiss={() => setShowLifestyleCard(false)}
-                        />
-                    )}
-
-                    {/* Mood Tracker */}
-                    <MoodTracker />
-
-                    {/* Today's Progress */}
-                    <TodaysProgress
-                        todaysReadingsCount={todaysReadingsCount}
-                        recommendedReadings={recommendedReadings}
-                        userName={user?.displayName?.split(' ')[0]}
-                    />
-
-                    {/* Stats Grid */}
-                    <StatsGrid
-                        averageGlucose={stats?.averageGlucose || null}
-                        inRangePercentage={stats?.inRangePercentage || null}
-                        minGlucose={stats?.minGlucose || null}
-                        maxGlucose={stats?.maxGlucose || null}
-                        targetMin={stats?.targetMin || 70}
-                        targetMax={stats?.targetMax || 180}
-                    />
-
-                    {/* Weekly Chart */}
-                    <WeeklyChart
-                        chartData={chartData}
-                        targetMin={stats?.targetMin || 70}
-                        targetMax={stats?.targetMax || 180}
-                    />
-
-                    {/* Recent Readings */}
-                    <RecentReadings
-                        readings={recentReadings}
-                        targetMin={stats?.targetMin || 70}
-                        targetMax={stats?.targetMax || 180}
-                    />
-
-                    {/* ── ML Output Cards ── */}
-
-                    {/* Card 4: Glucose Prediction */}
-                    {prediction.exists && prediction.prediction && (
-                        <PredictionCard
-                            predictedGlucose={prediction.prediction.predictedGlucose}
-                            riskLevel={prediction.prediction.riskLevel}
-                            confidence={prediction.prediction.confidence}
-                            recommendation={prediction.prediction.recommendation}
-                        />
-                    )}
-
-                    {/* Card 5: Weekly Trend Summary */}
-                    {trends.hasData && trends.trend && (
-                        <WeeklyTrendCard
-                            direction={trends.trend.direction}
-                            currentAverage={trends.trend.currentAverage}
-                            previousAverage={trends.trend.previousAverage}
-                            percentageChange={trends.trend.percentageChange}
-                            totalReadings={trends.trend.totalReadings}
-                            riskPeriod={trends.trend.riskPeriod}
-                            recommendation={trends.trend.recommendation}
-                        />
-                    )}
-
-                    {/* Install App Card (Alternative placement) */}
-                    <InstallPrompt variant="card" onDismiss={() => { }} />
                 </>
             )}
         </div>

@@ -3,6 +3,7 @@ import {
     signInWithEmailAndPassword,
     signOut,
     sendPasswordResetEmail,
+    sendEmailVerification,
     updateProfile,
     User,
     UserCredential,
@@ -23,6 +24,9 @@ export const signUp = async (
 
     // Update user profile with display name
     await updateProfile(userCredential.user, { displayName });
+
+    // Send email verification
+    await sendEmailVerification(userCredential.user);
 
     return userCredential;
 };
