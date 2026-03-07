@@ -6,6 +6,8 @@ import {
     getTrends,
     getGlucose30,
     getForecastHistory,
+    getHbA1cEstimate,
+    getWeeklyAnalysis,
 } from '../controllers/predict.controller';
 
 const router = Router();
@@ -134,5 +136,41 @@ router.get('/glucose-30', getGlucose30);
  *         description: List of saved forecasts
  */
 router.get('/forecast-history', getForecastHistory);
+
+/**
+ * @swagger
+ * /predict/estimate-hba1c:
+ *   get:
+ *     summary: Estimate HbA1c from glucose readings
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: HbA1c estimation result
+ */
+router.get('/estimate-hba1c', getHbA1cEstimate);
+
+/**
+ * @swagger
+ * /predict/analyze-weekly:
+ *   get:
+ *     summary: Weekly glucose analysis with time-in-range
+ *     tags: [Predictions]
+ *     parameters:
+ *       - in: query
+ *         name: firebaseUid
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Weekly analysis result
+ */
+router.get('/analyze-weekly', getWeeklyAnalysis);
 
 export default router;
