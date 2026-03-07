@@ -1,29 +1,33 @@
 """
-Bluely ML FastAPI Prediction Server (v3.0)
+Bluely ML FastAPI Prediction Server (v4.0)
 ============================================
-Serves glucose predictions using models trained on physiologically
-realistic synthetic data — no foreign datasets required.
+Serves glucose predictions with patient-personalized calibration
+and AI-powered insight generation.
+
+Architecture:
+  Layer 1 — Global Model: Trained on synthetic physiological data
+  Layer 2 — Patient Personalization: EWMA-based calibration per user (≥21 readings)
+  Layer 3 — AI Insight Engine: LLM-powered explanations (DeepSeek → OpenAI → Ollama → templates)
 
 Endpoints:
-  POST /predict              — Glucose risk classification (requires all inputs)
-  POST /predict-glucose-30   — 30-minute glucose forecast (requires all inputs)
-  POST /predict-trend        — Trend direction from historical readings
-  POST /estimate-hba1c       — HbA1c estimation from ≥21 readings
-  GET  /health               — Service health check
-
-Key Design Principles:
-  1. INPUT COMPLETENESS: Every prediction endpoint validates that all
-     physiologically relevant inputs are present. Missing data → 422 error
-     with a list of what's missing and why it matters. This ensures
-     predictions are medically meaningful, not guesses.
-  2. NO FOREIGN DATA: Models are trained on synthetic data generated from
-     physiological models. See generate_synthetic_data.py.
-  3. HYBRID READY: Once ≥21 real readings accumulate per patient,
-     models can be fine-tuned. See train_bluely.py --finetune.
+  POST /predict                    — Glucose risk classification
+  POST /predict-glucose-30         — 30-minute glucose forecast (+ personalization + AI insight)
+  POST /predict-trend              — Trend direction from historical readings
+  POST /estimate-hba1c             — HbA1c estimation from ≥21 readings
+  POST /analyze-weekly             — Weekly trend analysis
+  POST /personalization/update     — Update patient calibration parameters
+  GET  /personalization/profile/{user_id} — Get patient personalization profile
+  POST /ai-insight                 — Generate AI insight for prediction data
+  POST /diabuddy/summarize         — Generate DiaBuddy health summary
+  POST /diabuddy/chat              — Conversational DiaBuddy chat
+  GET  /health                     — Service health check
 
 Run:
     uvicorn server:app --host 0.0.0.0 --port 8000 --reload --reload-dir .
 """
+
+from dotenv import load_dotenv
+load_dotenv()  # Load .env before anything reads os.environ
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,6 +46,19 @@ from predict_bluely import (
     load_forecast_model,
     load_risk_model,
 )
+
+from personalization import (
+    load_patient_profile,
+    save_patient_profile,
+    update_patient_parameters,
+    predict_personalized_glucose,
+)
+
+from ai_insights import (
+    generate_ai_insight,
+    generate_summary_insight,
+)
+from ai_insights.llm_interface import LLMInterface
 
 # ── Probe model availability at startup ──────────────────────────────────────
 
@@ -69,10 +86,10 @@ app = FastAPI(
     title="Bluely ML API",
     description=(
         "Machine learning prediction service for Bluely diabetes management. "
-        "All models trained on physiologically realistic synthetic data — "
-        "no foreign datasets used. Enforces input completeness for every prediction."
+        "Features three-layer architecture: global models, patient-specific "
+        "personalization, and AI-powered insight generation via DiaBuddy."
     ),
-    version="3.0.0",
+    version="4.0.0",
 )
 
 # CORS — allow the Express backend to call this service
@@ -334,6 +351,7 @@ class Glucose30Input(BaseModel):
     wellness: Optional[WellnessContext] = None
     glucoseHistory: Optional[List[float]] = Field(None, description="Previous readings (oldest→newest)")
     hour: Optional[float] = Field(None, ge=0, lt=24)
+    userId: Optional[str] = Field(None, description="Patient ID for personalized predictions")
 
 
 class Glucose30Output(BaseModel):
@@ -346,17 +364,24 @@ class Glucose30Output(BaseModel):
     recommendation: str
     riskAlert: Optional[str] = None
     factors: List[str]
-    modelUsed: str              # 'bluely_synthetic'
+    modelUsed: str              # 'bluely_synthetic' or 'bluely_personalized'
     inputsComplete: bool
     missingInputs: Optional[List[MissingField]] = None
+    personalized: bool = False
+    personalizedGlucose: Optional[float] = None
+    trainingSamples: Optional[int] = None
+    aiInsight: Optional[str] = None
+    aiInsightSource: Optional[str] = None
 
 
 @app.post("/predict-glucose-30", response_model=Glucose30Output)
-def predict_glucose_30(input_data: Glucose30Input):
+async def predict_glucose_30(input_data: Glucose30Input):
     """
     Predict glucose level 30 minutes from now.
 
     Uses the Bluely model trained on physiologically realistic synthetic data.
+    If userId is provided and the patient has ≥21 readings, applies
+    personalized calibration. Includes AI-generated insight via DiaBuddy.
     Requires ALL context inputs. Returns 422 if any are missing.
     """
     try:
@@ -417,21 +442,6 @@ def predict_glucose_30(input_data: Glucose30Input):
         predicted, confidence = predict_glucose_30min(features)
         current = input_data.currentGlucose
 
-        # ── Direction ──
-        delta = predicted - current
-        if delta > 8:
-            direction = "rising"
-            arrow = "\u2191"
-            label = "Glucose is expected to rise over the next 30 minutes"
-        elif delta < -8:
-            direction = "dropping"
-            arrow = "\u2193"
-            label = "Glucose is expected to drop over the next 30 minutes"
-        else:
-            direction = "stable"
-            arrow = "\u2192"
-            label = "Glucose is expected to stay near current level"
-
         # ── Factors ──
         factors = ["Prediction from Bluely model (trained on synthetic physiological data)"]
 
@@ -468,27 +478,72 @@ def predict_glucose_30(input_data: Glucose30Input):
         if 4 <= hour <= 7:
             factors.append("Early morning — dawn phenomenon may affect levels")
 
+        # ── Personalization (Layer 2) ──
+        personalized = False
+        personalized_glucose = None
+        training_samples = None
+        final_predicted = predicted
+
+        if input_data.userId:
+            try:
+                feature_context = {
+                    "insulin_dose": input_data.medication.dose,
+                    "carb_intake": input_data.meal.carbsEstimate,
+                    "activity_minutes": input_data.activity.durationMinutes,
+                }
+                p_result = predict_personalized_glucose(
+                    user_id=input_data.userId,
+                    global_prediction=predicted,
+                    feature_context=feature_context,
+                )
+                if p_result["personalized"]:
+                    personalized = True
+                    personalized_glucose = round(p_result["calibrated_prediction"], 1)
+                    training_samples = p_result["training_samples"]
+                    final_predicted = personalized_glucose
+                    factors.append(
+                        f"Personalized calibration applied ({training_samples} readings)"
+                    )
+            except Exception as pe:
+                print(f"  Personalization skipped: {pe}")
+
+        # Recalculate direction with (potentially personalized) prediction
+        current = input_data.currentGlucose
+        delta = final_predicted - current
+        if delta > 8:
+            direction = "rising"
+            arrow = "\u2191"
+            label = "Glucose is expected to rise over the next 30 minutes"
+        elif delta < -8:
+            direction = "dropping"
+            arrow = "\u2193"
+            label = "Glucose is expected to drop over the next 30 minutes"
+        else:
+            direction = "stable"
+            arrow = "\u2192"
+            label = "Glucose is expected to stay near current level"
+
         # ── Risk alert ──
         risk_alert = None
-        if predicted < 70:
+        if final_predicted < 70:
             risk_alert = "Glucose may drop below target. Monitor closely and consider a snack."
-        elif predicted > 250:
+        elif final_predicted > 250:
             risk_alert = "Glucose may remain significantly elevated. Consider reviewing with your provider."
-        elif predicted > 180:
+        elif final_predicted > 180:
             risk_alert = "Glucose may stay above target range."
 
         # ── Recommendation ──
-        if direction == "rising" and predicted > 180:
+        if direction == "rising" and final_predicted > 180:
             recommendation = (
                 "An upward trend is detected with levels above target range. "
                 "Consider discussing this pattern with your healthcare provider."
             )
-        elif direction == "dropping" and predicted < 80:
+        elif direction == "dropping" and final_predicted < 80:
             recommendation = (
                 "A downward trend is detected approaching lower range. "
                 "More frequent monitoring may be helpful."
             )
-        elif direction == "stable" and 70 <= predicted <= 140:
+        elif direction == "stable" and 70 <= final_predicted <= 140:
             recommendation = "Levels appear stable and within target. Keep up your routine!"
         elif direction == "rising":
             recommendation = "A mild upward trend is expected. Staying hydrated and active may help."
@@ -497,8 +552,28 @@ def predict_glucose_30(input_data: Glucose30Input):
         else:
             recommendation = "Levels appear stable. Continue logging to track patterns."
 
+        # ── AI Insight (Layer 3) ──
+        ai_insight_text = None
+        ai_insight_source = None
+        try:
+            insight_data = {
+                "predicted_glucose": final_predicted,
+                "risk_level": risk_alert or "normal",
+                "current_glucose": current,
+                "meal_type": input_data.meal.mealType,
+                "insulin_dose": input_data.medication.dose,
+                "activity_minutes": input_data.activity.durationMinutes,
+                "carb_intake": input_data.meal.carbsEstimate,
+                "personalized": personalized,
+            }
+            insight_result = await generate_ai_insight(insight_data)
+            ai_insight_text = insight_result["insight"]
+            ai_insight_source = insight_result["source"]
+        except Exception as ie:
+            print(f"  AI insight generation skipped: {ie}")
+
         return Glucose30Output(
-            predictedGlucose=predicted,
+            predictedGlucose=round(final_predicted, 1),
             direction=direction,
             directionArrow=arrow,
             directionLabel=label,
@@ -507,9 +582,14 @@ def predict_glucose_30(input_data: Glucose30Input):
             recommendation=recommendation,
             riskAlert=risk_alert,
             factors=factors,
-            modelUsed="bluely_synthetic",
+            modelUsed="bluely_personalized" if personalized else "bluely_synthetic",
             inputsComplete=True,
             missingInputs=None,
+            personalized=personalized,
+            personalizedGlucose=personalized_glucose,
+            trainingSamples=training_samples,
+            aiInsight=ai_insight_text,
+            aiInsightSource=ai_insight_source,
         )
 
     except HTTPException:
@@ -875,15 +955,301 @@ def analyze_weekly(input_data: WeeklyAnalysisInput):
 
 # ── Health Check ─────────────────────────────────────────────────────────────
 
+# ── Endpoint: Personalization Update ─────────────────────────────────────────
+
+class PersonalizationUpdateInput(BaseModel):
+    """Input for updating patient personalization parameters."""
+    userId: str = Field(..., description="Patient identifier")
+    predictedGlucose: float = Field(..., ge=20, le=600, description="What the model predicted")
+    actualGlucose: float = Field(..., ge=20, le=600, description="What the actual reading was")
+    context: Optional[Dict] = Field(None, description="Feature context (insulin, carbs, activity)")
+
+
+class PersonalizationUpdateOutput(BaseModel):
+    updated: bool
+    trainingSamples: int
+    isPersonalized: bool
+    message: str
+
+
+@app.post("/personalization/update", response_model=PersonalizationUpdateOutput)
+def personalization_update(input_data: PersonalizationUpdateInput):
+    """
+    Update patient personalization parameters with a new predicted/actual pair.
+
+    Called by the backend whenever a patient logs a glucose reading
+    that corresponds to a previous 30-min prediction. The system learns
+    from prediction errors to improve future predictions for this patient.
+    """
+    try:
+        context = input_data.context or {}
+        profile = update_patient_parameters(
+            user_id=input_data.userId,
+            predicted=input_data.predictedGlucose,
+            actual=input_data.actualGlucose,
+            context=context,
+        )
+        return PersonalizationUpdateOutput(
+            updated=True,
+            trainingSamples=profile.training_samples,
+            isPersonalized=profile.is_personalized,
+            message=(
+                f"Profile updated ({profile.training_samples} samples). "
+                f"{'Personalization active.' if profile.is_personalized else f'Need {21 - profile.training_samples} more readings for personalization.'}"
+            ),
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Endpoint: Get Personalization Profile ────────────────────────────────────
+
+class PersonalizationProfileOutput(BaseModel):
+    userId: str
+    trainingSamples: int
+    isPersonalized: bool
+    baselineGlucoseBias: float
+    insulinSensitivityFactor: float
+    carbResponseFactor: float
+    activityResponseFactor: float
+    ewmaResidual: float
+
+
+@app.get("/personalization/profile/{user_id}", response_model=PersonalizationProfileOutput)
+def get_personalization_profile(user_id: str):
+    """Get the personalization profile for a patient."""
+    try:
+        profile = load_patient_profile(user_id)
+        return PersonalizationProfileOutput(
+            userId=profile.user_id,
+            trainingSamples=profile.training_samples,
+            isPersonalized=profile.is_personalized,
+            baselineGlucoseBias=round(profile.baseline_glucose_bias, 2),
+            insulinSensitivityFactor=round(profile.insulin_sensitivity_factor, 3),
+            carbResponseFactor=round(profile.carb_response_factor, 3),
+            activityResponseFactor=round(profile.activity_response_factor, 3),
+            ewmaResidual=round(profile.ewma_residual, 2),
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Endpoint: AI Insight ─────────────────────────────────────────────────────
+
+class AIInsightInput(BaseModel):
+    """Input for generating an AI insight for a prediction."""
+    predictedGlucose: float
+    currentGlucose: float
+    riskLevel: Optional[str] = "normal"
+    mealType: Optional[str] = "none"
+    insulinDose: Optional[float] = 0
+    activityMinutes: Optional[float] = 0
+    carbIntake: Optional[float] = 0
+    personalized: bool = False
+
+
+class AIInsightOutput(BaseModel):
+    insight: str
+    source: str         # 'ai' or 'rule-based'
+    provider: Optional[str] = None
+
+
+@app.post("/ai-insight", response_model=AIInsightOutput)
+async def ai_insight_endpoint(input_data: AIInsightInput):
+    """
+    Generate an AI-powered insight for prediction data.
+    Falls back to rule-based templates if LLM is unavailable.
+    """
+    try:
+        prediction_data = {
+            "predicted_glucose": input_data.predictedGlucose,
+            "current_glucose": input_data.currentGlucose,
+            "risk_level": input_data.riskLevel,
+            "meal_type": input_data.mealType,
+            "insulin_dose": input_data.insulinDose,
+            "activity_minutes": input_data.activityMinutes,
+            "carb_intake": input_data.carbIntake,
+            "personalized": input_data.personalized,
+        }
+        result = await generate_ai_insight(prediction_data)
+        return AIInsightOutput(
+            insight=result["insight"],
+            source=result["source"],
+            provider=result.get("provider"),
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Endpoint: DiaBuddy Summary ───────────────────────────────────────────────
+
+class DiaBuddyReadingInput(BaseModel):
+    value: float
+    readingType: Optional[str] = "random"
+
+
+class DiaBuddySummaryInput(BaseModel):
+    """Input for DiaBuddy health summary generation."""
+    readings: List[DiaBuddyReadingInput] = Field(..., min_length=1)
+    profile: Optional[Dict] = Field(None, description="User health profile data")
+
+
+class DiaBuddySummaryOutput(BaseModel):
+    summary: str
+    source: str         # 'ai' or 'rule-based'
+    provider: Optional[str] = None
+
+
+@app.post("/diabuddy/summarize", response_model=DiaBuddySummaryOutput)
+async def diabuddy_summarize(input_data: DiaBuddySummaryInput):
+    """
+    Generate a DiaBuddy health summary from recent glucose readings.
+    Uses LLM for personalized, warm summaries with rule-based fallback.
+    """
+    try:
+        readings_data = [{"value": r.value, "readingType": r.readingType} for r in input_data.readings]
+        profile_data = input_data.profile or {}
+
+        result = await generate_summary_insight(readings_data, profile_data)
+        return DiaBuddySummaryOutput(
+            summary=result["summary"],
+            source=result["source"],
+            provider=result.get("provider"),
+        )
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Endpoint: DiaBuddy Chat ─────────────────────────────────────────────────
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., min_length=1, max_length=2000)
+
+class DiaBuddyChatInput(BaseModel):
+    messages: List[ChatMessage]
+    userName: Optional[str] = None
+    userDataContext: Optional[str] = None
+
+class DiaBuddyChatOutput(BaseModel):
+    reply: str
+    source: str           # 'ai' or 'fallback'
+    provider: Optional[str] = None
+
+
+@app.post("/diabuddy/chat", response_model=DiaBuddyChatOutput)
+async def diabuddy_chat(input_data: DiaBuddyChatInput):
+    """
+    Conversational chat with DiaBuddy.
+    Only answers diabetes-related questions, never gives medical advice.
+    """
+    try:
+        llm = LLMInterface()
+
+        # Build messages list, injecting user context
+        messages = []
+
+        # Inject user data context as a system-level preamble in the first user message
+        context_prefix = ""
+        if input_data.userName:
+            context_prefix += f"[User's name is {input_data.userName}] "
+        if input_data.userDataContext:
+            context_prefix += f"[USER DATA CONTEXT: {input_data.userDataContext}] "
+
+        for msg in input_data.messages:
+            content = msg.content
+            if msg.role == "user" and not messages and context_prefix:
+                content = f"{context_prefix}{content}"
+            messages.append({"role": msg.role, "content": content})
+
+        reply = await llm.chat(messages, max_tokens=400, temperature=0.7)
+
+        if reply:
+            return DiaBuddyChatOutput(
+                reply=reply,
+                source="ai",
+                provider=llm.get_active_provider(),
+            )
+
+        # Fallback if all providers fail
+        return DiaBuddyChatOutput(
+            reply="I'm having trouble connecting right now. Please try again in a moment!",
+            source="fallback",
+            provider=None,
+        )
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Health Check ─────────────────────────────────────────────────────────────
+
+@app.get("/health/llm")
+async def health_check_llm():
+    """Ping LLM providers to verify connectivity."""
+    from ai_insights.llm_interface import LLMInterface
+    llm = LLMInterface()
+    results = {}
+
+    # Test each configured provider with a trivial prompt
+    for provider in llm.providers:
+        try:
+            if provider.value == "deepseek":
+                reply = await llm._call_chat_openai_compat(
+                    "https://api.deepseek.com/chat/completions",
+                    llm.deepseek_key, "deepseek-chat",
+                    [{"role": "user", "content": "Reply with OK"}],
+                    max_tokens=5, temperature=0,
+                )
+                results["deepseek"] = {"status": "connected", "reply": reply}
+            elif provider.value == "openai":
+                reply = await llm._call_chat_openai_compat(
+                    "https://api.openai.com/v1/chat/completions",
+                    llm.openai_key, "gpt-4o-mini",
+                    [{"role": "user", "content": "Reply with OK"}],
+                    max_tokens=5, temperature=0,
+                )
+                results["openai"] = {"status": "connected", "reply": reply}
+            elif provider.value == "ollama":
+                reply = await llm._call_chat_ollama(
+                    [{"role": "user", "content": "Reply with OK"}],
+                    max_tokens=5, temperature=0,
+                )
+                results["ollama"] = {"status": "connected", "reply": reply}
+        except Exception as e:
+            results[provider.value] = {"status": "failed", "error": str(e)}
+
+    has_key = bool(llm.deepseek_key)
+    any_connected = any(r["status"] == "connected" for r in results.values())
+
+    return {
+        "llmProviders": results,
+        "deepseekKeyConfigured": has_key,
+        "anyProviderConnected": any_connected,
+        "providerOrder": [p.value for p in llm.providers],
+    }
+
+
 @app.get("/health")
 def health_check():
     """Health check — confirms which models are loaded and ready."""
     return {
         "status": "healthy",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "models": {
             "forecast": "loaded" if FORECAST_MODEL_LOADED else "not loaded",
             "risk": "loaded" if RISK_MODEL_LOADED else "not loaded",
+        },
+        "features": {
+            "personalization": True,
+            "aiInsights": True,
+            "diabuddy": True,
+            "diabuddyChat": True,
         },
         "dataSource": "synthetic (physiologically modeled)",
         "inputEnforcement": True,

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, Button, LoadingSpinner } from '@/components/ui';
 import { FiTrendingUp, FiSun, FiMoon, FiActivity, FiTarget, FiDroplet, FiArrowRight, FiHeart, FiBarChart2 } from 'react-icons/fi';
 import api from '@/lib/api';
+import { DiaBuddyCard } from '@/components/dashboard';
 
 interface Reading {
     _id: string;
@@ -314,6 +315,11 @@ export default function InsightsPage() {
                         );
                     })}
                 </div>
+            )}
+
+            {/* ── DiaBuddy AI Summary ── */}
+            {hasEnoughData && (
+                <DiaBuddyCard />
             )}
 
             {/* ── Estimated HbA1c Card ── */}

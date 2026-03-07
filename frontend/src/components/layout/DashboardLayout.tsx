@@ -18,7 +18,7 @@ import {
     FiChevronLeft,
     FiChevronRight,
     FiUser,
-    FiHelpCircle,
+    FiMessageCircle,
     FiSun,
     FiMoon,
     FiLock
@@ -46,7 +46,7 @@ const bottomNavItems = [
 ];
 
 // Pages that require email verification
-const emailVerificationRequired = new Set(['/glucose', '/meals', '/medications', '/insights', '/history', '/notifications']);
+const emailVerificationRequired = new Set(['/glucose', '/meals', '/medications', '/insights', '/history', '/notifications', '/chat']);
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const { user, userProfile, loading, signOut } = useAuth();
@@ -107,7 +107,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                             alt="Bluely"
                             width={48}
                             height={48}
-                            className="w-32 h-12"
+                            className="w-48 h-12"
                         />
                     </div>
                     <LoadingSpinner size="lg" />
@@ -145,7 +145,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 alt="Bluely"
                                 width={140}
                                 height={40}
-                                className="h-10 w-auto"
+                                className="h-32 w-auto"
                             />
                         )}
                     </Link>
@@ -355,10 +355,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                             </div>
                         )}
 
-                        {/* Help */}
-                        <button className="hidden sm:flex p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
-                            <FiHelpCircle className="w-5 h-5" />
-                        </button>
+                        {/* DiaBuddy Chat */}
+                        <Link
+                            href="/dashboard/chat"
+                            className="hidden sm:flex p-2.5 rounded-xl bg-gradient-to-br from-[#1F2F98]/10 to-[#4F5FD8]/10 text-[#1F2F98] hover:from-[#1F2F98]/20 hover:to-[#4F5FD8]/20 transition-colors"
+                            title="Chat with DiaBuddy"
+                        >
+                            <FiMessageCircle className="w-5 h-5" />
+                        </Link>
 
                         {/* User Avatar (Mobile) */}
                         <div className="relative md:hidden">
@@ -463,6 +467,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     })}
                 </div>
             </nav>
+
+            {/* Floating DiaBuddy Chat Button */}
+            {pathname !== '/dashboard/chat' && (
+                <Link
+                    href="/dashboard/chat"
+                    className="fixed z-30 bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full shadow-lg shadow-[#1F2F98]/25 hover:shadow-xl hover:shadow-[#1F2F98]/30 transition-all hover:scale-105 active:scale-95 overflow-hidden ring-2 ring-white"
+                    title="Chat with DiaBuddy"
+                >
+                    <Image
+                        src="/diabuddy.png"
+                        alt="Chat with DiaBuddy"
+                        width={56}
+                        height={56}
+                        className="w-full h-full object-cover"
+                    />
+                </Link>
+            )}
 
             {/* Click outside to close user menu */}
             {showUserMenu && (

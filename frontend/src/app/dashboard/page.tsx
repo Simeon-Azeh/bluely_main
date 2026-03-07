@@ -19,8 +19,9 @@ import {
     WeeklyTrendCard,
     GlucoseForecastCard,
     EmailVerificationCard,
+    DiaBuddyCard,
 } from '@/components/dashboard';
-import { FiAlertCircle, FiCircle, FiArrowRight } from 'react-icons/fi';
+import { FiAlertCircle, FiCircle, FiArrowRight, FiTrendingUp, FiDroplet } from 'react-icons/fi';
 import { format, isToday } from 'date-fns';
 import api from '@/lib/api';
 
@@ -76,6 +77,14 @@ const motivationalMessages = [
     "Consistency is key. You're building great habits!",
     "Be proud of yourself for prioritizing your health.",
 ];
+
+function getFirstName(displayName: string | null | undefined): string {
+    if (!displayName) return '';
+    if (displayName.includes('@')) return '';
+    const first = displayName.split(' ')[0];
+    if (first.length > 20 || /[^a-zA-Z\-']/.test(first)) return '';
+    return first;
+}
 
 export default function DashboardPage() {
     const { user, userProfile } = useAuth();
@@ -287,7 +296,7 @@ export default function DashboardPage() {
 
             {/* Welcome Header */}
             <WelcomeHeader
-                userName={user?.displayName?.split(' ')[0]}
+                userName={getFirstName(user?.displayName)}
                 motivationalMessage={motivationalMessage}
                 isOnboardingComplete={isOnboardingComplete}
                 todaysReadingsCount={todaysReadingsCount}
@@ -329,7 +338,7 @@ export default function DashboardPage() {
                                 </p>
                                 <div className="flex flex-wrap gap-2 mb-5">
                                     {['Set diabetes type', 'Configure target range', 'Choose units'].map((item) => (
-                                        <span key={item} className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white text-amber-700 border border-amber-200 shadow-sm">
+                                        <span key={item} className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white text-amber-700 border border-amber-200 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                                             <FiCircle className="w-2 h-2 mr-1.5" />
                                             {item}
                                         </span>
@@ -388,6 +397,28 @@ export default function DashboardPage() {
                                     }}
                                 />
                             )}
+                            {!glucose30.hasData && (
+                                <div className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 border border-gray-200 rounded-2xl">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 bg-[#1F2F98]/10 rounded-xl flex items-center justify-center shrink-0">
+                                            <FiTrendingUp className="w-5 h-5 text-[#1F2F98]" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">30-Min Glucose Forecast</p>
+                                            <p className="text-sm text-gray-500 mt-0.5">
+                                                Log a glucose reading to generate your first prediction.
+                                            </p>
+                                            <Link
+                                                href="/glucose"
+                                                className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-[#1F2F98] hover:underline"
+                                            >
+                                                <FiDroplet className="w-3.5 h-3.5" />
+                                                Log a reading →
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* ── Progressive Data Collection Cards (prominent placement) ── */}
 
@@ -431,7 +462,7 @@ export default function DashboardPage() {
                             <TodaysProgress
                                 todaysReadingsCount={todaysReadingsCount}
                                 recommendedReadings={recommendedReadings}
-                                userName={user?.displayName?.split(' ')[0]}
+                                userName={getFirstName(user?.displayName)}
                             />
 
                             {/* Stats Grid */}
@@ -482,6 +513,9 @@ export default function DashboardPage() {
                                     recommendation={trends.trend.recommendation}
                                 />
                             )}
+
+                            {/* DiaBuddy AI Summary */}
+                            <DiaBuddyCard compact />
 
                             {/* Install App Card (Alternative placement) */}
                             <InstallPrompt variant="card" onDismiss={() => { }} />

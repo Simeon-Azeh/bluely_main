@@ -70,8 +70,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 }
             }
             console.error('Error fetching user profile:', error);
-            // Set a minimal profile so the app can still function
-            setUserProfile({ onboardingCompleted: false });
+            // Only set fallback profile for non-connection errors
+            // For connection errors, leave userProfile as null so AuthLayout
+            // doesn't redirect to onboarding
+            if (error instanceof Error && error.message.includes('Unable to connect')) {
+                setUserProfile(null);
+            } else {
+                setUserProfile({ onboardingCompleted: false });
+            }
         }
     };
 

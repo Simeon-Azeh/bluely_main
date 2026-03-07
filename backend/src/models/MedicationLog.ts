@@ -48,7 +48,12 @@ const MedicationLogSchema = new Schema<IMedicationLog>(
         },
         injectionSite: {
             type: String,
-            enum: ['abdomen', 'thigh_left', 'thigh_right', 'arm_left', 'arm_right', 'buttock'],
+            enum: [
+                'abdomen_left', 'abdomen_right',
+                'thigh_left', 'thigh_right',
+                'arm_left', 'arm_right',
+                'buttock_left', 'buttock_right',
+            ],
         },
         glucoseReadingId: {
             type: Schema.Types.ObjectId,

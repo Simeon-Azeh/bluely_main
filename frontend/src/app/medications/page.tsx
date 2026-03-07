@@ -31,12 +31,14 @@ const frequencies = [
 ];
 
 const injectionSites = [
-    { value: 'abdomen', label: 'Abdomen' },
+    { value: 'abdomen_left', label: 'Abdomen (Left)' },
+    { value: 'abdomen_right', label: 'Abdomen (Right)' },
     { value: 'thigh_left', label: 'Left Thigh' },
     { value: 'thigh_right', label: 'Right Thigh' },
     { value: 'arm_left', label: 'Left Arm' },
     { value: 'arm_right', label: 'Right Arm' },
-    { value: 'buttock', label: 'Buttock' },
+    { value: 'buttock_left', label: 'Buttock (Left)' },
+    { value: 'buttock_right', label: 'Buttock (Right)' },
 ];
 
 interface Medication {
@@ -475,10 +477,10 @@ export default function MedicationsPage() {
                                                             <div
                                                                 key={site.value}
                                                                 className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs ${isRecommended
-                                                                        ? 'bg-green-100 border border-green-200'
-                                                                        : count > 5
-                                                                            ? 'bg-orange-50 border border-orange-100'
-                                                                            : 'bg-white border border-gray-100'
+                                                                    ? 'bg-green-100 border border-green-200'
+                                                                    : count > 5
+                                                                        ? 'bg-orange-50 border border-orange-100'
+                                                                        : 'bg-white border border-gray-100'
                                                                     }`}
                                                             >
                                                                 <span className={isRecommended ? 'font-medium text-green-700' : 'text-gray-600'}>

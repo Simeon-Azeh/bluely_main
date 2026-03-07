@@ -1,6 +1,6 @@
 # Bluely - Machine Learning & Analytics Module
 
-> Full technical documentation for the ML pipeline, synthetic data generation, physiological modelling, model training, API design, input completeness enforcement, and backend integration.
+> Full technical documentation for the ML pipeline, synthetic data generation, physiological modelling, model training, API design, input completeness enforcement, patient personalization, AI insight engine, and backend integration.
 
 ---
 
@@ -13,16 +13,18 @@
 5. [Synthetic Data Generation](#synthetic-data-generation)
 6. [Model Training Pipeline](#model-training-pipeline)
 7. [Prediction Module](#prediction-module)
-8. [FastAPI Server (v3.0)](#fastapi-server-v30)
+8. [FastAPI Server (v4.0)](#fastapi-server-v40)
 9. [Input Completeness Enforcement](#input-completeness-enforcement)
-10. [Node.js Backend Integration](#nodejs-backend-integration)
-11. [Model Evaluation](#model-evaluation)
-12. [HbA1c Estimation](#hba1c-estimation)
-13. [Weekly Analysis](#weekly-analysis)
-14. [Deployment Architecture](#deployment-architecture)
-15. [File & Folder Structure](#file--folder-structure)
-16. [Clinical Language Guidelines](#clinical-language-guidelines)
-17. [Future Enhancements](#future-enhancements)
+10. [Patient Personalization Layer](#patient-personalization-layer)
+11. [AI Insight Engine (DiaBuddy)](#ai-insight-engine-diabuddy)
+12. [Node.js Backend Integration](#nodejs-backend-integration)
+13. [Model Evaluation](#model-evaluation)
+14. [HbA1c Estimation](#hba1c-estimation)
+15. [Weekly Analysis](#weekly-analysis)
+16. [Deployment Architecture](#deployment-architecture)
+17. [File & Folder Structure](#file--folder-structure)
+18. [Clinical Language Guidelines](#clinical-language-guidelines)
+19. [Future Enhancements](#future-enhancements)
 
 ---
 
@@ -39,6 +41,8 @@ Bluely's ML module provides glucose predictions and risk assessment for users ma
 3. **Hybrid Ready** - Once >=21 real user readings accumulate, models can be fine-tuned with real data blended into the synthetic training set (3x upsampled).
 
 4. **African-Focused Demographics** - Synthetic patient profiles are weighted by diabetes type prevalence relevant to Sub-Saharan Africa: 60% Type 2, 15% Type 1, 15% prediabetes, 7% gestational, 3% other.
+
+5. **Three-Layer Architecture** - Global models provide baseline predictions, patient-specific personalization calibrates them using EWMA-based residual learning, and the AI Insight Engine (DiaBuddy) generates human-readable explanations via LLM with rule-based fallback.
 
 ---
 
@@ -786,16 +790,123 @@ ml/
 | **Trend Prediction** | Statistical trend from readings | High | Done |
 | **Clinical Language** | Observational, non-directive text | High | Done |
 | **Hybrid Fine-Tuning** | Blend real data with synthetic | High | Ready (--finetune flag) |
+| **Patient Personalization** | EWMA-based per-user calibration | High | Done |
+| **AI Insight Engine** | LLM-powered DiaBuddy summaries | High | Done |
+| **DiaBuddy Frontend** | AI summary card with typing animation | High | Done |
 | **Alcohol Tracking** | Delayed hypoglycemia prediction | Medium | Planned |
 | **Menstrual Cycle** | Luteal-phase insulin resistance | Medium | Planned |
 | **Illness Tracking** | Infection-related glucose rises | Medium | Planned |
-| **Personalized Models** | Per-user fine-tuning | Medium | Planned |
 | **Anomaly Detection** | Unusual pattern alerts | Medium | Planned |
+| **SHAP Explainability** | Feature importance per prediction | Medium | Planned |
 | **Time-Series Deep Learning** | LSTM/GRU for sequential prediction | Low | Planned |
 | **Offline ML** | TensorFlow.js client-side inference | Low | Planned |
 | **Meal Image Recognition** | Camera-based carb estimation | Low | Planned |
 
 ---
 
-*Document version: 3.0 - Rewritten for synthetic data pipeline, input completeness enforcement, and self-contained ML system*
+## Patient Personalization Layer
+
+### Architecture
+
+The personalization layer sits between the global model and the output, applying patient-specific calibration to improve prediction accuracy as more data accumulates.
+
+```
+Global Model Prediction → Personalization Engine → Calibrated Prediction
+                                ↑
+                    Patient Profile (JSON)
+                    - baseline_glucose_bias
+                    - ewma_residual
+                    - insulin_sensitivity_factor
+                    - carb_response_factor
+                    - activity_response_factor
+```
+
+### How It Works
+
+1. **Activation Threshold**: Personalization activates after **≥21 glucose readings** per patient
+2. **Residual Learning**: Each prediction/actual pair is used to update the patient's profile via EWMA (α=0.15)
+3. **Context-Specific Factors**: The system learns individual sensitivity to insulin, carbs, and activity
+4. **Calibration Formula**:
+   ```
+   calibrated = global_prediction
+              + baseline_bias
+              + ewma_residual * 0.5
+              + insulin_adjustment * (insulin_sensitivity - 1.0)
+              + carb_adjustment * (carb_response - 1.0)
+              + activity_adjustment * (activity_response - 1.0)
+   ```
+5. **Safety Clamping**: Offset clamped to ±50 mg/dL, final output clamped to 40-400 mg/dL
+
+### Module Files
+
+| File | Purpose |
+|------|---------|
+| `ml/personalization/__init__.py` | Module exports |
+| `ml/personalization/patient_profile.py` | `PatientProfile` dataclass, JSON persistence |
+| `ml/personalization/adaptation_trainer.py` | EWMA update logic, context factor learning |
+| `ml/personalization/personalization_engine.py` | Calibration engine with physiological constants |
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/personalization/update` | Update patient calibration from predicted/actual pair |
+| GET | `/personalization/profile/{user_id}` | Retrieve patient personalization profile |
+
+---
+
+## AI Insight Engine (DiaBuddy)
+
+### Overview
+
+DiaBuddy is the AI-powered insight generation system that translates glucose predictions and health data into warm, human-readable summaries. It uses a multi-provider LLM architecture with rule-based fallback.
+
+### Provider Cascade
+
+```
+DeepSeek API (preferred, cost-effective)
+    ↓ (if unavailable)
+OpenAI API (fallback)
+    ↓ (if unavailable)
+Ollama (local, development)
+    ↓ (if unavailable)
+Rule-based templates (always works)
+```
+
+### Safety Guardrails
+
+All LLM outputs are:
+- Prepended with a medical safety system prompt
+- Post-processed to remove banned phrases (medication dosage advice, diagnoses)
+- Constrained to observational language ("Your glucose appears to..." not "You have...")
+- Appended with a disclaimer that this is not medical advice
+
+### Module Files
+
+| File | Purpose |
+|------|---------|
+| `ml/ai_insights/__init__.py` | Module exports |
+| `ml/ai_insights/llm_interface.py` | Multi-provider LLM client (DeepSeek, OpenAI, Ollama) |
+| `ml/ai_insights/insight_engine.py` | Main engine: prompt building, LLM call, sanitization, fallback |
+| `ml/ai_insights/insight_templates.py` | Rule-based templates for when LLM is unavailable |
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/ai-insight` | Generate AI insight for a single prediction |
+| POST | `/diabuddy/summarize` | Generate DiaBuddy health summary from readings |
+
+### Frontend Integration
+
+The `DiaBuddyCard` component (`frontend/src/components/dashboard/DiaBuddyCard.tsx`) provides:
+- "Ask DiaBuddy to Summarize" button with sparkle icon
+- Loading animation (bouncing dots)
+- Typing animation for the AI response
+- Source badge (✨ AI or 📋 Analysis)
+- Compact mode for dashboard, full mode for insights page
+
+---
+
+*Document version: 4.0 - Added patient personalization layer, AI insight engine (DiaBuddy), and three-layer architecture documentation*
 *Project: Bluely - Diabetes Self-Management System*

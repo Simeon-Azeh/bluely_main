@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import {
-    PredictionAnalysis, User, GlucoseReading, UserHealthProfile,
+    PredictionAnalysis, User, GlucoseReading,
     Notification, ForecastLog, MedicationLog, Meal, Activity, MoodLog, LifestyleLog,
 } from '../models';
 
@@ -38,6 +38,11 @@ interface Glucose30MLResult {
     modelUsed: string;
     inputsComplete: boolean;
     missingInputs?: MissingInput[] | null;
+    personalized?: boolean;
+    personalizedGlucose?: number | null;
+    trainingSamples?: number | null;
+    aiInsight?: string | null;
+    aiInsightSource?: string | null;
 }
 
 interface HbA1cMLResult {
@@ -497,6 +502,7 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             wellness: ctx.wellness,
             glucoseHistory: ctx.glucoseHistory.length >= 3 ? ctx.glucoseHistory : null,
             hour: new Date().getHours(),
+            userId: firebaseUid as string,
         };
 
         let result: Glucose30MLResult;
@@ -788,5 +794,328 @@ export const getWeeklyAnalysis = async (req: Request, res: Response): Promise<vo
     } catch (error) {
         console.error('Error in weekly analysis:', error);
         res.status(500).json({ error: 'Failed to perform weekly analysis' });
+    }
+};
+
+// DiaBuddy AI Summary
+export const getDiaBuddySummary = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid } = req.query;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        // Get recent readings
+        const readings = await GlucoseReading.find({
+            firebaseUid: firebaseUid as string,
+        }).sort({ recordedAt: -1 }).limit(50);
+
+        // Get user profile
+        const user = await User.findOne({ firebaseUid: firebaseUid as string });
+        const firstName = user?.displayName?.split(' ')[0] || 'there';
+
+        if (readings.length < 3) {
+            res.status(200).json({
+                summary: `Hey ${firstName}! I'm DiaBuddy, your glucose companion. I need at least 3 readings to create a summary for you. Keep logging and I'll have insights ready soon!`,
+                source: 'rule-based',
+                readingCount: readings.length,
+            });
+            return;
+        }
+
+        const readingsData = readings.map(r => ({
+            value: r.value,
+            readingType: r.readingType || 'random',
+        }));
+
+        const profileData = {
+            name: user?.displayName?.split(' ')[0] || 'there',
+            diabetes_type: user?.diabetesType || 'unknown',
+            targetMin: user?.targetGlucoseMin || 70,
+            targetMax: user?.targetGlucoseMax || 180,
+        };
+
+        try {
+            const response = await fetch(`${ML_API_URL}/diabuddy/summarize`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    readings: readingsData,
+                    profile: profileData,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json() as { summary: string; source: string; provider: string | null };
+            res.status(200).json({
+                ...result,
+                readingCount: readings.length,
+            });
+        } catch (mlError) {
+            // Fallback: generate a basic summary locally
+            const values = readings.map(r => r.value);
+            const avg = values.reduce((a, b) => a + b, 0) / values.length;
+            const inRange = values.filter(v => v >= 70 && v <= 180).length;
+            const tir = Math.round((inRange / values.length) * 100);
+
+            const name = user?.displayName?.split(' ')[0] || 'there';
+            let summary = `Hey ${name}! `;
+
+            if (tir >= 70) {
+                summary += `Great news — ${tir}% of your recent readings are within target range. That's really solid! `;
+            } else if (tir >= 50) {
+                summary += `You're at ${tir}% time in range — you're making progress! `;
+            } else {
+                summary += `Your time in range is ${tir}% right now. Let's work on improving that together. `;
+            }
+
+            summary += `Your average glucose is around ${Math.round(avg)} mg/dL across ${readings.length} readings. `;
+            summary += 'Keep logging consistently — the more data we have, the better insights I can provide!';
+
+            res.status(200).json({
+                summary,
+                source: 'rule-based',
+                provider: null,
+                readingCount: readings.length,
+            });
+        }
+    } catch (error) {
+        console.error('Error in DiaBuddy summary:', error);
+        res.status(500).json({ error: 'Failed to generate DiaBuddy summary' });
+    }
+};
+
+// Update personalization parameters
+export const updatePersonalization = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid, predictedGlucose, actualGlucose } = req.body;
+
+        if (!firebaseUid || predictedGlucose === undefined || actualGlucose === undefined) {
+            res.status(400).json({ error: 'firebaseUid, predictedGlucose, and actualGlucose are required' });
+            return;
+        }
+
+        // Get recent context for learning
+        const ctx = await gatherPredictionContext(firebaseUid);
+        const context: Record<string, number> = {};
+        if (ctx.medication) context.insulin_dose = ctx.medication.dose;
+        if (ctx.meal) context.carb_intake = ctx.meal.carbsEstimate;
+        if (ctx.activity) context.activity_minutes = ctx.activity.durationMinutes;
+
+        const response = await fetch(`${ML_API_URL}/personalization/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: firebaseUid,
+                predictedGlucose,
+                actualGlucose,
+                context,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`ML API responded with ${response.status}`);
+        }
+
+        const result = await response.json() as { updated: boolean; trainingSamples: number; isPersonalized: boolean; message: string };
+
+        // Sync to MongoDB
+        try {
+            const user = await User.findOne({ firebaseUid });
+            if (user) {
+                const { PatientModelProfile } = await import('../models/PatientModelProfile');
+                await PatientModelProfile.findOneAndUpdate(
+                    { firebaseUid },
+                    {
+                        userId: user._id,
+                        firebaseUid,
+                        trainingSamples: result.trainingSamples,
+                        isPersonalized: result.isPersonalized,
+                        lastUpdated: new Date(),
+                    },
+                    { upsert: true, new: true }
+                );
+            }
+        } catch (syncErr) {
+            console.warn('Failed to sync personalization to MongoDB (non-critical):', syncErr);
+        }
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error updating personalization:', error);
+        res.status(500).json({ error: 'Failed to update personalization' });
+    }
+};
+
+// Get personalization profile
+export const getPersonalizationProfile = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid } = req.query;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        try {
+            const response = await fetch(`${ML_API_URL}/personalization/profile/${firebaseUid}`);
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json();
+            res.status(200).json(result);
+        } catch {
+            // Return default profile if ML API unavailable
+            res.status(200).json({
+                userId: firebaseUid,
+                trainingSamples: 0,
+                isPersonalized: false,
+                baselineGlucoseBias: 0,
+                insulinSensitivityFactor: 1.0,
+                carbResponseFactor: 1.0,
+                activityResponseFactor: 1.0,
+                ewmaResidual: 0,
+            });
+        }
+    } catch (error) {
+        console.error('Error getting personalization profile:', error);
+        res.status(500).json({ error: 'Failed to get personalization profile' });
+    }
+};
+
+// DiaBuddy Chat
+export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid, message, history } = req.body;
+
+        if (!firebaseUid || !message) {
+            res.status(400).json({ error: 'firebaseUid and message are required' });
+            return;
+        }
+
+        // Get user name for personalization
+        const user = await User.findOne({ firebaseUid: firebaseUid as string });
+        const firstName = user?.displayName?.split(' ')[0] || null;
+
+        // ── Fetch recent user data for context ──────────────────────────
+        let userDataContext: string | null = null;
+        try {
+            const now = new Date();
+            const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+            const [recentGlucose, recentMeals, recentMeds, recentActivity, recentMood] = await Promise.all([
+                GlucoseReading.find({ firebaseUid, recordedAt: { $gte: threeDaysAgo } })
+                    .sort({ recordedAt: -1 }).limit(8).lean(),
+                Meal.find({ firebaseUid, loggedAt: { $gte: threeDaysAgo } })
+                    .sort({ loggedAt: -1 }).limit(5).lean(),
+                MedicationLog.find({ firebaseUid, takenAt: { $gte: threeDaysAgo } })
+                    .sort({ takenAt: -1 }).limit(5).lean(),
+                Activity.find({ firebaseUid, date: { $gte: threeDaysAgo } })
+                    .sort({ date: -1 }).limit(5).lean(),
+                MoodLog.find({ firebaseUid, loggedAt: { $gte: threeDaysAgo } })
+                    .sort({ loggedAt: -1 }).limit(2).lean(),
+            ]);
+
+            const parts: string[] = [];
+
+            if (recentGlucose.length > 0) {
+                const readings = recentGlucose.map((r: any) => {
+                    const time = new Date(r.recordedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${r.value} mg/dL (${r.mealContext || 'unknown'}, ${time})`;
+                });
+                parts.push(`Recent glucose readings: ${readings.join('; ')}`);
+            }
+
+            if (recentMeals.length > 0) {
+                const meals = recentMeals.map((m: any) => {
+                    const time = new Date(m.loggedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${m.mealType}: ${m.description || m.foodItems?.join(', ') || 'meal'} (${m.totalCarbs ? m.totalCarbs + 'g carbs, ' : ''}${time})`;
+                });
+                parts.push(`Recent meals: ${meals.join('; ')}`);
+            }
+
+            if (recentMeds.length > 0) {
+                const meds = recentMeds.map((m: any) => {
+                    const time = new Date(m.takenAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${m.medicationName} ${m.dosage}${m.doseUnit} (${time})`;
+                });
+                parts.push(`Recent medications: ${meds.join('; ')}`);
+            }
+
+            if (recentActivity.length > 0) {
+                const activities = recentActivity.map((a: any) => {
+                    const time = new Date(a.date).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                    return `${a.activityType} ${a.duration}min, intensity ${a.intensity} (${time})`;
+                });
+                parts.push(`Recent activities: ${activities.join('; ')}`);
+            }
+
+            if (recentMood.length > 0) {
+                const moods = recentMood.map((m: any) => {
+                    const time = new Date(m.loggedAt).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                    return `mood: ${m.mood}, energy: ${m.energyLevel}, stress: ${m.stressLevel} (${time})`;
+                });
+                parts.push(`Recent wellness: ${moods.join('; ')}`);
+            }
+
+            if (parts.length > 0) {
+                userDataContext = parts.join('. ');
+            }
+        } catch (dataErr) {
+            console.warn('Failed to fetch user data context for chat:', dataErr);
+        }
+
+        // Build messages array from history + current message
+        const messages: Array<{ role: string; content: string }> = [];
+        if (Array.isArray(history)) {
+            for (const msg of history.slice(-20)) {
+                if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+                    messages.push({ role: msg.role, content: String(msg.content).slice(0, 2000) });
+                }
+            }
+        }
+        messages.push({ role: 'user', content: String(message).slice(0, 2000) });
+
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 60000);
+
+            const response = await fetch(`${ML_API_URL}/diabuddy/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages,
+                    userName: firstName,
+                    userDataContext,
+                }),
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                throw new Error(`ML API responded with ${response.status}`);
+            }
+
+            const result = await response.json() as { reply: string; source: string; provider: string | null };
+            res.status(200).json(result);
+        } catch (mlError) {
+            console.warn('ML diabuddy/chat unavailable:', mlError);
+            res.status(200).json({
+                reply: "I'm having trouble connecting right now. Please try again in a moment!",
+                source: 'fallback',
+                provider: null,
+            });
+        }
+    } catch (error) {
+        console.error('Error in DiaBuddy chat:', error);
+        res.status(500).json({ error: 'Failed to process chat message' });
     }
 };

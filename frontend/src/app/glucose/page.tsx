@@ -122,6 +122,7 @@ export default function GlucosePage() {
         recommendedSite: string;
         siteUsage?: Record<string, { count: number; lastUsed: string | null }>;
     } | null>(null);
+    const [recentMealLogged, setRecentMealLogged] = useState<boolean | null>(null);
 
     const {
         register,
@@ -172,6 +173,33 @@ export default function GlucosePage() {
         };
         loadMeds();
     }, [user]);
+
+    // Check if a meal was recently logged (within ±2 hours of the reading time)
+    useEffect(() => {
+        if (watchedReadingType !== 'after_meal') {
+            setRecentMealLogged(null);
+            return;
+        }
+        const checkMeals = async () => {
+            if (!user) return;
+            try {
+                const data = await api.getMeals(user.uid, 5);
+                const readingTime = watch('recordedAt')
+                    ? new Date(watch('recordedAt')!).getTime()
+                    : Date.now();
+                const twoHoursMs = 2 * 60 * 60 * 1000;
+                const hasRecent = data.meals.some((meal: { timestamp?: string; createdAt?: string }) => {
+                    const mealTime = new Date(meal.timestamp || meal.createdAt || '').getTime();
+                    return Math.abs(readingTime - mealTime) <= twoHoursMs;
+                });
+                setRecentMealLogged(hasRecent);
+            } catch {
+                setRecentMealLogged(null);
+            }
+        };
+        checkMeals();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, watchedReadingType]);
 
     const handleMedSelect = (med: typeof medications[0]) => {
         setValue('medicationName', med.medicationName);
@@ -366,7 +394,15 @@ export default function GlucosePage() {
                         </div>
 
                         {/* Meal logging nudge when "After meal" is selected */}
-                        {watchedReadingType === 'after_meal' && (
+                        {watchedReadingType === 'after_meal' && recentMealLogged === true && (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-start gap-2">
+                                <FiCheck className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                                <p className="text-sm text-green-800 font-medium">
+                                    Meal already logged around this time ✓
+                                </p>
+                            </div>
+                        )}
+                        {watchedReadingType === 'after_meal' && recentMealLogged === false && (
                             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
                                 <FiInfo className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                                 <div>
