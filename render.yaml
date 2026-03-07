@@ -15,6 +15,10 @@ services:
         value: 3.12.7
       - key: PORT
         value: 8000
+      - key: AI_API_KEY
+        sync: false # DeepSeek API key — set manually in Render dashboard
+      - key: OPENAI_API_KEY
+        sync: false # OpenAI fallback key — set manually
     plan: free
     healthCheckPath: /health
 
@@ -34,6 +38,10 @@ services:
       - key: MONGODB_URI
         sync: false # Set manually
       - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
         sync: false
     plan: free
     healthCheckPath: /api/health

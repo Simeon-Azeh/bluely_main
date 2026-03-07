@@ -382,10 +382,16 @@ async def predict_glucose_30(input_data: Glucose30Input):
     Uses the Bluely model trained on physiologically realistic synthetic data.
     If userId is provided and the patient has ≥21 readings, applies
     personalized calibration. Includes AI-generated insight via DiaBuddy.
-    Requires ALL context inputs. Returns 422 if any are missing.
+    Uses sensible defaults for missing context (reduces confidence).
     """
     try:
-        # ── Validate completeness ──
+        if not FORECAST_MODEL_LOADED:
+            raise HTTPException(
+                status_code=503,
+                detail="Forecast model not loaded. Run 'python train_bluely.py' first.",
+            )
+
+        # ── Check completeness (informational, not blocking) ──
         missing = validate_prediction_inputs(
             meal=input_data.meal,
             medication=input_data.medication,
@@ -394,26 +400,23 @@ async def predict_glucose_30(input_data: Glucose30Input):
             current_glucose=input_data.currentGlucose,
             glucose_history=input_data.glucoseHistory,
         )
+        inputs_complete = len(missing) == 0
 
-        if missing:
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "message": (
-                        "Cannot generate 30-minute forecast — missing required inputs. "
-                        "Glucose prediction depends on meals, medication, activity, "
-                        "and wellness data to be accurate."
-                    ),
-                    "missingInputs": [m.model_dump() for m in missing],
-                    "missingCount": len(missing),
-                },
-            )
+        # ── Defaults for missing context ──
+        meal = input_data.meal
+        medication = input_data.medication
+        activity = input_data.activity
+        wellness = input_data.wellness
+        glucose_history = input_data.glucoseHistory or []
 
-        if not FORECAST_MODEL_LOADED:
-            raise HTTPException(
-                status_code=503,
-                detail="Forecast model not loaded. Run 'python train_bluely.py' first.",
-            )
+        if meal is None:
+            meal = MealContext(carbsEstimate=0, mealType="none", minutesSinceMeal=999)
+        if medication is None:
+            medication = MedicationContext(dose=0, medicationType="none", minutesSinceTaken=999)
+        if activity is None:
+            activity = ActivityContext(intensity="none", durationMinutes=0, minutesSinceActivity=999)
+        if wellness is None:
+            wellness = WellnessContext(sleepQuality=3, stressLevel=3, mood="Okay")
 
         from datetime import datetime
         hour = input_data.hour if input_data.hour is not None else datetime.now().hour
@@ -421,58 +424,67 @@ async def predict_glucose_30(input_data: Glucose30Input):
         # ── Build features ──
         features = build_feature_vector(
             current_glucose=input_data.currentGlucose,
-            carbs_last_meal=input_data.meal.carbsEstimate,
-            minutes_since_meal=input_data.meal.minutesSinceMeal,
-            meal_type=input_data.meal.mealType,
-            insulin_dose=input_data.medication.dose,
-            minutes_since_insulin=input_data.medication.minutesSinceTaken,
-            medication_type=input_data.medication.medicationType,
-            activity_intensity=input_data.activity.intensity,
-            activity_duration=input_data.activity.durationMinutes,
-            minutes_since_activity=input_data.activity.minutesSinceActivity,
+            carbs_last_meal=meal.carbsEstimate,
+            minutes_since_meal=meal.minutesSinceMeal,
+            meal_type=meal.mealType,
+            insulin_dose=medication.dose,
+            minutes_since_insulin=medication.minutesSinceTaken,
+            medication_type=medication.medicationType,
+            activity_intensity=activity.intensity,
+            activity_duration=activity.durationMinutes,
+            minutes_since_activity=activity.minutesSinceActivity,
             hour=hour,
-            sleep_quality=input_data.wellness.sleepQuality,
-            stress_level=input_data.wellness.stressLevel,
-            mood=input_data.wellness.mood,
-            glucose_history=input_data.glucoseHistory,
+            sleep_quality=wellness.sleepQuality,
+            stress_level=wellness.stressLevel,
+            mood=wellness.mood,
+            glucose_history=glucose_history,
             diabetes_type=input_data.diabetesType,
         )
 
         # ── Predict ──
         predicted, confidence = predict_glucose_30min(features)
+
+        # Reduce confidence when inputs are incomplete
+        if not inputs_complete:
+            confidence = confidence * max(0.4, 1.0 - 0.15 * len(missing))
+
         current = input_data.currentGlucose
 
         # ── Factors ──
         factors = ["Prediction from Bluely model (trained on synthetic physiological data)"]
 
-        if input_data.meal.minutesSinceMeal < 60:
+        if not inputs_complete:
+            missing_labels = [m.label for m in missing]
+            factors.append(f"Reduced accuracy — missing: {', '.join(missing_labels)}")
+
+        if input_data.meal and input_data.meal.minutesSinceMeal < 60:
             factors.append(
                 f"Recent meal ({input_data.meal.carbsEstimate}g carbs, "
                 f"{int(input_data.meal.minutesSinceMeal)}min ago) — glucose likely still rising"
             )
-        elif input_data.meal.minutesSinceMeal < 180:
+        elif input_data.meal and input_data.meal.minutesSinceMeal < 180:
             factors.append(
                 f"Post-meal period ({int(input_data.meal.minutesSinceMeal)}min since meal)"
             )
 
-        if input_data.medication.dose > 0:
+        if input_data.medication and input_data.medication.dose > 0:
             factors.append(
                 f"Medication: {input_data.medication.medicationType} "
                 f"({input_data.medication.dose} dose, "
                 f"{int(input_data.medication.minutesSinceTaken)}min ago)"
             )
 
-        if input_data.activity.intensity != "none" and input_data.activity.minutesSinceActivity < 180:
+        if input_data.activity and input_data.activity.intensity != "none" and input_data.activity.minutesSinceActivity < 180:
             factors.append(
                 f"Recent {input_data.activity.intensity} activity "
                 f"({int(input_data.activity.durationMinutes)}min, "
                 f"{int(input_data.activity.minutesSinceActivity)}min ago)"
             )
 
-        if input_data.wellness.stressLevel >= 4:
+        if wellness.stressLevel >= 4:
             factors.append("Elevated stress — may contribute to higher glucose")
 
-        if input_data.wellness.sleepQuality <= 2:
+        if wellness.sleepQuality <= 2:
             factors.append("Poor sleep quality — may increase insulin resistance")
 
         if 4 <= hour <= 7:
@@ -487,9 +499,9 @@ async def predict_glucose_30(input_data: Glucose30Input):
         if input_data.userId:
             try:
                 feature_context = {
-                    "insulin_dose": input_data.medication.dose,
-                    "carb_intake": input_data.meal.carbsEstimate,
-                    "activity_minutes": input_data.activity.durationMinutes,
+                    "insulin_dose": medication.dose,
+                    "carb_intake": meal.carbsEstimate,
+                    "activity_minutes": activity.durationMinutes,
                 }
                 p_result = predict_personalized_glucose(
                     user_id=input_data.userId,
@@ -560,10 +572,10 @@ async def predict_glucose_30(input_data: Glucose30Input):
                 "predicted_glucose": final_predicted,
                 "risk_level": risk_alert or "normal",
                 "current_glucose": current,
-                "meal_type": input_data.meal.mealType,
-                "insulin_dose": input_data.medication.dose,
-                "activity_minutes": input_data.activity.durationMinutes,
-                "carb_intake": input_data.meal.carbsEstimate,
+                "meal_type": meal.mealType,
+                "insulin_dose": medication.dose,
+                "activity_minutes": activity.durationMinutes,
+                "carb_intake": meal.carbsEstimate,
                 "personalized": personalized,
             }
             insight_result = await generate_ai_insight(insight_data)
@@ -583,8 +595,8 @@ async def predict_glucose_30(input_data: Glucose30Input):
             riskAlert=risk_alert,
             factors=factors,
             modelUsed="bluely_personalized" if personalized else "bluely_synthetic",
-            inputsComplete=True,
-            missingInputs=None,
+            inputsComplete=inputs_complete,
+            missingInputs=missing if missing else None,
             personalized=personalized,
             personalizedGlucose=personalized_glucose,
             trainingSamples=training_samples,
