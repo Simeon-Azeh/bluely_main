@@ -15,10 +15,13 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
     const router = useRouter();
     const pathname = usePathname();
 
-    const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
+    const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/terms', '/privacy'];
     const fullScreenRoutes = ['/onboarding']; // Routes that need full screen (no sidebar)
+    // Pages that require email verification to access
+    const emailVerificationRequired = ['/glucose', '/meals', '/medications', '/insights', '/history', '/notifications'];
     const isPublicRoute = publicRoutes.includes(pathname);
     const isFullScreenRoute = fullScreenRoutes.includes(pathname);
+    const requiresEmailVerification = emailVerificationRequired.includes(pathname);
 
     React.useEffect(() => {
         if (!loading) {
@@ -39,6 +42,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
                 // User is trying to access dashboard but hasn't completed onboarding
                 // Only redirect if we have loaded the profile (userProfile !== null)
                 router.push('/onboarding');
+            } else if (user && !user.emailVerified && requiresEmailVerification) {
+                // Email not verified — redirect to dashboard where verification card is shown
+                router.push('/dashboard');
             }
         }
     }, [user, userProfile, loading, isPublicRoute, isFullScreenRoute, pathname, router]);

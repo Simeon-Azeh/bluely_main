@@ -18,6 +18,7 @@ import {
     PredictionCard,
     WeeklyTrendCard,
     GlucoseForecastCard,
+    EmailVerificationCard,
 } from '@/components/dashboard';
 import { FiAlertCircle, FiCircle, FiArrowRight } from 'react-icons/fi';
 import { format, isToday } from 'date-fns';
@@ -349,133 +350,143 @@ export default function DashboardPage() {
             {/* Only show features if onboarding is complete */}
             {isOnboardingComplete && (
                 <>
+                    {/* Email Verification Card */}
+                    {user && !user.emailVerified && (
+                        <EmailVerificationCard user={user} />
+                    )}
+
                     {/* Quick Actions Grid */}
-                    <QuickActionsGrid />
+                    <QuickActionsGrid emailVerified={user?.emailVerified ?? false} />
 
-                    {/* ── 30-Minute Glucose Forecast (always prominent) ── */}
-                    {glucose30.hasData && glucose30.prediction && (
-                        <GlucoseForecastCard
-                            predictedGlucose={glucose30.prediction.predictedGlucose}
-                            direction={glucose30.prediction.direction}
-                            directionArrow={glucose30.prediction.directionArrow}
-                            directionLabel={glucose30.prediction.directionLabel}
-                            confidence={glucose30.prediction.confidence}
-                            timeframe={glucose30.prediction.timeframe}
-                            recommendation={glucose30.prediction.recommendation}
-                            riskAlert={glucose30.prediction.riskAlert}
-                            factors={glucose30.prediction.factors}
-                            modelUsed={glucose30.prediction.modelUsed}
-                            predictionTimestamp={glucose30.prediction.predictionTimestamp}
-                            suggestions={glucose30.prediction.suggestions}
-                            missingDataActions={glucose30.prediction.missingDataActions}
-                            onRefresh={async () => {
-                                if (!user) return;
-                                try {
-                                    const g30Data = await api.getGlucose30(user.uid);
-                                    setGlucose30(g30Data);
-                                } catch (err) {
-                                    console.warn('Failed to refresh forecast:', err);
-                                }
-                            }}
-                        />
+                    {/* ── Features below require email verification ── */}
+                    {user?.emailVerified && (
+                        <>
+                            {/* ── 30-Minute Glucose Forecast (always prominent) ── */}
+                            {glucose30.hasData && glucose30.prediction && (
+                                <GlucoseForecastCard
+                                    predictedGlucose={glucose30.prediction.predictedGlucose}
+                                    direction={glucose30.prediction.direction}
+                                    directionArrow={glucose30.prediction.directionArrow}
+                                    directionLabel={glucose30.prediction.directionLabel}
+                                    confidence={glucose30.prediction.confidence}
+                                    timeframe={glucose30.prediction.timeframe}
+                                    recommendation={glucose30.prediction.recommendation}
+                                    riskAlert={glucose30.prediction.riskAlert}
+                                    factors={glucose30.prediction.factors}
+                                    modelUsed={glucose30.prediction.modelUsed}
+                                    predictionTimestamp={glucose30.prediction.predictionTimestamp}
+                                    suggestions={glucose30.prediction.suggestions}
+                                    missingDataActions={glucose30.prediction.missingDataActions}
+                                    onRefresh={async () => {
+                                        if (!user) return;
+                                        try {
+                                            const g30Data = await api.getGlucose30(user.uid);
+                                            setGlucose30(g30Data);
+                                        } catch (err) {
+                                            console.warn('Failed to refresh forecast:', err);
+                                        }
+                                    }}
+                                />
+                            )}
+
+                            {/* ── Progressive Data Collection Cards (prominent placement) ── */}
+
+                            {/* Card 1: Personalize Insights — shown after 1+ readings if no profile */}
+                            {showInsightsCard && (
+                                <InsightsCard
+                                    onComplete={() => {
+                                        setShowInsightsCard(false);
+                                        if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
+                                    }}
+                                    onDismiss={() => setShowInsightsCard(false)}
+                                />
+                            )}
+
+                            {/* Card 2: Medication Info — shown if user said yes to medication */}
+                            {showMedicationCard && (
+                                <MedicationCard
+                                    onComplete={() => {
+                                        setShowMedicationCard(false);
+                                        if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
+                                    }}
+                                    onDismiss={() => setShowMedicationCard(false)}
+                                />
+                            )}
+
+                            {/* Card 3: Lifestyle Check-In — shown weekly */}
+                            {showLifestyleCard && (
+                                <LifestyleCheckIn
+                                    onComplete={() => {
+                                        setShowLifestyleCard(false);
+                                        if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
+                                    }}
+                                    onDismiss={() => setShowLifestyleCard(false)}
+                                />
+                            )}
+
+                            {/* Mood Tracker */}
+                            <MoodTracker />
+
+                            {/* Today's Progress */}
+                            <TodaysProgress
+                                todaysReadingsCount={todaysReadingsCount}
+                                recommendedReadings={recommendedReadings}
+                                userName={user?.displayName?.split(' ')[0]}
+                            />
+
+                            {/* Stats Grid */}
+                            <StatsGrid
+                                averageGlucose={stats?.averageGlucose || null}
+                                inRangePercentage={stats?.inRangePercentage || null}
+                                minGlucose={stats?.minGlucose || null}
+                                maxGlucose={stats?.maxGlucose || null}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            {/* Weekly Chart */}
+                            <WeeklyChart
+                                chartData={chartData}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            {/* Recent Readings */}
+                            <RecentReadings
+                                readings={recentReadings}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            {/* ── ML Output Cards ── */}
+
+                            {/* Card 4: Glucose Prediction */}
+                            {prediction.exists && prediction.prediction && (
+                                <PredictionCard
+                                    predictedGlucose={prediction.prediction.predictedGlucose}
+                                    riskLevel={prediction.prediction.riskLevel}
+                                    confidence={prediction.prediction.confidence}
+                                    recommendation={prediction.prediction.recommendation}
+                                />
+                            )}
+
+                            {/* Card 5: Weekly Trend Summary */}
+                            {trends.hasData && trends.trend && (
+                                <WeeklyTrendCard
+                                    direction={trends.trend.direction}
+                                    currentAverage={trends.trend.currentAverage}
+                                    previousAverage={trends.trend.previousAverage}
+                                    percentageChange={trends.trend.percentageChange}
+                                    totalReadings={trends.trend.totalReadings}
+                                    riskPeriod={trends.trend.riskPeriod}
+                                    recommendation={trends.trend.recommendation}
+                                />
+                            )}
+
+                            {/* Install App Card (Alternative placement) */}
+                            <InstallPrompt variant="card" onDismiss={() => { }} />
+                        </>
                     )}
-
-                    {/* ── Progressive Data Collection Cards (prominent placement) ── */}
-
-                    {/* Card 1: Personalize Insights — shown after 1+ readings if no profile */}
-                    {showInsightsCard && (
-                        <InsightsCard
-                            onComplete={() => {
-                                setShowInsightsCard(false);
-                                if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
-                            }}
-                            onDismiss={() => setShowInsightsCard(false)}
-                        />
-                    )}
-
-                    {/* Card 2: Medication Info — shown if user said yes to medication */}
-                    {showMedicationCard && (
-                        <MedicationCard
-                            onComplete={() => {
-                                setShowMedicationCard(false);
-                                if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
-                            }}
-                            onDismiss={() => setShowMedicationCard(false)}
-                        />
-                    )}
-
-                    {/* Card 3: Lifestyle Check-In — shown weekly */}
-                    {showLifestyleCard && (
-                        <LifestyleCheckIn
-                            onComplete={() => {
-                                setShowLifestyleCard(false);
-                                if (user) api.getHealthProfile(user.uid).then(setHealthProfile);
-                            }}
-                            onDismiss={() => setShowLifestyleCard(false)}
-                        />
-                    )}
-
-                    {/* Mood Tracker */}
-                    <MoodTracker />
-
-                    {/* Today's Progress */}
-                    <TodaysProgress
-                        todaysReadingsCount={todaysReadingsCount}
-                        recommendedReadings={recommendedReadings}
-                        userName={user?.displayName?.split(' ')[0]}
-                    />
-
-                    {/* Stats Grid */}
-                    <StatsGrid
-                        averageGlucose={stats?.averageGlucose || null}
-                        inRangePercentage={stats?.inRangePercentage || null}
-                        minGlucose={stats?.minGlucose || null}
-                        maxGlucose={stats?.maxGlucose || null}
-                        targetMin={stats?.targetMin || 70}
-                        targetMax={stats?.targetMax || 180}
-                    />
-
-                    {/* Weekly Chart */}
-                    <WeeklyChart
-                        chartData={chartData}
-                        targetMin={stats?.targetMin || 70}
-                        targetMax={stats?.targetMax || 180}
-                    />
-
-                    {/* Recent Readings */}
-                    <RecentReadings
-                        readings={recentReadings}
-                        targetMin={stats?.targetMin || 70}
-                        targetMax={stats?.targetMax || 180}
-                    />
-
-                    {/* ── ML Output Cards ── */}
-
-                    {/* Card 4: Glucose Prediction */}
-                    {prediction.exists && prediction.prediction && (
-                        <PredictionCard
-                            predictedGlucose={prediction.prediction.predictedGlucose}
-                            riskLevel={prediction.prediction.riskLevel}
-                            confidence={prediction.prediction.confidence}
-                            recommendation={prediction.prediction.recommendation}
-                        />
-                    )}
-
-                    {/* Card 5: Weekly Trend Summary */}
-                    {trends.hasData && trends.trend && (
-                        <WeeklyTrendCard
-                            direction={trends.trend.direction}
-                            currentAverage={trends.trend.currentAverage}
-                            previousAverage={trends.trend.previousAverage}
-                            percentageChange={trends.trend.percentageChange}
-                            totalReadings={trends.trend.totalReadings}
-                            riskPeriod={trends.trend.riskPeriod}
-                            recommendation={trends.trend.recommendation}
-                        />
-                    )}
-
-                    {/* Install App Card (Alternative placement) */}
-                    <InstallPrompt variant="card" onDismiss={() => { }} />
                 </>
             )}
         </div>
