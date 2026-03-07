@@ -688,13 +688,14 @@ class ApiClient {
     async chatWithDiaBuddy(
         firebaseUid: string,
         message: string,
-        history: Array<{ role: string; content: string }> = []
+        history: Array<{ role: string; content: string }> = [],
+        displayName?: string | null
     ): Promise<{ reply: string; source: string; provider?: string | null }> {
         return this.request<{ reply: string; source: string; provider?: string | null }>(
             '/predict/diabuddy/chat',
             {
                 method: 'POST',
-                body: JSON.stringify({ firebaseUid, message, history }),
+                body: JSON.stringify({ firebaseUid, message, history, displayName: displayName || undefined }),
             }
         );
     }

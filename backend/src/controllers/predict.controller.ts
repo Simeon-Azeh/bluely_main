@@ -993,7 +993,7 @@ export const getPersonalizationProfile = async (req: Request, res: Response): Pr
 // DiaBuddy Chat
 export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { firebaseUid, message, history } = req.body;
+        const { firebaseUid, message, history, displayName: clientDisplayName } = req.body;
 
         if (!firebaseUid || !message) {
             res.status(400).json({ error: 'firebaseUid and message are required' });
@@ -1001,8 +1001,13 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
         }
 
         // Get user name for personalization
+        // Prefer the Firebase displayName sent from the client; fall back to MongoDB
         const user = await User.findOne({ firebaseUid: firebaseUid as string });
-        const firstName = user?.displayName?.split(' ')[0] || null;
+        const candidateName = clientDisplayName || user?.displayName || null;
+        // Only use names that look like real names (not email-derived like "ksazeh29")
+        const firstName = candidateName && !candidateName.includes('@') && /[A-Z]/.test(candidateName)
+            ? candidateName.split(' ')[0]
+            : null;
 
         // ── Fetch recent user data for context ──────────────────────────
         let userDataContext: string | null = null;
@@ -1013,14 +1018,14 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
             const [recentGlucose, recentMeals, recentMeds, recentActivity, recentMood] = await Promise.all([
                 GlucoseReading.find({ firebaseUid, recordedAt: { $gte: threeDaysAgo } })
                     .sort({ recordedAt: -1 }).limit(8).lean(),
-                Meal.find({ firebaseUid, loggedAt: { $gte: threeDaysAgo } })
-                    .sort({ loggedAt: -1 }).limit(5).lean(),
+                Meal.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
+                    .sort({ timestamp: -1 }).limit(5).lean(),
                 MedicationLog.find({ firebaseUid, takenAt: { $gte: threeDaysAgo } })
                     .sort({ takenAt: -1 }).limit(5).lean(),
-                Activity.find({ firebaseUid, date: { $gte: threeDaysAgo } })
-                    .sort({ date: -1 }).limit(5).lean(),
-                MoodLog.find({ firebaseUid, loggedAt: { $gte: threeDaysAgo } })
-                    .sort({ loggedAt: -1 }).limit(2).lean(),
+                Activity.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
+                    .sort({ timestamp: -1 }).limit(5).lean(),
+                MoodLog.find({ firebaseUid, createdAt: { $gte: threeDaysAgo } })
+                    .sort({ createdAt: -1 }).limit(2).lean(),
             ]);
 
             const parts: string[] = [];
@@ -1035,8 +1040,8 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
 
             if (recentMeals.length > 0) {
                 const meals = recentMeals.map((m: any) => {
-                    const time = new Date(m.loggedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                    return `${m.mealType}: ${m.description || m.foodItems?.join(', ') || 'meal'} (${m.totalCarbs ? m.totalCarbs + 'g carbs, ' : ''}${time})`;
+                    const time = new Date(m.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    return `${m.mealType}: ${m.description || 'meal'} (${m.carbsEstimate ? m.carbsEstimate + 'g carbs, ' : ''}${time})`;
                 });
                 parts.push(`Recent meals: ${meals.join('; ')}`);
             }
@@ -1051,16 +1056,16 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
 
             if (recentActivity.length > 0) {
                 const activities = recentActivity.map((a: any) => {
-                    const time = new Date(a.date).toLocaleString('en-US', { month: 'short', day: 'numeric' });
-                    return `${a.activityType} ${a.duration}min, intensity ${a.intensity} (${time})`;
+                    const time = new Date(a.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                    return `${a.activityType || a.activityLevel} ${a.durationMinutes || '?'}min, intensity ${a.activityLevel} (${time})`;
                 });
                 parts.push(`Recent activities: ${activities.join('; ')}`);
             }
 
             if (recentMood.length > 0) {
                 const moods = recentMood.map((m: any) => {
-                    const time = new Date(m.loggedAt).toLocaleString('en-US', { month: 'short', day: 'numeric' });
-                    return `mood: ${m.mood}, energy: ${m.energyLevel}, stress: ${m.stressLevel} (${time})`;
+                    const time = new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                    return `mood: ${m.mood}${m.period ? ', ' + m.period : ''}${m.note ? ' — ' + m.note : ''} (${time})`;
                 });
                 parts.push(`Recent wellness: ${moods.join('; ')}`);
             }

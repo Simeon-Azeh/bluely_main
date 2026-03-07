@@ -25,6 +25,7 @@ import {
 } from 'react-icons/fi';
 import { TbPill } from 'react-icons/tb';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import FloatingChat from '../dashboard/FloatingChat';
 import api from '@/lib/api';
 
 interface DashboardLayoutProps {
@@ -54,6 +55,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [showFloatingChat, setShowFloatingChat] = useState(false);
 
     const isActive = (path: string) => pathname === path;
 
@@ -468,21 +470,30 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 </div>
             </nav>
 
-            {/* Floating DiaBuddy Chat Button */}
+            {/* Floating DiaBuddy Chat */}
             {pathname !== '/dashboard/chat' && (
-                <Link
-                    href="/dashboard/chat"
-                    className="fixed z-30 bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full shadow-lg shadow-[#1F2F98]/25 hover:shadow-xl hover:shadow-[#1F2F98]/30 transition-all hover:scale-105 active:scale-95 overflow-hidden ring-2 ring-white"
-                    title="Chat with DiaBuddy"
-                >
-                    <Image
-                        src="/diabuddy.png"
-                        alt="Chat with DiaBuddy"
-                        width={56}
-                        height={56}
-                        className="w-full h-full object-cover"
-                    />
-                </Link>
+                <>
+                    <FloatingChat isOpen={showFloatingChat} onClose={() => setShowFloatingChat(false)} />
+                    <button
+                        onClick={() => setShowFloatingChat((v) => !v)}
+                        className="fixed z-50 bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full shadow-lg shadow-[#1F2F98]/25 hover:shadow-xl hover:shadow-[#1F2F98]/30 transition-all hover:scale-105 active:scale-95 overflow-hidden ring-2 ring-white"
+                        title="Chat with DiaBuddy"
+                    >
+                        {showFloatingChat ? (
+                            <div className="w-full h-full bg-[#1F2F98] flex items-center justify-center">
+                                <FiMessageCircle className="w-6 h-6 text-white" />
+                            </div>
+                        ) : (
+                            <Image
+                                src="/diabuddy.png"
+                                alt="Chat with DiaBuddy"
+                                width={56}
+                                height={56}
+                                className="w-full h-full object-cover"
+                            />
+                        )}
+                    </button>
+                </>
             )}
 
             {/* Click outside to close user menu */}

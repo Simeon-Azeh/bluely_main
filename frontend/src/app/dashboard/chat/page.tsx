@@ -372,7 +372,7 @@ export default function ChatPage() {
                 .slice(1)
                 .map(({ role, content }) => ({ role, content }));
 
-            const result = await api.chatWithDiaBuddy(user.uid, trimmed, history);
+            const result = await api.chatWithDiaBuddy(user.uid, trimmed, history, user.displayName);
 
             const newCount = incrementChatCount();
             setChatCount(newCount);
@@ -469,8 +469,8 @@ export default function ChatPage() {
                                 <div
                                     key={s.id}
                                     className={`group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${s.id === activeSessionId
-                                            ? 'bg-[#1F2F98]/10 text-[#1F2F98]'
-                                            : 'hover:bg-gray-50 text-gray-700'
+                                        ? 'bg-[#1F2F98]/10 text-[#1F2F98]'
+                                        : 'hover:bg-gray-50 text-gray-700'
                                         }`}
                                     onClick={() => switchSession(s.id)}
                                 >
@@ -571,8 +571,8 @@ export default function ChatPage() {
                                 <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[82%]`}>
                                     <div
                                         className={`rounded-2xl px-3.5 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap font-[450] ${msg.role === 'user'
-                                                ? 'bg-[#1F2F98] text-white rounded-br-md'
-                                                : 'bg-white text-gray-800 shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-100/80 rounded-bl-md'
+                                            ? 'bg-[#1F2F98] text-white rounded-br-md'
+                                            : 'bg-white text-gray-800 shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-100/80 rounded-bl-md'
                                             }`}
                                     >
                                         {msg.content}
