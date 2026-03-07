@@ -6,11 +6,18 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { FiSend, FiX, FiMaximize2 } from 'react-icons/fi';
+import ChatLogCard, { ActionProposal } from './ChatLogCard';
+
+interface ChatAction {
+    type: string;
+    data: Record<string, string>;
+}
 
 interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: number;
+    actions?: ChatAction[];
 }
 
 interface ChatSession {
@@ -208,7 +215,7 @@ export default function FloatingChat({ isOpen, onClose }: FloatingChatProps) {
             const result = await api.chatWithDiaBuddy(user.uid, trimmed, history, user.displayName);
             const newCount = incrementChatCount();
             setChatCount(newCount);
-            updateActiveMessages((prev) => [...prev, { role: 'assistant', content: result.reply, timestamp: Date.now() }]);
+            updateActiveMessages((prev) => [...prev, { role: 'assistant', content: result.reply, timestamp: Date.now(), actions: result.actions }]);
         } catch {
             updateActiveMessages((prev) => [...prev, { role: 'assistant', content: "Sorry, I'm having trouble right now. Try again in a moment!", timestamp: Date.now() }]);
         } finally {
@@ -271,6 +278,18 @@ export default function FloatingChat({ isOpen, onClose }: FloatingChatProps) {
                                 }`}>
                                 {msg.content}
                             </div>
+                            {msg.actions && msg.actions.length > 0 && (
+                                <div className="mt-1 space-y-0.5 w-full">
+                                    {msg.actions.map((action, ai) => (
+                                        <ChatLogCard
+                                            key={ai}
+                                            action={action as ActionProposal}
+                                            firebaseUid={user?.uid || ''}
+                                            compact
+                                        />
+                                    ))}
+                                </div>
+                            )}
                             <span className="text-[9px] mt-0.5 px-0.5 text-gray-400">{formatTimestamp(msg.timestamp)}</span>
                         </div>
                         {msg.role === 'user' && (

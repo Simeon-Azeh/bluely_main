@@ -6,11 +6,18 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { FiArrowLeft, FiSend, FiAlertCircle, FiPlus, FiMessageSquare, FiX, FiTrash2 } from 'react-icons/fi';
+import ChatLogCard, { ActionProposal } from '@/components/dashboard/ChatLogCard';
+
+interface ChatAction {
+    type: string;
+    data: Record<string, string>;
+}
 
 interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: number;
+    actions?: ChatAction[];
 }
 
 interface ChatSession {
@@ -379,7 +386,7 @@ export default function ChatPage() {
 
             updateActiveMessages((prev) => [
                 ...prev,
-                { role: 'assistant', content: result.reply, timestamp: Date.now() },
+                { role: 'assistant', content: result.reply, timestamp: Date.now(), actions: result.actions },
             ]);
         } catch {
             updateActiveMessages((prev) => [
@@ -577,6 +584,17 @@ export default function ChatPage() {
                                     >
                                         {msg.content}
                                     </div>
+                                    {msg.actions && msg.actions.length > 0 && (
+                                        <div className="mt-1 space-y-1 w-full">
+                                            {msg.actions.map((action, ai) => (
+                                                <ChatLogCard
+                                                    key={ai}
+                                                    action={action as ActionProposal}
+                                                    firebaseUid={user?.uid || ''}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                     <span className="text-[10px] mt-0.5 px-1 text-gray-400">
                                         {formatTimestamp(msg.timestamp)}
                                     </span>

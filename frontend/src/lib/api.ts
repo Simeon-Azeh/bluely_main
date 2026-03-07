@@ -690,8 +690,8 @@ class ApiClient {
         message: string,
         history: Array<{ role: string; content: string }> = [],
         displayName?: string | null
-    ): Promise<{ reply: string; source: string; provider?: string | null }> {
-        return this.request<{ reply: string; source: string; provider?: string | null }>(
+    ): Promise<{ reply: string; source: string; provider?: string | null; actions?: Array<{ type: string; data: Record<string, string> }> }> {
+        return this.request<{ reply: string; source: string; provider?: string | null; actions?: Array<{ type: string; data: Record<string, string> }> }>(
             '/predict/diabuddy/chat',
             {
                 method: 'POST',

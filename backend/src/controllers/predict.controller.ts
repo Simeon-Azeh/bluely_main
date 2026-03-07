@@ -1001,9 +1001,9 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
         }
 
         // Get user name for personalization
-        // Prefer the Firebase displayName sent from the client; fall back to MongoDB
+        // Prefer the MongoDB displayName (set during onboarding), fall back to Firebase
         const user = await User.findOne({ firebaseUid: firebaseUid as string });
-        const candidateName = clientDisplayName || user?.displayName || null;
+        const candidateName = user?.displayName || clientDisplayName || null;
         // Only use names that look like real names (not email-derived like "ksazeh29")
         const firstName = candidateName && !candidateName.includes('@') && /[A-Z]/.test(candidateName)
             ? candidateName.split(' ')[0]
@@ -1109,8 +1109,20 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
                 throw new Error(`ML API responded with ${response.status}`);
             }
 
-            const result = await response.json() as { reply: string; source: string; provider: string | null };
-            res.status(200).json(result);
+            const result = await response.json() as {
+                reply: string;
+                source: string;
+                provider: string | null;
+                actions?: Array<{ type: string; data: Record<string, string> }> | null;
+            };
+
+            // Pass through parsed action proposals for the frontend to handle
+            res.status(200).json({
+                reply: result.reply,
+                source: result.source,
+                provider: result.provider,
+                actions: result.actions || undefined,
+            });
         } catch (mlError) {
             console.warn('ML diabuddy/chat unavailable:', mlError);
             res.status(200).json({

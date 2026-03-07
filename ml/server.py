@@ -1135,10 +1135,70 @@ class DiaBuddyChatInput(BaseModel):
     userName: Optional[str] = None
     userDataContext: Optional[str] = None
 
+class ChatAction(BaseModel):
+    type: str              # 'LOG_GLUCOSE' or 'LOG_MEAL'
+    data: Dict[str, str]   # parsed fields
+
 class DiaBuddyChatOutput(BaseModel):
     reply: str
     source: str           # 'ai' or 'fallback'
     provider: Optional[str] = None
+    actions: Optional[List[ChatAction]] = None
+
+
+import re as _re
+
+def _parse_chat_actions(text: str):
+    """
+    Extract [ACTION:...] tags from LLM reply.
+    Returns (cleaned_reply, actions_list).
+    """
+    action_pattern = _re.compile(r'\[ACTION:(LOG_GLUCOSE|LOG_MEAL)\|([^\]]+)\]')
+    actions = []
+
+    for match in action_pattern.finditer(text):
+        action_type = match.group(1)
+        params = match.group(2).split('|')
+
+        if action_type == 'LOG_GLUCOSE' and len(params) >= 1:
+            try:
+                value = float(params[0].strip())
+                if 20 <= value <= 600:
+                    reading_type = params[1].strip() if len(params) > 1 else 'random'
+                    valid_types = {'fasting', 'before_meal', 'after_meal', 'bedtime', 'random'}
+                    if reading_type not in valid_types:
+                        reading_type = 'random'
+                    actions.append(ChatAction(
+                        type='LOG_GLUCOSE',
+                        data={'value': str(int(value)), 'readingType': reading_type}
+                    ))
+            except (ValueError, IndexError):
+                pass
+
+        elif action_type == 'LOG_MEAL' and len(params) >= 3:
+            try:
+                description = params[0].strip()
+                meal_type = params[1].strip().lower()
+                carbs = params[2].strip()
+                valid_meal_types = {'breakfast', 'lunch', 'dinner', 'snack'}
+                if meal_type not in valid_meal_types:
+                    meal_type = 'snack'
+                carbs_num = float(carbs)
+                if 0 < carbs_num <= 500 and description:
+                    actions.append(ChatAction(
+                        type='LOG_MEAL',
+                        data={
+                            'description': description[:300],
+                            'mealType': meal_type,
+                            'carbsEstimate': str(int(carbs_num))
+                        }
+                    ))
+            except (ValueError, IndexError):
+                pass
+
+    # Strip action tags from visible reply
+    cleaned = action_pattern.sub('', text).strip()
+    return cleaned, actions if actions else None
 
 
 @app.post("/diabuddy/chat", response_model=DiaBuddyChatOutput)
@@ -1169,10 +1229,12 @@ async def diabuddy_chat(input_data: DiaBuddyChatInput):
         reply = await llm.chat(messages, max_tokens=400, temperature=0.7)
 
         if reply:
+            cleaned_reply, actions = _parse_chat_actions(reply)
             return DiaBuddyChatOutput(
-                reply=reply,
+                reply=cleaned_reply,
                 source="ai",
                 provider=llm.get_active_provider(),
+                actions=actions,
             )
 
         # Fallback if all providers fail
