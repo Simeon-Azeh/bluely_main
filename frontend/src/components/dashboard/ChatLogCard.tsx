@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { FiCheck, FiX, FiEdit3 } from 'react-icons/fi';
+import React, { useState, useEffect } from 'react';
+import { FiCheck, FiX, FiEdit3, FiChevronDown } from 'react-icons/fi';
 import api from '@/lib/api';
 
 export interface ActionProposal {
@@ -9,11 +9,22 @@ export interface ActionProposal {
     data: Record<string, string>;
 }
 
+interface SavedMedication {
+    _id: string;
+    medicationName: string;
+    medicationType: string;
+    dosage: number;
+    doseUnit: string;
+    isInjectable: boolean;
+    injectionSite?: string;
+}
+
 interface ChatLogCardProps {
     action: ActionProposal;
     firebaseUid: string;
     compact?: boolean;
-    onLogged?: () => void;
+    messageTimestamp?: number;
+    onLogged?: (logType: 'glucose' | 'meal') => void;
 }
 
 const READING_TYPES = [
@@ -31,7 +42,7 @@ const MEAL_TYPES = [
     { value: 'snack', label: 'Snack' },
 ];
 
-export default function ChatLogCard({ action, firebaseUid, compact = false, onLogged }: ChatLogCardProps) {
+export default function ChatLogCard({ action, firebaseUid, compact = false, messageTimestamp, onLogged }: ChatLogCardProps) {
     const data = action.data || {};
     const [status, setStatus] = useState<'pending' | 'saving' | 'saved' | 'dismissed'>(() => {
         // Old format actions (already logged) have status/summary instead of data
@@ -44,7 +55,10 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, onLo
     const [readingType, setReadingType] = useState(data.readingType || 'random');
     const [notes, setNotes] = useState('');
     const [medicationTaken, setMedicationTaken] = useState(false);
-    const [medicationName, setMedicationName] = useState('');
+    const [selectedMedId, setSelectedMedId] = useState('');
+    const [customMedName, setCustomMedName] = useState('');
+    const [savedMeds, setSavedMeds] = useState<SavedMedication[]>([]);
+    const [medsLoading, setMedsLoading] = useState(false);
 
     // Meal fields
     const [description, setDescription] = useState(data.description || '');
@@ -52,6 +66,18 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, onLo
     const [carbsEstimate, setCarbsEstimate] = useState(data.carbsEstimate || '');
 
     const isGlucose = action.type === 'LOG_GLUCOSE';
+
+    // Fetch user's saved medications when checkbox is checked
+    useEffect(() => {
+        if (!medicationTaken || savedMeds.length > 0 || medsLoading) return;
+        setMedsLoading(true);
+        api.getMedications(firebaseUid, true)
+            .then((res) => setSavedMeds(res.medications || []))
+            .catch(() => { })
+            .finally(() => setMedsLoading(false));
+    }, [medicationTaken, firebaseUid, savedMeds.length, medsLoading]);
+
+    const selectedMed = savedMeds.find((m) => m._id === selectedMedId);
 
     if (status === 'dismissed') return null;
 
@@ -76,14 +102,24 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, onLo
             if (isGlucose) {
                 const val = parseInt(glucoseValue, 10);
                 if (!val || val < 20 || val > 600) { setStatus('pending'); return; }
+                const medName = selectedMed ? selectedMed.medicationName : customMedName || undefined;
+                const medType = selectedMed ? selectedMed.medicationType : undefined;
+                const medDose = selectedMed ? selectedMed.dosage : undefined;
+                const medDoseUnit = selectedMed ? selectedMed.doseUnit : undefined;
+                const injSite = selectedMed?.isInjectable ? selectedMed.injectionSite : undefined;
                 await api.createGlucoseReading({
                     firebaseUid,
                     value: val,
                     unit: 'mg/dL',
                     readingType,
                     notes: notes || 'Logged via DiaBuddy',
+                    recordedAt: messageTimestamp ? new Date(messageTimestamp).toISOString() : undefined,
                     medicationTaken: medicationTaken || undefined,
-                    medicationName: medicationTaken ? medicationName || undefined : undefined,
+                    medicationName: medicationTaken ? medName : undefined,
+                    medicationType: medicationTaken ? medType : undefined,
+                    medicationDose: medicationTaken ? medDose : undefined,
+                    medicationDoseUnit: medicationTaken ? medDoseUnit : undefined,
+                    injectionSite: medicationTaken ? injSite : undefined,
                 });
             } else {
                 const carbs = parseInt(carbsEstimate, 10);
@@ -93,10 +129,11 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, onLo
                     mealType,
                     carbsEstimate: carbs,
                     description: description.trim(),
+                    timestamp: messageTimestamp ? new Date(messageTimestamp).toISOString() : undefined,
                 });
             }
             setStatus('saved');
-            onLogged?.();
+            onLogged?.(isGlucose ? 'glucose' : 'meal');
         } catch {
             setStatus('pending');
         }
@@ -161,7 +198,7 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, onLo
                         />
                     </div>
                     {/* Medication toggle */}
-                    <div className="col-span-2 flex items-center gap-2">
+                    <div className="col-span-2">
                         <label className={`flex items-center gap-1.5 ${compact ? 'text-[10px]' : 'text-[11px]'} text-gray-600 cursor-pointer select-none`}>
                             <input
                                 type="checkbox"
@@ -172,14 +209,49 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, onLo
                             Took medication
                         </label>
                         {medicationTaken && (
-                            <input
-                                type="text"
-                                value={medicationName}
-                                onChange={(e) => setMedicationName(e.target.value)}
-                                className={`${inputClass} flex-1`}
-                                placeholder="Medication name"
-                                maxLength={100}
-                            />
+                            <div className="mt-1.5">
+                                {medsLoading ? (
+                                    <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} text-gray-400 italic`}>Loading medications...</div>
+                                ) : savedMeds.length > 0 ? (
+                                    <div className="space-y-1">
+                                        <div className="relative">
+                                            <select
+                                                value={selectedMedId}
+                                                onChange={(e) => setSelectedMedId(e.target.value)}
+                                                className={`${selectClass} w-full appearance-none pr-6`}
+                                            >
+                                                <option value="">Select medication...</option>
+                                                {savedMeds.map((med) => (
+                                                    <option key={med._id} value={med._id}>
+                                                        {med.medicationName} ({med.dosage}{med.doseUnit})
+                                                    </option>
+                                                ))}
+                                                <option value="__other__">Other...</option>
+                                            </select>
+                                            <FiChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={compact ? 10 : 12} />
+                                        </div>
+                                        {selectedMedId === '__other__' && (
+                                            <input
+                                                type="text"
+                                                value={customMedName}
+                                                onChange={(e) => setCustomMedName(e.target.value)}
+                                                className={`${inputClass} w-full`}
+                                                placeholder="Medication name"
+                                                maxLength={100}
+                                            />
+                                        )}
+                                    </div>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={customMedName}
+                                        onChange={(e) => setCustomMedName(e.target.value)}
+                                        className={`${inputClass} w-full`}
+                                        placeholder="Medication name"
+                                        maxLength={100}
+                                    />
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>

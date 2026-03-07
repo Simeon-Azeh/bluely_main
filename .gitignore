@@ -274,5 +274,6 @@ wheels/
 MANIFEST
 
 # ML specific
-ml/data/
+ml/data/ohiot1dm/
+ml/data/diabetes.csv
 ml/__pycache__/

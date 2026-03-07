@@ -209,6 +209,27 @@ function saveActiveId(id: string) {
     } catch { /* ignore */ }
 }
 
+function cleanMealDescription(description: string | undefined, mealType: string): string {
+    if (!description) return mealType;
+    // Strip conversational prefixes like "I had", "I ate", "I just ate"
+    let clean = description
+        .replace(/^(I\s+(just\s+)?(had|ate|eaten|got|grabbed|made)\s+)/i, '')
+        .replace(/^(about\s+)/i, '')
+        .trim();
+    // Strip quantity/container qualifiers like "a plate of", "a bowl of"
+    clean = clean
+        .replace(/^(a\s+)?(plate|bowl|cup|glass|serving|portion|piece|slice|handful)s?\s+(of\s+)?/i, '')
+        .trim();
+    // Strip inline quantity phrases like "about 3 dishing spoons" or "2 cups of"
+    clean = clean
+        .replace(/\s*(about\s+)?\d+\s+(dishing\s+)?\s*(spoons?|cups?|scoops?|servings?|pieces?|slices?|bowls?|plates?)\s*(of\s+)?/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    // Truncate if still long
+    if (clean.length > 60) clean = clean.slice(0, 57) + '...';
+    return clean || mealType;
+}
+
 function extractTitle(messages: ChatMessage[]): string {
     const firstUser = messages.find((m) => m.role === 'user');
     if (firstUser) {
@@ -359,6 +380,28 @@ export default function ChatPage() {
             };
         }));
     }, [activeSessionId]);
+
+    const handleLogComplete = useCallback(async (logType: 'glucose' | 'meal') => {
+        if (logType !== 'glucose' || !user) return;
+        try {
+            const res = await api.getMeals(user.uid, 1);
+            const lastMeal = res.meals?.[0];
+            if (lastMeal) {
+                const mealTime = new Date(lastMeal.timestamp);
+                const hoursSince = (Date.now() - mealTime.getTime()) / (1000 * 60 * 60);
+                const timeLabel = mealTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                const mealDesc = cleanMealDescription(lastMeal.description, lastMeal.mealType);
+                const followUp = hoursSince > 2
+                    ? `Got it! 📝 By the way, your last meal was **${mealDesc}** around ${timeLabel}. Have you eaten anything since then? I can help you log it!`
+                    : `Got it! 📝 Looks like you had **${mealDesc}** not too long ago (${timeLabel}). If you eat anything else, just let me know and I'll log it for you!`;
+                updateActiveMessages((prev) => [...prev, { role: 'assistant', content: followUp, timestamp: Date.now() }]);
+            } else {
+                updateActiveMessages((prev) => [...prev, { role: 'assistant', content: `Got it! 📝 Have you eaten anything recently? I can help you log a meal too!`, timestamp: Date.now() }]);
+            }
+        } catch {
+            // silently skip follow-up if meal fetch fails
+        }
+    }, [user, updateActiveMessages]);
 
     const sendMessage = async () => {
         const trimmed = input.trim();
@@ -586,13 +629,18 @@ export default function ChatPage() {
                                     </div>
                                     {msg.actions && msg.actions.length > 0 && (
                                         <div className="mt-1 space-y-1 w-full">
-                                            {msg.actions.map((action, ai) => (
-                                                <ChatLogCard
-                                                    key={ai}
-                                                    action={action as ActionProposal}
-                                                    firebaseUid={user?.uid || ''}
-                                                />
-                                            ))}
+                                            {msg.actions.map((action, ai) => {
+                                                const prevUserMsg = messages.slice(0, i).reverse().find(m => m.role === 'user');
+                                                return (
+                                                    <ChatLogCard
+                                                        key={ai}
+                                                        action={action as ActionProposal}
+                                                        firebaseUid={user?.uid || ''}
+                                                        messageTimestamp={prevUserMsg?.timestamp}
+                                                        onLogged={handleLogComplete}
+                                                    />
+                                                );
+                                            })}
                                         </div>
                                     )}
                                     <span className="text-[10px] mt-0.5 px-1 text-gray-400">
