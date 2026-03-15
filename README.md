@@ -3,6 +3,10 @@
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/Simeon-Azeh/bluely_main.git)
 [![Live Demo](https://img.shields.io/badge/Live-Demo-green?logo=vercel)](https://bluely-main-foyr.vercel.app/dashboard)
 [![API Docs](https://img.shields.io/badge/API-Docs-orange?logo=swagger)](https://bluely-main.onrender.com/api/docs/)
+[![Final Demo Video](https://img.shields.io/badge/Final_Demo-Video-red?logo=googledrive)](https://drive.google.com/file/d/1LfhMWJUzAdqvqMSgx_L0NwzYwYWVMMO2/view?usp=sharing)
+[![Test Screenshots](https://img.shields.io/badge/Test-Screenshots-blue?logo=googledrive)](https://drive.google.com/drive/folders/1a6YQA8H6PYUZTZ8b4SezCYToZlKvTMR9?usp=sharing)
+[![ML Health](https://img.shields.io/badge/ML_Service-Health_Check-brightgreen?logo=fastapi)](https://bluely-ml.onrender.com/health)
+
 [![Demo Video](https://img.shields.io/badge/Demo-Video-red?logo=youtube)](https://youtu.be/g1m0TP3f2tU)
 [![Figma Designs](https://img.shields.io/badge/Figma-Designs-purple?logo=figma)](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1)
 
@@ -11,6 +15,8 @@
 - [GitHub Repository](https://github.com/Simeon-Azeh/bluely_main.git)
 - [Live Demo](https://bluely-main-foyr.vercel.app/dashboard)
 - [API Docs](https://bluely-main.onrender.com/api/docs/)
+- [Final Demo Video](https://drive.google.com/file/d/1LfhMWJUzAdqvqMSgx_L0NwzYwYWVMMO2/view?usp=sharing)
+- [Alternative Tests Screenshots](https://drive.google.com/drive/folders/1a6YQA8H6PYUZTZ8b4SezCYToZlKvTMR9?usp=sharing)
 - [Demo Video](https://youtu.be/g1m0TP3f2tU)
 - [Figma Designs](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1)
 
