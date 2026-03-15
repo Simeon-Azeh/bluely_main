@@ -1,6 +1,6 @@
-#  Quick Start: Running Tests
+﻿# Quick Start: Running Tests
 
-##  Fastest Way to Verify Everything Works (5 minutes)
+## Fastest Way to Verify Everything Works (5 minutes)
 
 ### 1. Start Services (3 terminals)
 
@@ -34,8 +34,8 @@ Expected: "Application startup complete"
 2. Log in with test Firebase account
 3. Click **"Check Forecast Status"** button
 4. Should see one of these:
-   -  **GlucoseForecastCard** (if you have recent data)
-   -  **MissingInputsCard** (if data is missing/stale)
+   - **GlucoseForecastCard** (if you have recent data)
+   - **MissingInputsCard** (if data is missing/stale)
 
 If MissingInputsCard appears:
 1. Click quick-entry form for Glucose
@@ -43,11 +43,11 @@ If MissingInputsCard appears:
 3. Click Submit
 4. Repeat for Meal (carbs: 45, type: lunch)
 5. After each submit, missing inputs should decrease
-6. When all data logged → GlucoseForecastCard appears 
+6. When all data logged  GlucoseForecastCard appears
 
 ---
 
-##  Running Automated Tests
+## Running Automated Tests
 
 ### Prerequisites
 ```bash
@@ -95,50 +95,50 @@ npm test -- --watch
 
 ---
 
-##  What Each Test Verifies
+## What Each Test Verifies
 
 ### Backend Tests
 
 **predictionSafety.service.test.ts** (30+ tests)
-- ✅ Glucose recency (≤5 min required)
-- ✅ Meal logging (≤4 hours)
-- ✅ Medication (≤6 hours)
-- ✅ Activity (≤6 hours)
-- ✅ Importance levels (critical/high/medium)
+-  Glucose recency (5 min required)
+-  Meal logging (4 hours)
+-  Medication (6 hours)
+-  Activity (6 hours)
+-  Importance levels (critical/high/medium)
 
 **predict.controller.test.ts** (25+ tests)
-- ✅ 200 response with complete data
-- ✅ 422 response with missing inputs
-- ✅ AI insight generation
-- ✅ ML fallback behavior
-- ✅ Cache invalidation
+-  200 response with complete data
+-  422 response with missing inputs
+-  AI insight generation
+-  ML fallback behavior
+-  Cache invalidation
 
 **validation.test.ts** (40+ tests)
-- ✅ Glucose: 20-600 mg/dL
-- ✅ Carbs: 0-500g
-- ✅ Medication: 0-100 units
-- ✅ Activity: 1-480 min
-- ✅ Input type validation
+-  Glucose: 20-600 mg/dL
+-  Carbs: 0-500g
+-  Medication: 0-100 units
+-  Activity: 1-480 min
+-  Input type validation
 
 ### Frontend Tests
 
 **PredictionGateway.test.tsx** (30+ tests)
-- ✅ State transitions (idle→checking→complete)
-- ✅ Quick-log flow
-- ✅ Error handling
-- ✅ Keyboard navigation
-- ✅ Responsive design
+-  State transitions (idlecheckingcomplete)
+-  Quick-log flow
+-  Error handling
+-  Keyboard navigation
+-  Responsive design
 
 **Cards.test.tsx** (50+ tests)
-- ✅ MissingInputsCard display
-- ✅ Quick-entry form validation
-- ✅ GlucoseForecastCard display
-- ✅ Countdown timer
-- ✅ AI insight rendering
+-  MissingInputsCard display
+-  Quick-entry form validation
+-  GlucoseForecastCard display
+-  Countdown timer
+-  AI insight rendering
 
 ---
 
-## 🎯 Test Scenarios to Verify
+## Test Scenarios to Verify
 
 ### Scenario 1: Complete Data (Instant Forecast)
 ```
@@ -153,7 +153,7 @@ Test:
   2. Should see GlucoseForecastCard immediately
   3. Forecast contains:
      - Predicted glucose value
-     - Direction arrow (↑↓→)
+     - Direction arrow ()
      - Confidence bar (high, 80%+)
      - Recommendation
      - AI insight explaining factors
@@ -174,22 +174,22 @@ Test:
   6. Click Submit
   7. System re-checks
   8. All inputs now complete
-  9. GlucoseForecastCard appears ✅
+  9. GlucoseForecastCard appears
 ```
 
 ### Scenario 3: Stale Meal (Requires Update)
 ```
 Prerequisites:
-  - Glucose: fresh (< 5 min)  ✓
-  - Meal: STALE (> 4 hours)   ✗
-  - Other: fresh              ✓
+  - Glucose: fresh (< 5 min)  
+  - Meal: STALE (> 4 hours)   
+  - Other: fresh              
 
 Test:
   1. Click "Check Forecast Status"
   2. MissingInputsCard appears
   3. Only Meal marked HIGH (amber)
   4. Quick-log new meal
-  5. Forecast generated ✅
+  5. Forecast generated
 ```
 
 ### Scenario 4: AI Insight Quality
@@ -220,13 +220,13 @@ Test:
   2. Card shows: "Forecast window reached!"
   3. "Update Forecast" button appears
   4. Click button
-  5. New forecast generated ✅
+  5. New forecast generated 
   6. Countdown resets to 30:00
 ```
 
 ---
 
-## 🐛 Debugging Tips
+## Debugging Tips
 
 ### Check Backend Safety Service
 ```bash
@@ -288,7 +288,7 @@ curl -X POST "http://localhost:8000/ai-insight" \
 
 ---
 
-## 📊 Test Coverage Report
+## Test Coverage Report
 
 Run coverage reports:
 ```bash
@@ -297,25 +297,25 @@ cd backend
 npm test -- --coverage
 
 # Expected output:
-# ├─ PredictionSafetyService: 95%+ coverage
-# ├─ predict.controller: 90%+ coverage
-# └─ validation.middleware: 98%+ coverage
+#  PredictionSafetyService: 95%+ coverage
+#  predict.controller: 90%+ coverage
+#  validation.middleware: 98%+ coverage
 
 # Frontend coverage
 cd frontend
 npm test -- --coverage
 
 # Expected output:
-# ├─ PredictionGateway: 85%+ coverage
-# ├─ MissingInputsCard: 85%+ coverage
-# └─ GlucoseForecastCard: 85%+ coverage
+#  PredictionGateway: 85%+ coverage
+#  MissingInputsCard: 85%+ coverage
+#  GlucoseForecastCard: 85%+ coverage
 ```
 
 ---
 
-## ✨ Success Indicators
+## Success Indicators
 
-### Green Light ✅ (All Working)
+### Green Light (All Working)
 - [x] Backend test pass: `npm test`
 - [x] Frontend test pass: `npm test`
 - [x] Dashboard loads without errors
@@ -328,13 +328,13 @@ npm test -- --coverage
 - [x] Countdown timer starts
 - [x] No console errors
 
-### Yellow Light ⚠️ (Minor Issues)
+### Yellow Light (Minor Issues)
 - [ ] AI insight is null (LLM timeout, but fallback works)
-- [ ] Countdown timer off by ±5 seconds
+- [ ] Countdown timer off by 5 seconds
 - [ ] Quick-log response > 1 second
 - [ ] Styles slightly off (colors, shadows)
 
-### Red Light 🔴 (Critical Issues)
+### Red Light (Critical Issues)
 - [x] Backend test fail
 - [x] Frontend test fail
 - [x] 422 returned even with complete data
@@ -344,7 +344,7 @@ npm test -- --coverage
 
 ---
 
-## 📝 Checklist Before Production
+## Checklist Before Production
 
 - [ ] All backend tests pass (`npm test`)
 - [ ] All frontend tests pass (`npm test`)
@@ -359,12 +359,12 @@ npm test -- --coverage
 
 ---
 
-## 🎉 All Done!
+##  All Done!
 
 After verifying all tests pass and scenarios work:
 
 ```bash
-# You can now deploy! 🚀
+# You can now deploy! 
 ```
 
 For detailed test information, see:
@@ -372,4 +372,4 @@ For detailed test information, see:
 - [TESTING_GUIDE.md](TESTING_GUIDE.md) - Manual testing guide
 - [PREDICTION_SYSTEM_PLAN.md](PREDICTION_SYSTEM_PLAN.md) - System design
 
-**Status: ✅ READY FOR PRODUCTION**
+**Status:  READY FOR PRODUCTION**
