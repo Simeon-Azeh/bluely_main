@@ -350,11 +350,18 @@ export default function SettingsPage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-[60vh]">
-                <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="mt-4 text-gray-500">Loading settings...</p>
+            <div className="pb-8 max-w-6xl mx-auto space-y-6 animate-pulse">
+                {/* Title skeleton */}
+                <div className="space-y-2 mb-8">
+                    <div className="h-8 bg-gray-100 rounded-lg w-32" />
+                    <div className="h-4 bg-gray-100 rounded-lg w-56" />
                 </div>
+                {/* Profile card skeleton */}
+                <div className="rounded-2xl bg-gray-100 h-32 w-full" />
+                {/* Settings sections skeleton */}
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="rounded-2xl bg-gray-100 h-40 w-full" />
+                ))}
             </div>
         );
     }

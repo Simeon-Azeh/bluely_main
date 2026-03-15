@@ -3,6 +3,7 @@ import {
     PredictionAnalysis, User, GlucoseReading,
     Notification, ForecastLog, MedicationLog, Meal, Activity, MoodLog, LifestyleLog,
 } from '../models';
+import PredictionSafetyService, { MissingInputField } from '../services/predictionSafety.service';
 
 const ML_API_URL = process.env.ML_API_URL || 'http://localhost:8000';
 
@@ -435,6 +436,49 @@ export const getTrends = async (req: Request, res: Response): Promise<void> => {
     }
 };
 
+// Helper function to fetch AI Insight from ML service
+async function getAIInsight(predictedGlucose: number, currentGlucose: number, ctx: PredictionContext): Promise<string | null> {
+    try {
+        // Determine risk level from predicted glucose
+        let riskLevel = 'normal';
+        if (predictedGlucose < 70) {
+            riskLevel = 'low';
+        } else if (predictedGlucose > 180) {
+            riskLevel = 'high';
+        }
+
+        const insightPayload = {
+            predictedGlucose,
+            currentGlucose,
+            riskLevel,
+            mealType: ctx.meal?.mealType || 'none',
+            insulinDose: ctx.medication?.dose || 0,
+            activityMinutes: ctx.activity?.durationMinutes || 0,
+            carbIntake: ctx.meal?.carbsEstimate || 0,
+            personalized: (ctx.glucoseHistory.length >= 21),
+        };
+
+        const insightResponse = await fetch(`${ML_API_URL}/ai-insight`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(insightPayload),
+            signal: AbortSignal.timeout(2000), // 2 second timeout — non-critical
+        });
+
+        if (insightResponse.ok) {
+            const insightData = await insightResponse.json() as { insight: string; source: string; provider?: string };
+            return insightData.insight;
+        }
+    } catch (error) {
+        // Suppress routine timeout noise; only log unexpected errors
+        const isTimeout = error instanceof Error && error.name === 'TimeoutError';
+        if (!isTimeout) {
+            console.debug('AI insight unavailable:', error);
+        }
+    }
+    return null;
+}
+
 // 30-minute glucose forecast using Bluely synthetic model (v3)
 export const getGlucose30 = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -457,6 +501,9 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
 
         const triggerEvent = (req.query.trigger as string) || 'auto';
 
+        // Gather full context for the ML v3 API (needed early for AI insight generation)
+        const ctx = await gatherPredictionContext(firebaseUid as string);
+
         // Cache check: return recent forecast if no new data
         const lastForecast = await ForecastLog.findOne({
             firebaseUid: firebaseUid as string,
@@ -469,6 +516,7 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             const THIRTY_MINUTES = 30 * 60 * 1000;
 
             if (newestReadingTime <= lastForecastTime && forecastAge < THIRTY_MINUTES) {
+                // Return cached forecast instantly — skip AI insight to avoid blocking
                 res.status(200).json({
                     hasData: true,
                     prediction: {
@@ -483,14 +531,32 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
                         factors: lastForecast.factors,
                         modelUsed: lastForecast.modelUsed,
                         predictionTimestamp: lastForecast.createdAt.toISOString(),
+                        aiInsight: null,
                     },
                 });
                 return;
             }
         }
 
-        // Gather full context for the ML v3 API
-        const ctx = await gatherPredictionContext(firebaseUid as string);
+        // ── SAFETY CHECK: Ensure all required inputs are present ───────────
+        const safetyCheck = await PredictionSafetyService.check(firebaseUid as string);
+
+        if (!safetyCheck.isComplete) {
+            // Safety gate: Cannot forecast without all required inputs
+            res.status(422).json({
+                error: 'incomplete_inputs',
+                message: 'Cannot generate prediction — missing required inputs. All inputs are needed because glucose is affected by meals, medication, activity, and wellness simultaneously.',
+                missingInputs: safetyCheck.missingInputs,
+                missingCount: safetyCheck.missingInputs.length,
+                canLogQuickly: true,  // UI can show inline quick-entry form
+            });
+            return;
+        }
+
+        // Log any safety warnings (stale data, etc.) but proceed with forecast
+        if (safetyCheck.warnings.length > 0) {
+            console.info(`Safety warnings for user ${firebaseUid}:`, safetyCheck.warnings);
+        }
 
         // Build ML API v3 payload
         const payload = {
@@ -604,11 +670,15 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
             console.warn('Failed to save forecast log (non-critical):', saveErr);
         }
 
+        // ── Generate AI Insight (DiaBuddy explanation) ──────────────────
+        const aiInsight = await getAIInsight(result.predictedGlucose, ctx.currentGlucose, ctx);
+
         res.status(200).json({
             hasData: true,
             prediction: {
                 ...result,
                 predictionTimestamp,
+                aiInsight,
             },
         });
     } catch (error) {
@@ -1134,5 +1204,103 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
     } catch (error) {
         console.error('Error in DiaBuddy chat:', error);
         res.status(500).json({ error: 'Failed to process chat message' });
+    }
+};
+
+// ── Quick-Log Endpoint ─────────────────────────────────────────────────────
+/**
+ * POST /glucose/quick-log
+ * Allows inline rapid logging of missing data without navigating away.
+ * User provides only the data they want to log, rest is retrieved from DB.
+ */
+export const quickLogData = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { firebaseUid, glucose, meal, medication, activity } = req.body;
+
+        if (!firebaseUid) {
+            res.status(400).json({ error: 'firebaseUid is required' });
+            return;
+        }
+
+        const user = await User.findOne({ firebaseUid });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        // Log glucose if provided
+        const glucosePromises: Promise<any>[] = [];
+
+        if (glucose && typeof glucose.value === 'number' && glucose.value >= 20 && glucose.value <= 600) {
+            glucosePromises.push(
+                GlucoseReading.create({
+                    userId: user._id,
+                    firebaseUid,
+                    value: glucose.value,
+                    unit: glucose.unit || 'mg/dL',
+                    readingType: glucose.readingType || 'random',
+                    recordedAt: new Date(),
+                })
+            );
+        }
+
+        // Log meal if provided
+        if (meal && meal.carbsEstimate !== undefined && meal.mealType) {
+            glucosePromises.push(
+                Meal.create({
+                    userId: user._id,
+                    firebaseUid,
+                    carbsEstimate: meal.carbsEstimate,
+                    mealType: meal.mealType,
+                    timestamp: new Date(),
+                })
+            );
+        }
+
+        // Log medication if provided
+        if (medication && medication.dose !== undefined && medication.medicationType) {
+            glucosePromises.push(
+                MedicationLog.create({
+                    userId: user._id,
+                    firebaseUid,
+                    medicationName: medication.medicationName || medication.medicationType,
+                    medicationType: medication.medicationType,
+                    dosage: medication.dose,
+                    doseUnit: medication.medicationUnit || 'units',
+                    takenAt: new Date(),
+                })
+            );
+        }
+
+        // Log activity if provided
+        if (activity && activity.activityLevel) {
+            glucosePromises.push(
+                Activity.create({
+                    userId: user._id,
+                    firebaseUid,
+                    activityLevel: activity.activityLevel,
+                    timestamp: new Date(),
+                })
+            );
+        }
+
+        // Wait for all logs to be created
+        await Promise.all(glucosePromises);
+
+        // Re-check safety after logging
+        const updatedSafetyCheck = await PredictionSafetyService.check(firebaseUid);
+
+        res.status(200).json({
+            success: true,
+            message: 'Data logged successfully',
+            safetyStatus: {
+                isComplete: updatedSafetyCheck.isComplete,
+                missingInputs: updatedSafetyCheck.missingInputs,
+                canPredict: updatedSafetyCheck.canPredict,
+            },
+        });
+    } catch (error) {
+        console.error('Error in quickLogData:', error);
+        res.status(500).json({ error: 'Failed to log data' });
     }
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FiArrowRight, FiDroplet, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { FiArrowRight, FiDroplet, FiPieChart, FiTrendingUp, FiCheck } from 'react-icons/fi';
 
 export default function HeroSection() {
     return (
@@ -50,7 +50,7 @@ export default function HeroSection() {
                                     <h3 className="text-xl font-bold text-gray-900">Your Dashboard</h3>
                                 </div>
                                 <div className="w-10 h-10 bg-[#1F2F98]/10 rounded-full flex items-center justify-center">
-                                    <span className="text-lg">👋</span>
+                                    <FiDroplet className="w-5 h-5 text-[#1F2F98]" />
                                 </div>
                             </div>
 
@@ -107,7 +107,7 @@ export default function HeroSection() {
                         <div className="absolute -top-4 -right-4 bg-white rounded-2xl shadow-lg p-3 border border-gray-100 hidden lg:block">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                    <span className="text-sm">✓</span>
+                                    <FiCheck className="w-4 h-4 text-green-600" />
                                 </div>
                                 <div>
                                     <p className="text-xs font-medium text-gray-900">Reading logged</p>
@@ -119,7 +119,7 @@ export default function HeroSection() {
                         <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-lg p-3 border border-gray-100 hidden lg:block">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-[#1F2F98]/10 rounded-full flex items-center justify-center">
-                                    
+
                                 </div>
                                 <div>
                                     <p className="text-xs font-medium text-gray-900">Meal logged</p>

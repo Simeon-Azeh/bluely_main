@@ -903,7 +903,7 @@ The `DiaBuddyCard` component (`frontend/src/components/dashboard/DiaBuddyCard.ts
 - "Ask DiaBuddy to Summarize" button with sparkle icon
 - Loading animation (bouncing dots)
 - Typing animation for the AI response
-- Source badge (✨ AI or 📋 Analysis)
+- Source badge (AI or Analysis)
 - Compact mode for dashboard, full mode for insights page
 
 ---

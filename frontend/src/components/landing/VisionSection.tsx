@@ -41,7 +41,7 @@ export default function VisionSection() {
                                 </div>
                                 <div>
                                     <p className="text-sm opacity-80">Starting in</p>
-                                    <p className="font-bold text-xl">Cameroon 🇨🇲</p>
+                                    <p className="font-bold text-xl">Cameroon</p>
                                 </div>
                             </div>
 

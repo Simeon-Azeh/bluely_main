@@ -319,4 +319,4 @@ This is an MVP demonstration project. Contributions are welcome for educational 
 
 ---
 
-**Bluely** - Empowering diabetes self-management 💙
+**Bluely** - Empowering diabetes self-management 

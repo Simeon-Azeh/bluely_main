@@ -566,7 +566,7 @@ export default function OnboardingPage() {
                         <div className="space-y-6">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900">
-                                    You&apos;re all set 🎉
+                                    You&apos;re all set!
                                 </h2>
                                 <p className="mt-2 text-gray-600">
                                     Log your readings consistently and Bluely will start showing patterns after about 21 readings.

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { Card, CardContent, Button } from '@/components/ui';
-import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle, FiSend } from 'react-icons/fi';
+import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle, FiSend, FiZap } from 'react-icons/fi';
 import { IoFastFoodOutline } from 'react-icons/io5';
 
 // Carb level types
@@ -84,6 +84,9 @@ export default function MealsPage() {
     const [aiResult, setAiResult] = useState<string | null>(null);
     const [aiParsed, setAiParsed] = useState<{ carbsEstimate: number; carbLevel: CarbLevel; description: string } | null>(null);
     const [aiLogging, setAiLogging] = useState(false);
+    const [aiRefinement, setAiRefinement] = useState('');
+    const [aiRefining, setAiRefining] = useState(false);
+    const [aiAdjustedCarbs, setAiAdjustedCarbs] = useState<number | null>(null);
 
     const handleDishSelect = (dish: CamerooniaDish) => {
         if (selectedDishes.includes(dish.id)) {
@@ -147,6 +150,8 @@ export default function MealsPage() {
         setAiEstimating(true);
         setAiResult(null);
         setAiParsed(null);
+        setAiAdjustedCarbs(null);
+        setAiRefinement('');
         try {
             const result = await api.chatWithDiaBuddy(
                 user.uid,
@@ -163,14 +168,39 @@ export default function MealsPage() {
         }
     };
 
+    const handleAiRefine = async () => {
+        if (!user || !aiRefinement.trim()) return;
+        setAiRefining(true);
+        try {
+            const result = await api.chatWithDiaBuddy(
+                user.uid,
+                `About the meal I described: "${aiDescription.trim()}". I want to refine: ${aiRefinement.trim()}. Give an updated carbohydrate estimate in grams, starting with the number.`,
+                [],
+                user.displayName
+            );
+            const refined = parseAiResponse(result.reply, aiDescription);
+            if (refined) {
+                setAiParsed(refined);
+                setAiAdjustedCarbs(refined.carbsEstimate);
+                setAiResult(result.reply);
+            }
+        } catch {
+            /* ignore */
+        } finally {
+            setAiRefining(false);
+            setAiRefinement('');
+        }
+    };
+
     const handleAiAccept = async () => {
         if (!user || !aiParsed || !selectedMealType) return;
         setAiLogging(true);
         try {
+            const carbsToLog = aiAdjustedCarbs ?? aiParsed.carbsEstimate;
             await api.createMeal({
                 firebaseUid: user.uid,
                 mealType: selectedMealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
-                carbsEstimate: aiParsed.carbsEstimate,
+                carbsEstimate: carbsToLog,
                 description: aiParsed.description.slice(0, 300),
                 timestamp: new Date().toISOString(),
             });
@@ -179,6 +209,7 @@ export default function MealsPage() {
             setAiDescription('');
             setAiResult(null);
             setAiParsed(null);
+            setAiAdjustedCarbs(null);
             setTimeout(() => {
                 setSelectedMealType('');
                 setSelectedDishes([]);
@@ -266,7 +297,7 @@ export default function MealsPage() {
         <div className="space-y-5 max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <div className="w-11 h-11 bg-linear-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
                     <IoFastFoodOutline className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -277,7 +308,7 @@ export default function MealsPage() {
 
             {/* Success Message */}
             {isSuccess && (
-                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl flex items-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                <div className="p-4 bg-linear-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl flex items-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                     <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3 shrink-0">
                         <FiCheck className="w-4 h-4 text-green-600" />
                     </div>
@@ -356,13 +387,16 @@ export default function MealsPage() {
             </Card>
 
             {/* AI Meal Description */}
-            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-gradient-to-r from-[#1F2F98]/[0.03] to-[#4F5FD8]/[0.03]">
+            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.08)] bg-linear-to-br from-[#1F2F98]/3 via-indigo-50/20 to-purple-50/10">
                 <CardContent>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Image src="/diabuddy.png" alt="DiaBuddy" width={28} height={28} className="rounded-full" />
+                    <div className="flex items-center gap-2.5 mb-3">
+                        <div className="relative w-9 h-9 shrink-0">
+                            <div className="absolute inset-0 rounded-full bg-linear-to-br from-[#1F2F98] to-indigo-400 opacity-20 animate-pulse" />
+                            <Image src="/diabuddy.png" alt="DiaBuddy" width={36} height={36} className="rounded-full relative z-10" />
+                        </div>
                         <div>
                             <h3 className="text-sm font-semibold text-gray-900">Describe your meal to DiaBuddy</h3>
-                            <p className="text-[11px] text-gray-400">AI will estimate the carb content for you</p>
+                            <p className="text-[11px] text-gray-400">AI estimates carbs and you can refine in real-time</p>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -372,79 +406,119 @@ export default function MealsPage() {
                             onChange={(e) => setAiDescription(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAiEstimate(); } }}
                             placeholder="e.g. A plate of rice with stew and fried plantain"
-                            className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/15 focus:border-[#1F2F98]/30"
+                            className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/15 focus:border-[#1F2F98]/30 bg-white"
                             disabled={aiEstimating}
                         />
                         <button
                             type="button"
                             onClick={handleAiEstimate}
                             disabled={!aiDescription.trim() || aiEstimating}
-                            className="px-4 py-2.5 bg-[#1F2F98] text-white rounded-xl text-sm font-medium disabled:opacity-30 hover:bg-[#1a2880] transition-colors flex items-center gap-1.5 shrink-0"
+                            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.03] hover:shadow-[0_4px_16px_rgba(79,70,229,0.4)] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}
                         >
-                            {aiEstimating ? (
-                                <FiSend className="w-4 h-4" />
-                            ) : (
-                                <FiSend className="w-4 h-4" />
-                            )}
-                            Estimate
+                            <FiZap className={`w-4 h-4 ${aiDescription.trim() && !aiEstimating ? 'animate-pulse' : ''}`} />
+                            {aiEstimating ? 'Analysing...' : 'AI Estimate'}
                         </button>
                     </div>
 
                     {/* Thinking animation */}
                     {aiEstimating && (
-                        <div className="mt-3 p-3 bg-white rounded-xl border border-gray-100">
-                            <div className="flex items-center gap-2">
-                                <Image src="/diabuddy.png" alt="" width={20} height={20} className="rounded-full shrink-0" />
-                                <div className="flex items-center gap-1.5 text-sm text-[#1F2F98]">
-                                    <span className="font-medium">DiaBuddy is thinking</span>
-                                    <span className="flex gap-0.5">
-                                        <span className="w-1 h-1 bg-[#1F2F98]/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <span className="w-1 h-1 bg-[#1F2F98]/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <span className="w-1 h-1 bg-[#1F2F98]/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                    </span>
+                        <div className="mt-3 p-4 bg-linear-to-br from-[#1F2F98]/5 via-indigo-50/60 to-purple-50/40 rounded-xl border border-indigo-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="relative w-8 h-8 shrink-0">
+                                    <div className="absolute inset-0 rounded-full bg-linear-to-br from-[#1F2F98] via-indigo-500 to-purple-500 animate-pulse opacity-80" />
+                                    <div className="absolute inset-0.5 rounded-full bg-white flex items-center justify-center">
+                                        <Image src="/diabuddy.png" alt="" width={22} height={22} className="rounded-full" />
+                                    </div>
                                 </div>
+                                <div className="flex-1">
+                                    <p className="text-xs font-semibold text-[#1F2F98]">DiaBuddy is analysing your meal</p>
+                                    <p className="text-[10px] text-indigo-400">Estimating carbohydrate content...</p>
+                                </div>
+                                <span className="flex items-center gap-0.5">
+                                    <span className="w-1.5 h-1.5 bg-[#1F2F98] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '120ms' }} />
+                                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '240ms' }} />
+                                </span>
+                            </div>
+                            <div className="h-1 bg-indigo-100 rounded-full overflow-hidden">
+                                <div className="h-full w-3/4 bg-linear-to-r from-[#1F2F98] via-indigo-400 to-purple-400 rounded-full animate-pulse" />
                             </div>
                         </div>
                     )}
 
                     {/* AI Result */}
                     {aiResult && !aiEstimating && (
-                        <div className="mt-3 space-y-2">
-                            <div className="p-3 bg-white rounded-xl border border-gray-100 text-sm text-gray-700 whitespace-pre-wrap">
+                        <div className="mt-3 space-y-2.5">
+                            <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm text-gray-700">
                                 <div className="flex items-start gap-2">
-                                    <Image src="/diabuddy.png" alt="" width={20} height={20} className="rounded-full mt-0.5 shrink-0" />
-                                    <p>{aiResult}</p>
+                                    <Image src="/diabuddy.png" alt="" width={18} height={18} className="rounded-full mt-0.5 shrink-0" />
+                                    <p className="leading-relaxed">{aiResult}</p>
                                 </div>
                             </div>
 
-                            {/* Parsed preview + Accept button */}
-                            {aiParsed && selectedMealType && (
-                                <div className="p-3 bg-[#1F2F98]/[0.04] rounded-xl border border-[#1F2F98]/10">
+                            {/* Live carb adjuster */}
+                            {aiParsed && (
+                                <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl">
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs font-semibold text-gray-700">Ready to log</p>
+                                        <p className="text-[11px] font-semibold text-[#1F2F98] uppercase tracking-wide">Adjust estimate</p>
                                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${carbLevelConfig[aiParsed.carbLevel].bg} ${carbLevelConfig[aiParsed.carbLevel].color}`}>
                                             {carbLevelConfig[aiParsed.carbLevel].label}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
-                                        <span><strong>{aiParsed.carbsEstimate}g</strong> carbs</span>
-                                        <span className="text-gray-300">·</span>
-                                        <span className="truncate">{aiParsed.description}</span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center rounded-xl border border-indigo-200 overflow-hidden bg-white shadow-sm">
+                                            <button type="button" onClick={() => setAiAdjustedCarbs(c => Math.max(0, (c ?? aiParsed.carbsEstimate) - 5))}
+                                                className="w-8 h-8 flex items-center justify-center text-[#1F2F98] hover:bg-indigo-50 text-base font-bold transition-colors">−</button>
+                                            <span className="px-3 text-sm font-bold text-[#1F2F98] min-w-12 text-center">{aiAdjustedCarbs ?? aiParsed.carbsEstimate}g</span>
+                                            <button type="button" onClick={() => setAiAdjustedCarbs(c => (c ?? aiParsed.carbsEstimate) + 5)}
+                                                className="w-8 h-8 flex items-center justify-center text-[#1F2F98] hover:bg-indigo-50 text-base font-bold transition-colors">+</button>
+                                        </div>
+                                        <span className="text-xs text-gray-500">per 5g carbs · tap to fine-tune</span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleAiAccept}
-                                        disabled={aiLogging}
-                                        className="w-full py-2 bg-[#1F2F98] text-white rounded-xl text-sm font-medium hover:bg-[#1a2880] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                    >
-                                        {aiLogging ? (
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        ) : (
-                                            <FiCheck className="w-4 h-4" />
-                                        )}
-                                        Accept & Log Meal
-                                    </button>
                                 </div>
+                            )}
+
+                            {/* Refinement follow-up */}
+                            {aiParsed && (
+                                <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                                    <p className="text-xs font-medium text-gray-600 mb-2">Refine with DiaBuddy</p>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={aiRefinement}
+                                            onChange={e => setAiRefinement(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAiRefine(); } }}
+                                            placeholder="e.g. I had 2 cups of rice, not 1"
+                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/15 bg-white"
+                                            disabled={aiRefining}
+                                        />
+                                        <button type="button" onClick={handleAiRefine}
+                                            disabled={!aiRefinement.trim() || aiRefining}
+                                            className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-40 transition-all hover:scale-[1.02]"
+                                            style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}>
+                                            {aiRefining ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSend className="w-3 h-3" />}
+                                            Refine
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Accept button */}
+                            {aiParsed && selectedMealType && (
+                                <button
+                                    type="button"
+                                    onClick={handleAiAccept}
+                                    disabled={aiLogging}
+                                    className="w-full py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {aiLogging ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <FiCheck className="w-4 h-4" />
+                                    )}
+                                    Accept {aiAdjustedCarbs ?? aiParsed?.carbsEstimate}g &amp; Log Meal
+                                </button>
                             )}
                             {aiParsed && !selectedMealType && (
                                 <p className="text-xs text-amber-600 px-1">Select a meal type above to accept this estimate.</p>
@@ -486,7 +560,7 @@ export default function MealsPage() {
                                                 className="w-10 h-10 rounded-lg object-cover shrink-0"
                                             />
                                         ) : (
-                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center shrink-0">
+                                            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-orange-100 to-amber-100 flex items-center justify-center shrink-0">
                                                 <IoFastFoodOutline className="w-5 h-5 text-orange-400" />
                                             </div>
                                         )}
@@ -607,7 +681,7 @@ export default function MealsPage() {
                     onClick={handleSubmit}
                     disabled={!selectedMealType || selectedDishes.length === 0 || isLoading}
                     isLoading={isLoading}
-                    className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+                    className="flex-1 bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
                 >
                     <FiCheck className="w-4 h-4 mr-2" />
                     Log Meal

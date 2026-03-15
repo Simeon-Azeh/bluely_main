@@ -12,6 +12,7 @@ import {
     chatWithDiaBuddy,
     updatePersonalization,
     getPersonalizationProfile,
+    quickLogData,
 } from '../controllers/predict.controller';
 
 const router = Router();
@@ -269,5 +270,54 @@ router.get('/personalization/profile', getPersonalizationProfile);
  *         description: DiaBuddy chat response
  */
 router.post('/diabuddy/chat', chatWithDiaBuddy);
+
+/**
+ * @swagger
+ * /predict/quick-log:
+ *   post:
+ *     summary: Quick-log missing data without navigating away
+ *     tags: [Predictions]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firebaseUid
+ *             properties:
+ *               firebaseUid:
+ *                 type: string
+ *               glucose:
+ *                 type: object
+ *                 properties:
+ *                   value:
+ *                     type: number
+ *                   unit:
+ *                     type: string
+ *               meal:
+ *                 type: object
+ *                 properties:
+ *                   carbsEstimate:
+ *                     type: number
+ *                   mealType:
+ *                     type: string
+ *               medication:
+ *                 type: object
+ *                 properties:
+ *                   dose:
+ *                     type: number
+ *                   medicationType:
+ *                     type: string
+ *               activity:
+ *                 type: object
+ *                 properties:
+ *                   activityLevel:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Data logged and safety check updated
+ */
+router.post('/quick-log', quickLogData);
 
 export default router;

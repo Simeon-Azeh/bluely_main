@@ -224,11 +224,11 @@ export default function FloatingChat({ isOpen, onClose }: FloatingChatProps) {
                 const timeLabel = mealTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
                 const mealDesc = cleanMealDescription(lastMeal.description, lastMeal.mealType);
                 const followUp = hoursSince > 2
-                    ? `Got it! 📝 By the way, your last meal was **${mealDesc}** around ${timeLabel}. Have you eaten anything since then? I can help you log it!`
-                    : `Got it! 📝 Looks like you had **${mealDesc}** not too long ago (${timeLabel}). If you eat anything else, just let me know and I'll log it for you!`;
+                    ? `Got it! By the way, your last meal was **${mealDesc}** around ${timeLabel}. Have you eaten anything since then? I can help you log it!`
+                    : `Got it! Looks like you had **${mealDesc}** not too long ago (${timeLabel}). If you eat anything else, just let me know and I'll log it for you!`;
                 updateActiveMessages((prev) => [...prev, { role: 'assistant', content: followUp, timestamp: Date.now() }]);
             } else {
-                updateActiveMessages((prev) => [...prev, { role: 'assistant', content: `Got it! 📝 Have you eaten anything recently? I can help you log a meal too!`, timestamp: Date.now() }]);
+                updateActiveMessages((prev) => [...prev, { role: 'assistant', content: `Got it! Have you eaten anything recently? I can help you log a meal too!`, timestamp: Date.now() }]);
             }
         } catch {
             // silently skip follow-up

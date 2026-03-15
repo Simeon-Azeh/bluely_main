@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, Button, LoadingSpinner, InstallPrompt } from '@/components/ui';
+import { Card, CardContent, Button, InstallPrompt } from '@/components/ui';
 import {
     WelcomeHeader,
     QuickActionsGrid,
@@ -20,6 +20,7 @@ import {
     GlucoseForecastCard,
     EmailVerificationCard,
     DiaBuddyCard,
+    PredictionGateway,
 } from '@/components/dashboard';
 import { FiAlertCircle, FiCircle, FiArrowRight, FiTrendingUp, FiDroplet } from 'react-icons/fi';
 import { format, isToday } from 'date-fns';
@@ -267,11 +268,23 @@ export default function DashboardPage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-[60vh]">
-                <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="mt-4 text-gray-500">Loading your dashboard...</p>
+            <div className="space-y-6 pb-8 animate-pulse">
+                {/* WelcomeHeader skeleton */}
+                <div className="rounded-2xl bg-gray-100 h-28 w-full" />
+                {/* QuickActions skeleton */}
+                <div className="grid grid-cols-4 gap-3">
+                    {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl bg-gray-100 h-20" />)}
                 </div>
+                {/* Forecast card skeleton */}
+                <div className="rounded-2xl bg-gray-100 h-48 w-full" />
+                {/* Stats grid skeleton */}
+                <div className="grid grid-cols-2 gap-3">
+                    {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl bg-gray-100 h-24" />)}
+                </div>
+                {/* Chart skeleton */}
+                <div className="rounded-2xl bg-gray-100 h-52 w-full" />
+                {/* Recent readings skeleton */}
+                <div className="rounded-2xl bg-gray-100 h-40 w-full" />
             </div>
         );
     }
@@ -370,55 +383,11 @@ export default function DashboardPage() {
                     {/* ── Features below require email verification ── */}
                     {user?.emailVerified && (
                         <>
-                            {/* ── 30-Minute Glucose Forecast (always prominent) ── */}
-                            {glucose30.hasData && glucose30.prediction && (
-                                <GlucoseForecastCard
-                                    predictedGlucose={glucose30.prediction.predictedGlucose}
-                                    direction={glucose30.prediction.direction}
-                                    directionArrow={glucose30.prediction.directionArrow}
-                                    directionLabel={glucose30.prediction.directionLabel}
-                                    confidence={glucose30.prediction.confidence}
-                                    timeframe={glucose30.prediction.timeframe}
-                                    recommendation={glucose30.prediction.recommendation}
-                                    riskAlert={glucose30.prediction.riskAlert}
-                                    factors={glucose30.prediction.factors}
-                                    modelUsed={glucose30.prediction.modelUsed}
-                                    predictionTimestamp={glucose30.prediction.predictionTimestamp}
-                                    suggestions={glucose30.prediction.suggestions}
-                                    missingDataActions={glucose30.prediction.missingDataActions}
-                                    onRefresh={async () => {
-                                        if (!user) return;
-                                        try {
-                                            const g30Data = await api.getGlucose30(user.uid);
-                                            setGlucose30(g30Data);
-                                        } catch (err) {
-                                            console.warn('Failed to refresh forecast:', err);
-                                        }
-                                    }}
-                                />
-                            )}
-                            {!glucose30.hasData && (
-                                <div className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 border border-gray-200 rounded-2xl">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-10 h-10 bg-[#1F2F98]/10 rounded-xl flex items-center justify-center shrink-0">
-                                            <FiTrendingUp className="w-5 h-5 text-[#1F2F98]" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">30-Min Glucose Forecast</p>
-                                            <p className="text-sm text-gray-500 mt-0.5">
-                                                Log a glucose reading to generate your first prediction.
-                                            </p>
-                                            <Link
-                                                href="/glucose"
-                                                className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-[#1F2F98] hover:underline"
-                                            >
-                                                <FiDroplet className="w-3.5 h-3.5" />
-                                                Log a reading →
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            {/* ── 30-Minute Glucose Forecast (with Safety Gates) ── */}
+                            <PredictionGateway
+                                firebaseUid={user.uid}
+                                isVisible={true}
+                            />
 
                             {/* ── Progressive Data Collection Cards (prominent placement) ── */}
 

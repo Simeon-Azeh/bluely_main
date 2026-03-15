@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui';
 import { FiClock, FiInfo, FiZap, FiRefreshCw, FiAlertCircle, FiDroplet, FiActivity, FiCoffee } from 'react-icons/fi';
 import { TbPill } from 'react-icons/tb';
@@ -29,6 +30,7 @@ interface GlucoseForecastCardProps {
     onRefresh?: () => void;
     suggestions?: string[] | null;
     missingDataActions?: MissingDataAction[] | null;
+    aiInsight?: string | null;
 }
 
 const directionConfig = {
@@ -88,6 +90,7 @@ export default function GlucoseForecastCard({
     onRefresh,
     suggestions,
     missingDataActions,
+    aiInsight,
 }: GlucoseForecastCardProps) {
     const [showTooltip, setShowTooltip] = useState(false);
     const [showFactors, setShowFactors] = useState(false);
@@ -153,7 +156,7 @@ export default function GlucoseForecastCard({
     }, [onRefresh]);
 
     return (
-        <Card className={`border-0 shadow-lg bg-gradient-to-br ${config.gradient} overflow-hidden`}>
+        <Card className={`border-0 shadow-md bg-gradient-to-br ${config.gradient} overflow-hidden`}>
             <CardContent>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -278,6 +281,30 @@ export default function GlucoseForecastCard({
                 {!isExpired && (
                     <div className={`p-3 rounded-xl ${config.bgColor}/50 border ${config.borderColor}`}>
                         <p className="text-sm text-gray-700">{recommendation}</p>
+                    </div>
+                )}
+
+                {/* AI Insight (DiaBuddy explanation) */}
+                {!isExpired && aiInsight && (
+                    <div className="mt-4 rounded-2xl overflow-hidden border border-indigo-100 shadow-[0_2px_12px_rgba(99,102,241,0.12)]">
+                        {/* Header strip */}
+                        <div className="flex items-center gap-2.5 px-4 py-2.5" style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}>
+                            <div className="relative w-7 h-7 shrink-0">
+                                <div className="absolute inset-0 rounded-full bg-white/25 animate-pulse" />
+                                <div className="absolute inset-0.5 rounded-full bg-white/90 flex items-center justify-center overflow-hidden">
+                                    <Image src="/diabuddy.png" alt="DiaBuddy" width={22} height={22} className="rounded-full object-cover" />
+                                </div>
+                            </div>
+                            <p className="text-xs font-semibold text-white tracking-wide">DiaBuddy's Take</p>
+                            <span className="ml-auto flex items-center gap-1 text-[10px] text-white/70 font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                AI
+                            </span>
+                        </div>
+                        {/* Body */}
+                        <div className="px-4 py-3 bg-gradient-to-br from-indigo-50/80 via-violet-50/60 to-purple-50/40">
+                            <p className="text-sm text-indigo-900 leading-relaxed">{aiInsight}</p>
+                        </div>
                     </div>
                 )}
 

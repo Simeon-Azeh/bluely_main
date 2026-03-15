@@ -205,3 +205,57 @@ async def generate_summary_insight(
         "source": "rule-based",
         "provider": None,
     }
+
+
+def generate_missing_data_explanation(missing_inputs: list[dict]) -> str:
+    """
+    Generate a clear explanation for why certain data inputs are missing and important.
+    
+    Args:
+        missing_inputs: List of dicts with keys: field, label, reason, importance
+        
+    Returns:
+        Human-readable explanation of missing data
+    """
+    if not missing_inputs:
+        return ""
+    
+    # Group by importance
+    critical = [m for m in missing_inputs if m.get("importance") == "critical"]
+    high = [m for m in missing_inputs if m.get("importance") == "high"]
+    
+    parts = [
+        "I couldn't generate a forecast yet because some important information is missing:"
+    ]
+    
+    # Explain critical inputs
+    for inp in critical:
+        label = inp.get("label", "Data")
+        reason = inp.get("reason", "This information is needed for accurate predictions.")
+        
+        if inp.get("field") == "glucose":
+            parts.append(f"\n[Glucose] {label}: {reason}")
+        elif inp.get("field") == "meal" or inp.get("field") == "mealCarbs":
+            parts.append(f"\n[Meal] {label}: {reason}")
+        elif inp.get("field") == "medication":
+            parts.append(f"\n[Medication] {label}: {reason}")
+        elif inp.get("field") == "activity":
+            parts.append(f"\n[Activity] {label}: {reason}")
+        else:
+            parts.append(f"\n• {label}: {reason}")
+    
+    # Mention high priority if present
+    if high:
+        parts.append("\nAlso helpful to know:")
+        for inp in high:
+            label = inp.get("label", "Data")
+            reason = inp.get("reason", "")
+            parts.append(f"• {label}: {reason}")
+    
+    # Closing statement
+    parts.append(
+        "\nWithout these pieces, the forecast would be a guess rather than a personalized prediction. "
+        "Want to log them now?"
+    )
+    
+    return "".join(parts)
