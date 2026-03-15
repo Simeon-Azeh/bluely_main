@@ -61,9 +61,17 @@ Frontend Input → Safety Gate → Missing Input Check → Quick Log → Re-vali
   - Brand color integration (#1F2F98)
   
 - [x] `PredictionGateway.tsx` - State machine orchestrating prediction flow
-  - States: idle → checking → incomplete → fetching → complete/error
-  - Handles 422 incomplete responses
+  - States: idle → checking → incomplete → **stale-glucose** → fetching → complete/error
+  - Handles 422 incomplete responses, routing to `MissingInputsCard` or `StaleContextCard` based on `glucoseIsStale` flag
   - Triggers re-validation after quick-log
+
+- [x] `StaleContextCard.tsx` - Shown when glucose reading is >10 minutes old
+  - Always requires a fresh glucose reading before generating a forecast
+  - Displays all in-window context records (meal ≤4h, medication ≤6h, activity ≤6h) with timestamps
+  - Per-input Keep / Update / None choices — users only re-log what's actually changed
+  - "Just ate" branch: full DiaBuddy AI meal carb estimator with food breakdown and +/− adjusters
+  - "Just took" branch: fetches saved medications from API, tap-to-select, plus "when taken" time picker
+  - "Log Everything Fresh" escape hatch routes back to `MissingInputsCard`
   
 - [x] Dashboard integration - Replaced direct API calls with PredictionGateway
 
@@ -177,7 +185,23 @@ Users describe meals naturally (e.g., "Rice with stew and fried plantain"), and 
 - **Medium** (Light Blue): Helpful but not required
 
 ### 4. Safety Gate Pattern
-Returns 422 (Unprocessable Entity) when inputs incomplete - this is **intentional**, not an error. UI interprets it as "please complete these fields".
+Returns 422 (Unprocessable Entity) when inputs incomplete — this is **intentional**, not an error. UI interprets it as "please complete these fields".
+
+The 422 payload now includes two additional fields:
+- `glucoseIsStale: boolean` — `true` when the most recent glucose reading is >10 minutes old
+- `cachedContext: CachedContextEntry | null` — all in-window context records with `minutesAgo` timestamps
+
+**Stale Glucose Flow**
+1. Backend finds all required inputs present but glucose is >10 min old → returns 422 with `glucoseIsStale: true` and populated `cachedContext`
+2. `PredictionGateway` routes to `StaleContextCard` instead of `MissingInputsCard`
+3. User enters a fresh glucose reading, then reviews cached context per-input (Keep / Update / None)
+4. On submit, `PredictionGateway` posts all data via `/predict/quick-log`, then re-validates and generates forecast
+
+**predictionSafety.service.ts time windows** (no cascade — each input has its own independent window):
+- Glucose: ≤10 min for freshness check; ≤24h for completeness
+- Meal: ≤4 hours
+- Medication: ≤6 hours
+- Activity: ≤6 hours
 
 ---
 
@@ -188,6 +212,7 @@ frontend/
 ├── src/components/dashboard/
 │   ├── PredictionGateway.tsx      # Main orchestrator
 │   ├── MissingInputsCard.tsx      # Missing fields UI
+│   ├── StaleContextCard.tsx       # Stale-glucose context review UI
 │   ├── GlucoseForecastCard.tsx    # Forecast display
 │   └── ...
 └── src/app/

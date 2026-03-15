@@ -548,7 +548,9 @@ export const getGlucose30 = async (req: Request, res: Response): Promise<void> =
                 message: 'Cannot generate prediction — missing required inputs. All inputs are needed because glucose is affected by meals, medication, activity, and wellness simultaneously.',
                 missingInputs: safetyCheck.missingInputs,
                 missingCount: safetyCheck.missingInputs.length,
-                canLogQuickly: true,  // UI can show inline quick-entry form
+                canLogQuickly: true,
+                glucoseIsStale: safetyCheck.glucoseIsStale,
+                cachedContext: safetyCheck.cachedContext,
             });
             return;
         }
@@ -1215,7 +1217,7 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
  */
 export const quickLogData = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { firebaseUid, glucose, meal, medication, activity } = req.body;
+        const { firebaseUid, glucose, meal, medication, activity, wellness } = req.body;
 
         if (!firebaseUid) {
             res.status(400).json({ error: 'firebaseUid is required' });
@@ -1280,6 +1282,20 @@ export const quickLogData = async (req: Request, res: Response): Promise<void> =
                     firebaseUid,
                     activityLevel: activity.activityLevel,
                     timestamp: new Date(),
+                })
+            );
+        }
+
+        // Log wellness (mood) if provided
+        if (wellness && wellness.mood) {
+            const hour = new Date().getHours();
+            const period = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+            glucosePromises.push(
+                MoodLog.create({
+                    userId: user._id,
+                    firebaseUid,
+                    mood: wellness.mood,
+                    period,
                 })
             );
         }

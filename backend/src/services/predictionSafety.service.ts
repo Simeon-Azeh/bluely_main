@@ -52,12 +52,21 @@ export interface PredictionContext {
     diabetesType: string;
 }
 
+export interface CachedContextEntry {
+    meal: { carbsEstimate: number; mealType: string; minutesAgo: number; timestamp: string } | null;
+    medication: { dose: number; medicationType: string; medicationName: string; minutesAgo: number; takenAt: string } | null;
+    activity: { intensity: string; durationMinutes: number; minutesAgo: number; timestamp: string } | null;
+    wellness: { sleepQuality: number; stressLevel: number; mood: string; minutesAgo: number } | null;
+}
+
 export interface SafetyCheckResult {
     canPredict: boolean;        // Whether prediction is safe to generate
     isComplete: boolean;        // Whether all required inputs are present
     missingInputs: MissingInputField[];
     warnings: SafetyWarning[];
     context: PredictionContext | null;
+    glucoseIsStale: boolean;
+    cachedContext: CachedContextEntry | null;
 }
 
 // ── Main Service ────────────────────────────────────────────────────────────
@@ -99,6 +108,7 @@ export class PredictionSafetyService {
                 LifestyleLog.findOne({ firebaseUid }).sort({ createdAt: -1 }),
             ]);
 
+            let glucoseIsStale = false;
             const missingInputs: MissingInputField[] = [];
             const warnings: SafetyWarning[] = [];
             let context: PredictionContext | null = null;
@@ -139,6 +149,7 @@ export class PredictionSafetyService {
                         icon: 'glucose',
                         importance: 'critical',
                     });
+                    glucoseIsStale = true;
                 }
 
                 // Build glucose history (at least 3 readings for trends)
@@ -168,8 +179,7 @@ export class PredictionSafetyService {
                 missingInputs.push({
                     field: 'meal',
                     label: 'Last Meal',
-                    reason:
-                        'Carbohydrate intake directly affects blood glucose. Without knowing your last meal, ' +
+                    reason: 'Carbohydrate intake directly affects blood glucose. Without knowing your last meal, ' +
                         'we cannot predict post-meal spikes or fasting drops. This is critical for accuracy.',
                     href: '/meals',
                     icon: 'meal',
@@ -208,8 +218,7 @@ export class PredictionSafetyService {
                 missingInputs.push({
                     field: 'medication',
                     label: 'Recent Medication/Insulin',
-                    reason:
-                        'Insulin and medications significantly lower blood glucose. Missing this data ' +
+                    reason: 'Insulin and medications significantly lower blood glucose. Missing this data ' +
                         'could lead to dangerously high or unrealistically low predictions.',
                     href: '/medications',
                     icon: 'medication',
@@ -233,8 +242,7 @@ export class PredictionSafetyService {
                 missingInputs.push({
                     field: 'activity',
                     label: 'Recent Physical Activity',
-                    reason:
-                        'Exercise lowers glucose during and after activity. Even logging "no activity" helps ' +
+                    reason: 'Exercise lowers glucose during and after activity. Even logging "no activity" helps ' +
                         'distinguish sedentary periods from active ones. This improves prediction accuracy.',
                     href: '/glucose',
                     icon: 'activity',
@@ -258,8 +266,7 @@ export class PredictionSafetyService {
                 missingInputs.push({
                     field: 'wellness',
                     label: 'Mood & Sleep Quality',
-                    reason:
-                        'Sleep quality and stress levels affect insulin resistance through hormonal pathways ' +
+                    reason: 'Sleep quality and stress levels affect insulin resistance through hormonal pathways ' +
                         '(cortisol, growth hormone). This data significantly improves prediction accuracy.',
                     href: '/settings',
                     icon: 'wellness',
@@ -287,6 +294,38 @@ export class PredictionSafetyService {
                 };
             }
 
+            // ── Cached Context (for stale-glucose UX) ──────────────────────
+
+            const cachedContext: CachedContextEntry | null = glucoseIsStale ? {
+                meal: recentMeal ? {
+                    carbsEstimate: recentMeal.carbsEstimate || 0,
+                    mealType: recentMeal.mealType || 'snack',
+                    minutesAgo: Math.round((now - new Date(recentMeal.timestamp).getTime()) / 60000),
+                    timestamp: new Date(recentMeal.timestamp).toISOString(),
+                } : null,
+                medication: recentMedication ? {
+                    dose: recentMedication.dosage || 0,
+                    medicationType: recentMedication.medicationType || 'other',
+                    medicationName: recentMedication.medicationName || recentMedication.medicationType || 'Medication',
+                    minutesAgo: Math.round((now - new Date(recentMedication.takenAt).getTime()) / 60000),
+                    takenAt: new Date(recentMedication.takenAt).toISOString(),
+                } : null,
+                activity: recentActivity ? {
+                    intensity: recentActivity.activityLevel || 'low',
+                    durationMinutes: recentActivity.durationMinutes || 30,
+                    minutesAgo: Math.round((now - new Date(recentActivity.timestamp).getTime()) / 60000),
+                    timestamp: new Date(recentActivity.timestamp).toISOString(),
+                } : null,
+                wellness: (recentMood || recentLifestyle) ? {
+                    sleepQuality: recentLifestyle?.sleepQuality ?? 3,
+                    stressLevel: recentLifestyle?.stressLevel ?? 3,
+                    mood: recentMood?.mood ?? 'Okay',
+                    minutesAgo: recentMood
+                        ? Math.round((now - new Date(recentMood.createdAt).getTime()) / 60000)
+                        : (recentLifestyle ? Math.round((now - new Date(recentLifestyle.createdAt).getTime()) / 60000) : 0),
+                } : null,
+            } : null;
+
             // ── Determine Result ────────────────────────────────────────────
 
             const isComplete = missingInputs.length === 0;
@@ -298,6 +337,8 @@ export class PredictionSafetyService {
                 missingInputs,
                 warnings,
                 context: isComplete ? context : null,
+                glucoseIsStale,
+                cachedContext,
             };
         } catch (error) {
             console.error('Error in PredictionSafety.check():', error);
@@ -322,6 +363,8 @@ export class PredictionSafetyService {
                     },
                 ],
                 context: null,
+                glucoseIsStale: false,
+                cachedContext: null,
             };
         }
     }
