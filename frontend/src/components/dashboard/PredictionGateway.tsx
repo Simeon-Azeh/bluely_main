@@ -4,10 +4,12 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { LoadingSpinner } from '@/components/ui';
 import { FiActivity, FiArrowRight, FiClock, FiTrendingUp, FiDroplet, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import MissingInputsCard, { MissingInput, QuickLogData } from './MissingInputsCard';
+import StaleContextCard, { CachedContextEntry } from './StaleContextCard';
 import GlucoseForecastCard from './GlucoseForecastCard';
 
 const FORECAST_CACHE_KEY = 'bluely-forecast-cache';
 const FORECAST_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface ForecastPrediction {
     predictedGlucose: number;
@@ -30,7 +32,15 @@ interface PredictionGatewayProps {
     isVisible?: boolean;
 }
 
-type GatewayState = 'restoring' | 'idle' | 'checking' | 'incomplete' | 'fetching' | 'complete' | 'error';
+type GatewayState = 'restoring' | 'idle' | 'checking' | 'incomplete' | 'stale-glucose' | 'fetching' | 'complete' | 'error';
+
+const ALL_INPUTS: MissingInput[] = [
+    { field: 'glucose', label: 'Current Glucose Reading', reason: 'Required for accurate 30-min forecast.', href: '/glucose', icon: 'glucose', importance: 'critical' },
+    { field: 'meal', label: 'Last Meal', reason: 'Carb intake directly affects glucose trajectory.', href: '/meals', icon: 'meal', importance: 'critical' },
+    { field: 'medication', label: 'Recent Medication/Insulin', reason: 'Insulin and medications lower blood glucose.', href: '/medications', icon: 'medication', importance: 'critical' },
+    { field: 'activity', label: 'Recent Physical Activity', reason: 'Exercise affects glucose during and after activity.', href: '/glucose', icon: 'activity', importance: 'high' },
+    { field: 'wellness', label: 'Mood & Sleep Quality', reason: 'Sleep and stress affect insulin resistance.', href: '/settings', icon: 'wellness', importance: 'high' },
+];
 
 export default function PredictionGateway({
     firebaseUid,
@@ -39,6 +49,7 @@ export default function PredictionGateway({
 }: PredictionGatewayProps) {
     const [state, setState] = useState<GatewayState>('restoring');
     const [missingInputs, setMissingInputs] = useState<MissingInput[]>([]);
+    const [cachedContext, setCachedContext] = useState<CachedContextEntry | null>(null);
     const [forecast, setForecast] = useState<ForecastPrediction | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -75,7 +86,7 @@ export default function PredictionGateway({
 
         try {
             // Call the predict endpoint which will return 422 if incomplete
-            const response = await fetch(`/api/predict/glucose-30?firebaseUid=${firebaseUid}`, {
+            const response = await fetch(`${API_URL}/predict/glucose-30?firebaseUid=${firebaseUid}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -83,8 +94,14 @@ export default function PredictionGateway({
             // If 422, we have missing inputs
             if (response.status === 422) {
                 const data = await response.json();
-                setMissingInputs(data.missingInputs || []);
-                setState('incomplete');
+                if (data.glucoseIsStale) {
+                    setCachedContext(data.cachedContext || null);
+                    setMissingInputs(data.missingInputs || []);
+                    setState('stale-glucose');
+                } else {
+                    setMissingInputs(data.missingInputs || []);
+                    setState('incomplete');
+                }
                 return;
             }
 
@@ -120,7 +137,7 @@ export default function PredictionGateway({
         async (data: QuickLogData) => {
             try {
                 // Call quick-log endpoint
-                await fetch('/api/predict/quick-log', {
+                await fetch(`${API_URL}/predict/quick-log`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ firebaseUid, ...data }),
@@ -218,6 +235,21 @@ export default function PredictionGateway({
                 onQuickLog={handleQuickLog}
                 onNavigate={(href: string) => {
                     // Navigation can be handled by parent or child Link component
+                }}
+            />
+        );
+    }
+
+    // Stale glucose: Show context review card
+    if (state === 'stale-glucose') {
+        return (
+            <StaleContextCard
+                cachedContext={cachedContext}
+                trulyMissingInputs={missingInputs}
+                onSubmit={handleQuickLog}
+                onLogEverythingFresh={() => {
+                    setMissingInputs(ALL_INPUTS);
+                    setState('incomplete');
                 }}
             />
         );
