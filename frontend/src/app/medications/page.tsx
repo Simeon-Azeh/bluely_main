@@ -346,7 +346,7 @@ export default function MedicationsPage() {
         <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24 md:pb-8">
             <div className="max-w-2xl mx-auto px-4 py-6">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Medications</h1>
                         <p className="text-sm text-gray-500">Manage your medication regimen</p>
@@ -400,8 +400,8 @@ export default function MedicationsPage() {
                                                         dosage: med.typicalDose,
                                                     })}
                                                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${form.medicationName === med.name
-                                                            ? 'border-[#1F2F98] bg-[#1F2F98]/5 text-[#1F2F98]'
-                                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                                                        ? 'border-[#1F2F98] bg-[#1F2F98]/5 text-[#1F2F98]'
+                                                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                                                         }`}
                                                 >
                                                     {med.injectable ? (
@@ -430,7 +430,7 @@ export default function MedicationsPage() {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Type
@@ -589,7 +589,7 @@ export default function MedicationsPage() {
                                     />
                                 </div>
 
-                                <div className="flex gap-3">
+                                <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                                     <Button
                                         type="submit"
                                         className="flex-1 bg-[#1F2F98] hover:bg-[#1F2F98]/90 text-white rounded-xl py-2.5 text-sm font-medium"
@@ -701,7 +701,7 @@ export default function MedicationsPage() {
                                     </div>
                                 )}
 
-                                <div className="flex gap-3">
+                                <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                                     <Button
                                         type="submit"
                                         className="flex-1 bg-[#1F2F98] hover:bg-[#1F2F98]/90 text-white rounded-xl py-2.5 text-sm font-medium"

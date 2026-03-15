@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -126,16 +126,16 @@ export default function SettingsPage() {
         }
     }, []);
 
-    // ── Reminder scheduling logic ──
+    // -- Reminder scheduling logic --
     const fireReminder = useCallback(() => {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
         const messages = [
             "Time to log your glucose reading!",
             "Don't forget to check your blood sugar.",
-            "Stay on track — log a glucose reading now.",
+            "Stay on track � log a glucose reading now.",
             "Quick reminder: how's your glucose doing?",
-            "It's been a while — let's log a reading!",
+            "It's been a while � let's log a reading!",
         ];
         const body = messages[Math.floor(Math.random() * messages.length)];
 
@@ -280,7 +280,7 @@ export default function SettingsPage() {
                 reminderEnabled: data.reminderEnabled,
             });
 
-            // ── Start/stop actual browser reminders ──
+            // -- Start/stop actual browser reminders --
             if (data.reminderEnabled && pushPermission === 'granted') {
                 const hours = parseInt(data.reminderInterval) || 4;
                 startReminderSchedule(hours);
@@ -420,7 +420,7 @@ export default function SettingsPage() {
                 {/* Main Content */}
                 <div className="lg:col-span-3 space-y-6">
                     <form onSubmit={handleSubmit(onSubmit)}>
-                        {/* ───── Profile ───── */}
+                        {/* ----- Profile ----- */}
                         {activeSection === 'profile' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -458,7 +458,7 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
-                        {/* ───── Health Info ───── */}
+                        {/* ----- Health Info ----- */}
                         {activeSection === 'health' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -492,7 +492,7 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
-                        {/* ───── Targets ───── */}
+                        {/* ----- Targets ----- */}
                         {activeSection === 'targets' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -546,7 +546,7 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
-                        {/* ───── Notifications ───── */}
+                        {/* ----- Notifications ----- */}
                         {activeSection === 'notifications' && (
                             <div className="space-y-6">
                                 {/* Push Notifications */}
@@ -574,9 +574,9 @@ export default function SettingsPage() {
                                                             <p className="font-medium text-gray-900">Browser Push Notifications</p>
                                                             <p className="text-sm text-gray-500">
                                                                 {pushPermission === 'granted'
-                                                                    ? 'Enabled — you\'ll receive alerts in your browser'
+                                                                    ? 'Enabled � you\'ll receive alerts in your browser'
                                                                     : pushPermission === 'denied'
-                                                                        ? 'Blocked — update your browser settings to enable'
+                                                                        ? 'Blocked � update your browser settings to enable'
                                                                         : pushPermission === 'unsupported'
                                                                             ? 'Not supported in this browser'
                                                                             : 'Allow Bluely to send you important alerts'}
@@ -614,7 +614,7 @@ export default function SettingsPage() {
                                                         <p className="font-medium text-gray-900">Reading Reminders</p>
                                                         <p className="text-sm text-gray-500">
                                                             {reminderActive
-                                                                ? 'Active — you\'ll receive periodic reminders'
+                                                                ? 'Active � you\'ll receive periodic reminders'
                                                                 : 'Get reminded to log your glucose'}
                                                         </p>
                                                     </div>
@@ -633,7 +633,7 @@ export default function SettingsPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Reminder Interval — show only when reminders enabled */}
+                                            {/* Reminder Interval � show only when reminders enabled */}
                                             {watchedReminder && (
                                                 <div className="p-4 bg-gray-50 rounded-xl ml-4 border-l-4 border-[#1F2F98] space-y-3">
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -715,7 +715,7 @@ export default function SettingsPage() {
                             </div>
                         )}
 
-                        {/* ───── Preferences ───── */}
+                        {/* ----- Preferences ----- */}
                         {activeSection === 'preferences' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -757,7 +757,7 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
-                        {/* ───── Data & Export ───── */}
+                        {/* ----- Data & Export ----- */}
                         {activeSection === 'data' && (
                             <Card className="border-0 shadow-lg shadow-gray-100">
                                 <CardContent className="p-6">
@@ -798,7 +798,7 @@ export default function SettingsPage() {
                             </Card>
                         )}
 
-                        {/* ───── Account ───── */}
+                        {/* ----- Account ----- */}
                         {activeSection === 'account' && (
                             <div className="space-y-6">
                                 <Card className="border-0 shadow-lg shadow-gray-100">
@@ -842,7 +842,7 @@ export default function SettingsPage() {
                                         ) : (
                                             <div className="p-4 bg-white rounded-xl border border-red-200">
                                                 <p className="text-red-800 font-medium mb-4">Are you sure? This action cannot be undone.</p>
-                                                <div className="flex gap-3">
+                                                <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                                                     <Button type="button" variant="danger" size="sm" disabled><FiTrash2 className="w-4 h-4 mr-2" />Delete (Coming Soon)</Button>
                                                     <Button type="button" variant="secondary" size="sm" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
                                                 </div>
@@ -853,7 +853,7 @@ export default function SettingsPage() {
                             </div>
                         )}
 
-                        {/* Save button — visible for all sections except account */}
+                        {/* Save button � visible for all sections except account */}
                         {activeSection !== 'account' && activeSection !== 'data' && (
                             <div className="flex justify-end mt-6">
                                 <Button type="submit" isLoading={isSaving} disabled={!isDirty}>

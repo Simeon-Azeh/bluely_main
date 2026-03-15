@@ -258,7 +258,7 @@ export default function MoodPage() {
                             </div>
                         )}
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                             <button
                                 onClick={handleLogAnother}
                                 className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
@@ -317,8 +317,8 @@ export default function MoodPage() {
                                 type="button"
                                 onClick={() => handleMoodSelect(option.value)}
                                 className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${selectedMood === option.value
-                                        ? option.selectedBg
-                                        : `${option.bg} ${option.border} hover:border-gray-300`
+                                    ? option.selectedBg
+                                    : `${option.bg} ${option.border} hover:border-gray-300`
                                     }`}
                             >
                                 <span className={`${option.text} transition-transform duration-200 ${selectedMood === option.value ? 'scale-110' : ''}`}>
@@ -366,8 +366,8 @@ export default function MoodPage() {
                                     type="button"
                                     onClick={() => setSleepHours(sleepHours === h ? null : h)}
                                     className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${sleepHours === h
-                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
-                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-indigo-300'
+                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-indigo-300'
                                         }`}
                                 >
                                     {h}
@@ -392,8 +392,8 @@ export default function MoodPage() {
                                     type="button"
                                     onClick={() => setStressLevel(stressLevel === i ? null : i)}
                                     className={`flex-1 py-2 rounded-xl text-[10px] font-semibold border transition-all ${stressLevel === i
-                                            ? 'bg-amber-500 border-amber-500 text-white shadow-[0_2px_8px_rgba(245,158,11,0.3)]'
-                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-amber-300'
+                                        ? 'bg-amber-500 border-amber-500 text-white shadow-[0_2px_8px_rgba(245,158,11,0.3)]'
+                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-amber-300'
                                         }`}
                                 >
                                     {label}

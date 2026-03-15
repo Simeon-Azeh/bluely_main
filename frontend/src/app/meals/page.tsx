@@ -362,7 +362,7 @@ export default function MealsPage() {
             <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                 <CardContent>
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">1. Select meal type</h3>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {mealTypes.map((meal) => {
                             const Icon = meal.icon;
                             const isSelected = selectedMealType === meal.value;
@@ -676,7 +676,7 @@ export default function MealsPage() {
             )}
 
             {/* Submit Button */}
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                 <Button
                     onClick={handleSubmit}
                     disabled={!selectedMealType || selectedDishes.length === 0 || isLoading}
