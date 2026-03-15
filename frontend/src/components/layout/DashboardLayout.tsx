@@ -303,7 +303,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         {/* Desktop Greeting */}
                         <div className="hidden md:block">
                             <h1 className="text-xl font-bold text-gray-900">
-                                {getGreeting()}, {user.displayName?.split(' ')[0] || 'there'}! 👋
+                                {getGreeting()}, {user.displayName?.split(' ')[0] || 'there'}
                             </h1>
                             <p className="text-sm text-gray-500">
                                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}

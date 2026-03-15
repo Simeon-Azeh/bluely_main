@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardHeader, CardTitle, CardContent, Button, LoadingSpinner, Select } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Select } from '@/components/ui';
 import {
     FiCalendar,
     FiFilter,
@@ -414,8 +414,9 @@ export default function HistoryPage() {
                                                 )}
                                             </div>
                                             {reading.medicationTaken && reading.medicationName && (
-                                                <div className="text-xs text-violet-600 mt-1">
-                                                    💊 {reading.medicationName}
+                                                <div className="text-xs text-violet-600 mt-1 flex items-center gap-1">
+                                                    <span className="inline-block w-2 h-2 rounded-full bg-violet-400"></span>
+                                                    {reading.medicationName}
                                                     {reading.medicationDose && ` ${reading.medicationDose}${reading.medicationDoseUnit || ''}`}
                                                     {reading.injectionSite && ` · ${reading.injectionSite.replace(/_/g, ' ')}`}
                                                 </div>
@@ -538,8 +539,13 @@ export default function HistoryPage() {
             )}
 
             {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                    <LoadingSpinner size="lg" />
+                <div className="space-y-3 animate-pulse">
+                    {/* Filter bar skeleton */}
+                    <div className="h-10 bg-gray-100 rounded-xl w-full" />
+                    {/* Table rows skeleton */}
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-14 bg-gray-100 rounded-xl w-full" />
+                    ))}
                 </div>
             ) : readings.length === 0 ? (
                 <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">

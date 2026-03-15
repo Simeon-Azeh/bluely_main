@@ -1,6 +1,6 @@
 'use client';
 
-import { FiEye, FiMapPin, FiMessageCircle, FiTrendingUp } from 'react-icons/fi';
+import { FiEye, FiMapPin, FiMessageCircle, FiTrendingUp, FiTarget } from 'react-icons/fi';
 
 export default function DifferenceSection() {
     const differences = [
@@ -56,7 +56,7 @@ export default function DifferenceSection() {
                     <div className="bg-white rounded-3xl p-8 lg:p-10 shadow-xl shadow-gray-200/50 border border-gray-100">
                         <div className="text-center">
                             <div className="w-20 h-20 bg-[#1F2F98]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                                <span className="text-4xl">🎯</span>
+                                <FiTarget className="w-10 h-10 text-[#1F2F98]" />
                             </div>
                             <h3 className="text-2xl font-bold text-gray-900 mb-4">
                                 Bluely meets you where you are

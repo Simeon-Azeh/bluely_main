@@ -13,3 +13,5 @@ export { default as WeeklyTrendCard } from './WeeklyTrendCard';
 export { default as GlucoseForecastCard } from './GlucoseForecastCard';
 export { default as EmailVerificationCard } from './EmailVerificationCard';
 export { default as DiaBuddyCard } from './DiaBuddyCard';
+export { default as MissingInputsCard } from './MissingInputsCard';
+export { default as PredictionGateway } from './PredictionGateway';

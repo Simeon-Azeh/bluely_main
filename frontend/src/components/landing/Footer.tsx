@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { FiHeart } from 'react-icons/fi';
 
 export default function Footer() {
     const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -116,7 +117,7 @@ export default function Footer() {
                             © {new Date().getFullYear()} Bluely — Diabetes self-management for Africa
                         </p>
                         <div className="flex items-center gap-6 text-sm">
-                            <span className="text-gray-600">Made with 💙 in Cameroon</span>
+                            <span className="text-gray-600 flex items-center gap-1">Made with <FiHeart className="w-3.5 h-3.5 text-blue-500 fill-blue-500" /> in Cameroon</span>
                         </div>
                     </div>
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FiCheck, FiX, FiEdit3, FiChevronDown } from 'react-icons/fi';
+import { FiCheck, FiX, FiEdit3, FiChevronDown, FiDroplet } from 'react-icons/fi';
 import api from '@/lib/api';
 
 export interface ActionProposal {
@@ -85,7 +85,7 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
         return (
             <div className={`flex items-center gap-1.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 ${compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-[12px]'} font-medium`}>
                 <FiCheck size={compact ? 12 : 14} />
-                <span>{isGlucose ? '🩸' : '🍽️'}</span>
+                {isGlucose ? <FiDroplet size={compact ? 12 : 14} /> : null}
                 <span>
                     {isGlucose
                         ? `Logged ${glucoseValue} mg/dL (${READING_TYPES.find(r => r.value === readingType)?.label || readingType})`
@@ -148,7 +148,7 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
             <div className="flex items-center justify-between mb-1.5">
                 <div className={`flex items-center gap-1.5 ${compact ? 'text-[11px]' : 'text-[12px]'} font-semibold text-[#1F2F98]`}>
                     <FiEdit3 size={compact ? 11 : 13} />
-                    <span>{isGlucose ? '🩸 Log glucose reading?' : '🍽️ Log this meal?'}</span>
+                    <span>{isGlucose ? 'Log glucose reading?' : 'Log this meal?'}</span>
                 </div>
                 <button
                     onClick={() => setStatus('dismissed')}

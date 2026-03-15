@@ -3,26 +3,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Button } from '@/components/ui';
 import { FiCheck, FiClock } from 'react-icons/fi';
+import { TbMoodHappy, TbMoodSmile, TbMoodNeutral, TbMoodSad, TbMoodCry } from 'react-icons/tb';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 
 interface Mood {
-    emoji: string;
+    icon: React.ReactNode;
     label: string;
     color: string;
     bgColor: string;
 }
 
 const moods: Mood[] = [
-    { emoji: '😊', label: 'Great', color: 'text-green-600', bgColor: 'bg-green-100 hover:bg-green-200 border-green-200' },
-    { emoji: '🙂', label: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100 hover:bg-blue-200 border-blue-200' },
-    { emoji: '😐', label: 'Okay', color: 'text-yellow-600', bgColor: 'bg-yellow-100 hover:bg-yellow-200 border-yellow-200' },
-    { emoji: '😔', label: 'Low', color: 'text-orange-600', bgColor: 'bg-orange-100 hover:bg-orange-200 border-orange-200' },
-    { emoji: '😣', label: 'Rough', color: 'text-red-600', bgColor: 'bg-red-100 hover:bg-red-200 border-red-200' },
+    { icon: <TbMoodHappy className="w-7 h-7" />, label: 'Great', color: 'text-green-600', bgColor: 'bg-green-100 hover:bg-green-200 border-green-200' },
+    { icon: <TbMoodSmile className="w-7 h-7" />, label: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100 hover:bg-blue-200 border-blue-200' },
+    { icon: <TbMoodNeutral className="w-7 h-7" />, label: 'Okay', color: 'text-yellow-600', bgColor: 'bg-yellow-100 hover:bg-yellow-200 border-yellow-200' },
+    { icon: <TbMoodSad className="w-7 h-7" />, label: 'Low', color: 'text-orange-600', bgColor: 'bg-orange-100 hover:bg-orange-200 border-orange-200' },
+    { icon: <TbMoodCry className="w-7 h-7" />, label: 'Rough', color: 'text-red-600', bgColor: 'bg-red-100 hover:bg-red-200 border-red-200' },
 ];
 
-const moodEmojis: Record<string, string> = {
-    Great: '😊', Good: '🙂', Okay: '😐', Low: '😔', Rough: '😣',
+const moodIcons: Record<string, React.ReactNode> = {
+    Great: <TbMoodHappy className="w-4 h-4" />,
+    Good: <TbMoodSmile className="w-4 h-4" />,
+    Okay: <TbMoodNeutral className="w-4 h-4" />,
+    Low: <TbMoodSad className="w-4 h-4" />,
+    Rough: <TbMoodCry className="w-4 h-4" />,
 };
 
 const moodMessages: Record<string, { title: string; message: string; tip: string }> = {
@@ -179,7 +184,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
                     </div>
                     {lastMood && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-xs text-gray-500">
-                            <span>{moodEmojis[lastMood.mood] || '😐'}</span>
+                            {moodIcons[lastMood.mood] || <TbMoodNeutral className="w-4 h-4" />}
                             <FiClock className="w-3 h-3" />
                             <span>{formatRelativeTime(lastMood.time)}</span>
                         </div>
@@ -196,7 +201,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
                                 : 'bg-white border-gray-100 hover:border-gray-200'
                                 }`}
                         >
-                            <span className="text-3xl mb-1">{mood.emoji}</span>
+                            <span className={`mb-1 ${selectedMood === mood.label ? mood.color : 'text-gray-500'}`}>{mood.icon}</span>
                             <span className={`text-xs font-medium ${selectedMood === mood.label ? mood.color : 'text-gray-600'}`}>
                                 {mood.label}
                             </span>
