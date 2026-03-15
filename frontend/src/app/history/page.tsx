@@ -484,7 +484,7 @@ export default function HistoryPage() {
                                 setDateRange(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            className="w-40"
+                            className="w-full sm:w-40"
                         />
                     </div>
 

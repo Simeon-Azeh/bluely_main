@@ -309,6 +309,138 @@ See [ML_DOCUMENTATION.md](ML_DOCUMENTATION.md) for detailed deployment steps and
 - **Access Control**: Firebase auth + middleware-based API protection
 - **Clinical Safety**: All ML outputs use observational language, never medical instructions
 
+## Testing Results
+
+### 1. Functional Testing
+
+The application was tested to ensure that all core features operate correctly across typical user workflows.
+
+**Features tested include:**
+
+- Logging blood glucose readings and viewing colour-coded status indicators
+- Recording meals with AI-estimated carbohydrate breakdowns
+- Tracking medication and logging individual doses
+- Viewing the dashboard with ML-driven insights and 30-minute forecasts
+- Accessing and filtering historical records
+- Using the DiaBuddy AI assistant chat with log assistance
+
+**Screenshots:**
+
+| Feature | Screenshot |
+|---------|-----------|
+| Dashboard overview | ![Dashboard](screenshots/screenshot-1-dashboard.png) |
+| Glucose log — normal reading | ![Normal glucose](screenshots/test-1-glucose-normal.png) |
+| Log meal with AI carb estimate | ![Log meal](screenshots/test-4-logmeal-with-ai.png) |
+| Medication log with existing meds | ![Medication log](screenshots/test-6-medicationlog-with%20existing%20medications.png) |
+| Activity log | ![Activity log](screenshots/test-7-activity-log.png) |
+| Glucose history | ![History](screenshots/test-5-glucose-history.png) |
+| Insights page | ![Insights](screenshots/insights.png) |
+| Insights with AI summary | ![Insights AI](screenshots/insights-with-ai-summary.png) |
+| Notifications | ![Notifications](screenshots/notifications.png) |
+| AI assistant chat with log assistance | ![AI chat](screenshots/test-8-aiAssitantChat-withLogAssitance.png) |
+
+---
+
+### 2. Testing with Different Data Values
+
+The system was tested with a range of glucose values to confirm correct data processing, risk classification, and visualisation.
+
+**Examples tested:**
+
+| Glucose Value | Status | Result |
+|--------------|--------|--------|
+| 90 mg/dL | Normal | Shown in green; forecast indicates stable trend |
+| 259 mg/dL | High (boundary) | Shown in amber; risk alert displayed |
+| Low reading | Low | Shown in red; low glucose alert triggered |
+
+**Screenshots:**
+
+| Value | Screenshot |
+|-------|-----------|
+| Glucose — normal (90 mg/dL) | ![Normal](screenshots/test-1-glucose-normal.png) |
+| Glucose — high (259 mg/dL) | ![High](screenshots/test-2-glucose-high.png) |
+| Glucose — low reading | ![Low](screenshots/test-3-glucose-low.png) |
+
+---
+
+### 3. Performance & Responsiveness Testing
+
+The application was tested across multiple device types and screen sizes to verify the responsive layout.
+
+**Devices and environments tested:**
+
+- Desktop browser (full-width)
+- Tablet (portrait and landscape)
+- Mobile Android (standard and older devices)
+- PWA install and home-screen access on mobile
+
+**Screens adapt correctly for:** navigation, dashboard cards, data entry forms, buttons stacking vertically, and history tables scrolling horizontally on narrow viewports.
+
+**Screenshots:**
+
+| Environment | Screenshot |
+|-------------|-----------|
+| Mobile dashboard | ![Mobile dashboard](screenshots/test-10-mobileDashboard.png) |
+| Mobile Android responsiveness | ![Android](screenshots/test-11-mobile-android-responsiveness.png) |
+| Older Android device | ![Older device](screenshots/test-12-responsiveness%20on%20older%20devices.png) |
+| Tablet responsiveness | ![Tablet](screenshots/test-13-tablet-responsiveness.png) |
+| Mobile PWA easy access | ![PWA](screenshots/test-9-mobilePWAeasyAccess.png) |
+
+---
+
+## Analysis
+
+The testing results demonstrate that the Bluely Diabetes Management Platform successfully performs all of its core functionalities.
+
+Users can record glucose levels, meals, medication, activity, and mood data without encountering errors. The dashboard correctly visualises this information through interactive charts, stat cards, and a 30-minute ML-powered glucose forecast, providing actionable insights in real time.
+
+Testing with different glucose values confirmed that the system processes varied data inputs accurately — correctly classifying readings as normal, high, or low, and surfacing appropriate risk alerts and colour-coded indicators.
+
+The DiaBuddy AI assistant provided contextual health summaries from logged data, and the AI carbohydrate estimator in the meal logging flow produced physiologically reasonable estimates.
+
+Responsiveness testing confirmed that the platform performs well across desktop, tablet, and mobile environments. The Progressive Web App (PWA) installation worked correctly on Android, providing a native-app-like experience for mobile users in low-resource settings — a key design requirement for the Cameroonian target market.
+
+---
+
+## Discussion
+
+The development milestones achieved during this project were critical in building a functional and reliable diabetes self-management platform.
+
+Each milestone contributed to overall system functionality: from implementing secure Firebase authentication and multi-step onboarding, to designing an intuitive dashboard for data visualisation and analysis. The integration of a three-service architecture — Next.js frontend, Express/TypeScript backend, and Python FastAPI ML service — demonstrated that a full-stack ML-powered health application can be built and deployed cost-effectively on free-tier cloud infrastructure.
+
+The ML pipeline, trained on 135,000 physiologically realistic synthetic samples, produced 30-minute glucose forecasts and risk classifications that align with known physiological patterns (e.g., post-meal rises, exercise-induced drops). The use of synthetic data addresses the real-world challenge of obtaining labelled clinical data for academic projects while still enabling meaningful model evaluation.
+
+The testing results demonstrate that the platform can support users in actively monitoring their health data, which aligns with the project's goal: improving diabetes self-management through accessible, affordable digital tools.
+
+A key finding from responsiveness testing is that the PWA approach is well-suited to the target population — users in Cameroon and similar LMIC settings who primarily access the internet via mobile devices, and for whom a separate native app build would increase cost and maintenance burden.
+
+---
+
+## Recommendations & Future Work
+
+Although the platform successfully implements its core MVP functionality, there are several opportunities for future improvement.
+
+### Short-term improvements
+
+- **Lab-confirmed model training** — Replace synthetic training data with de-identified real patient data (e.g., OhioT1DM dataset integration is already scaffolded) to improve forecast accuracy
+- **Push notifications** — Implement Web Push API notifications for medication reminders and high/low glucose alerts
+- **Offline support** — Extend the existing service worker to cache forms and queue log submissions when the device is offline
+
+### Medium-term features
+
+- **Wearable device integration** — Bluetooth/BLE connectivity with consumer glucometers (e.g., Accu-Chek, FreeStyle Libre) to auto-import readings
+- **Healthcare provider portal** — A separate read-only view allowing clinicians to monitor patient trends and add clinical notes
+- **Multi-language support** — French localisation for deployment in Francophone Cameroon
+
+### Long-term vision
+
+- **Predictive alerts** — Proactive hypoglycaemia/hyperglycaemia warnings derived from continuous glucose monitor (CGM) data streams
+- **Community features** — Peer support groups and anonymised benchmarking within the platform
+- **Clinical trial integration** — Structured data export (HL7 FHIR) for use in research settings
+- **Native mobile apps** — React Native ports of the frontend for iOS and Android app store distribution
+
+---
+
 ## License
 
 This project is developed for academic purposes as part of a software engineering project.

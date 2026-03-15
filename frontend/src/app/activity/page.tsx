@@ -218,7 +218,7 @@ export default function ActivityPage() {
                             </p>
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                             <button
                                 onClick={handleLogAnother}
                                 className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
@@ -281,8 +281,8 @@ export default function ActivityPage() {
                                             type="button"
                                             onClick={() => setSelectedExerciseIdx(isSelected ? null : i)}
                                             className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${isSelected
-                                                    ? `${lc.bg} ${lc.selectedBorder} ${lc.glow}`
-                                                    : `bg-gray-50 border-gray-200 hover:border-gray-300`
+                                                ? `${lc.bg} ${lc.selectedBorder} ${lc.glow}`
+                                                : `bg-gray-50 border-gray-200 hover:border-gray-300`
                                                 }`}
                                         >
                                             <span className={`${isSelected ? lc.color : 'text-gray-500'} transition-colors`}>
@@ -332,8 +332,8 @@ export default function ActivityPage() {
                                     type="button"
                                     onClick={() => { setDuration(duration === min ? null : min); setCustomDuration(''); }}
                                     className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${duration === min && !customDuration
-                                            ? 'bg-[#1F2F98] border-[#1F2F98] text-white shadow-[0_2px_8px_rgba(31,47,152,0.3)]'
-                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-[#1F2F98]/40'
+                                        ? 'bg-[#1F2F98] border-[#1F2F98] text-white shadow-[0_2px_8px_rgba(31,47,152,0.3)]'
+                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-[#1F2F98]/40'
                                         }`}
                                 >
                                     {min} min

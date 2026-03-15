@@ -638,7 +638,7 @@ export default function GlucosePage() {
                         </div>
 
                         {/* Submit buttons */}
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
                             <Button type="submit" className="flex-1" isLoading={isLoading}>
                                 <FiCheck className="w-4 h-4 mr-2" />
                                 Save Reading
