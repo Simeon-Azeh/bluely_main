@@ -11,6 +11,8 @@ import {
 } from 'react-icons/fi';
 import api from '@/lib/api';
 import { DiaBuddyCard } from '@/components/dashboard';
+import { GlucoseUnit, formatGlucose } from '@/lib/glucose';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface Reading {
     _id: string;
@@ -73,7 +75,9 @@ function estimateHbA1c(readingValues: number[]): { hba1c: number; category: stri
     return { hba1c, category: 'Normal Range', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' };
 }
 
-function generateInsights(readings: Reading[]): Insight[] {
+function generateInsights(readings: Reading[], unit: GlucoseUnit): Insight[] {
+    const isMmol = unit === 'mmol/L';
+    const fmt = (mgdl: number) => formatGlucose(mgdl, unit);
     const insightsList: Insight[] = [];
 
     const morningReadings = readings.filter(r => { const h = new Date(r.recordedAt).getHours(); return h >= 5 && h < 12; });
@@ -88,7 +92,7 @@ function generateInsights(readings: Reading[]): Insight[] {
                 id: 'evening-pattern',
                 title: 'Evening Glucose Tends Higher',
                 description: 'Your glucose levels are noticeably higher in the evenings compared to mornings.',
-                detail: `Evening average: ${eveningAvg} mg/dL vs. morning average: ${morningAvg} mg/dL. This pattern often relates to evening meal choices or reduced activity later in the day.`,
+                detail: `Evening average: ${fmt(eveningAvg)} vs. morning average: ${fmt(morningAvg)} ${unit}. This pattern often relates to evening meal choices or reduced activity later in the day.`,
                 icon: FiMoon,
                 borderColor: 'border-l-blue-500',
                 tagColor: 'bg-blue-100 text-blue-700',
@@ -99,7 +103,7 @@ function generateInsights(readings: Reading[]): Insight[] {
                 id: 'morning-pattern',
                 title: 'Morning Glucose Runs Higher',
                 description: 'Your morning readings tend to be higher than your evening readings — this is sometimes called the dawn phenomenon.',
-                detail: `Morning average: ${morningAvg} mg/dL vs. evening average: ${eveningAvg} mg/dL. Hormonal changes in the early morning can cause natural glucose rises, especially for people with diabetes.`,
+                detail: `Morning average: ${fmt(morningAvg)} vs. evening average: ${fmt(eveningAvg)} ${unit}. Hormonal changes in the early morning can cause natural glucose rises, especially for people with diabetes.`,
                 icon: FiSun,
                 borderColor: 'border-l-orange-500',
                 tagColor: 'bg-orange-100 text-orange-700',
@@ -110,7 +114,7 @@ function generateInsights(readings: Reading[]): Insight[] {
                 id: 'stable-pattern',
                 title: 'Consistent Throughout the Day',
                 description: 'Your glucose levels are relatively stable between morning and evening — a good sign your routine is working.',
-                detail: `Morning average: ${morningAvg} mg/dL, evening average: ${eveningAvg} mg/dL. Consistent patterns are easier to manage and understand.`,
+                detail: `Morning average: ${fmt(morningAvg)}, evening average: ${fmt(eveningAvg)} ${unit}. Consistent patterns are easier to manage and understand.`,
                 icon: FiTarget,
                 borderColor: 'border-l-green-500',
                 tagColor: 'bg-green-100 text-green-700',
@@ -131,7 +135,7 @@ function generateInsights(readings: Reading[]): Insight[] {
                 id: 'activity-impact',
                 title: 'Exercise Is Lowering Your Glucose',
                 description: 'On active days, your average glucose is meaningfully lower — exercise is working in your favour.',
-                detail: `With activity: ${activityAvg} mg/dL vs. without: ${nonActivityAvg} mg/dL. That is a ${nonActivityAvg - activityAvg} mg/dL difference, showing real impact from movement.`,
+                detail: `With activity: ${fmt(activityAvg)} vs. without: ${fmt(nonActivityAvg)} ${unit}. That is a ${fmt(nonActivityAvg - activityAvg)} ${unit} difference, showing real impact from movement.`,
                 icon: FiActivity,
                 borderColor: 'border-l-green-500',
                 tagColor: 'bg-green-100 text-green-700',
@@ -152,7 +156,7 @@ function generateInsights(readings: Reading[]): Insight[] {
                 id: 'meal-impact',
                 title: 'Noticeable Post-Meal Rise',
                 description: 'Your glucose rises significantly after meals — typical, but worth understanding.',
-                detail: `Pre-meal average: ${beforeMealAvg} mg/dL, post-meal average: ${afterMealAvg} mg/dL. A rise over 50–60 mg/dL may indicate high-carb meals. Smaller, balanced portions can help.`,
+                detail: `Pre-meal average: ${fmt(beforeMealAvg)}, post-meal average: ${fmt(afterMealAvg)} ${unit}. A rise over ${isMmol ? '2.8–3.3' : '50–60'} ${unit} may indicate high-carb meals. Smaller, balanced portions can help.`,
                 icon: FiTrendingUp,
                 borderColor: 'border-l-amber-500',
                 tagColor: 'bg-amber-100 text-amber-700',
@@ -196,9 +200,9 @@ function buildDistributionGradient(low: number, inRange: number, high: number, t
 
 export default function InsightsPage() {
     const { user } = useAuth();
+    const { unit, label, format, isMmol } = useGlucoseUnit();
     const [readings, setReadings] = useState<Reading[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [insights, setInsights] = useState<Insight[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -206,9 +210,6 @@ export default function InsightsPage() {
             try {
                 const readingsData: ReadingsResponse = await api.getGlucoseReadings({ firebaseUid: user.uid, limit: 200 });
                 setReadings(readingsData.readings);
-                if (readingsData.readings.length >= MINIMUM_READINGS) {
-                    setInsights(generateInsights(readingsData.readings));
-                }
             } catch (error) {
                 console.error('Error fetching readings:', error);
             } finally {
@@ -250,6 +251,8 @@ export default function InsightsPage() {
     const hba1cProgress = Math.min((totalReadings / HBA1C_MIN_READINGS) * 100, 100);
     const hba1cRemaining = Math.max(0, HBA1C_MIN_READINGS - totalReadings);
     const stats = computeStats(readings);
+    // Computed inline so insights always reflect the current unit preference
+    const insights = hasEnoughData ? generateInsights(readings, unit) : [];
 
     return (
         <div className="space-y-6">
@@ -279,8 +282,8 @@ export default function InsightsPage() {
                             </div>
                             <span className="text-xs text-gray-500 font-medium">Avg Glucose</span>
                         </div>
-                        <p className="text-2xl font-bold text-gray-900">{stats.avg}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">mg/dL overall</p>
+                        <p className="text-2xl font-bold text-gray-900">{format(stats.avg)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{label} overall</p>
                     </div>
 
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-4">
@@ -291,7 +294,7 @@ export default function InsightsPage() {
                             <span className="text-xs text-gray-500 font-medium">In Range</span>
                         </div>
                         <p className={`text-2xl font-bold ${stats.inRangePercent >= 70 ? 'text-green-600' : stats.inRangePercent >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{stats.inRangePercent}%</p>
-                        <p className="text-xs text-gray-400 mt-0.5">70–180 mg/dL</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{isMmol ? '3.9–10.0' : '70–180'} {label}</p>
                     </div>
 
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.08)] p-4">
@@ -334,7 +337,7 @@ export default function InsightsPage() {
                         {stats.low > 0 && (
                             <span className="flex items-center gap-1.5">
                                 <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />
-                                Low (&lt;70): {stats.low}
+                                Low (&lt;{isMmol ? '3.9' : '70'}): {stats.low}
                             </span>
                         )}
                         <span className="flex items-center gap-1.5">
@@ -344,7 +347,7 @@ export default function InsightsPage() {
                         {stats.high > 0 && (
                             <span className="flex items-center gap-1.5">
                                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-                                High (&gt;180): {stats.high}
+                                High (&gt;{isMmol ? '10.0' : '180'}): {stats.high}
                             </span>
                         )}
                     </div>

@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui';
 import { FiShield, FiAlertTriangle, FiAlertOctagon } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface PredictionCardProps {
     predictedGlucose: number;
@@ -51,6 +52,7 @@ export default function PredictionCard({
     recommendation,
 }: PredictionCardProps) {
     const { user } = useAuth();
+    const { format, label } = useGlucoseUnit();
     const config = riskConfig[riskLevel];
     const Icon = config.icon;
     const confidencePercent = Math.round(confidence * 100);
@@ -65,7 +67,7 @@ export default function PredictionCard({
         try {
             const result = await api.chatWithDiaBuddy(
                 user.uid,
-                `My glucose risk assessment shows I'm in the "${riskLevel}" range with a predicted glucose of ~${predictedGlucose} mg/dL. The system recommendation is: "${recommendation}". In 2-3 sentences, explain what this means and give 1-2 specific, practical things I can do right now to manage this.`,
+                `My glucose risk assessment shows I'm in the "${riskLevel}" range with a predicted glucose of ~${format(predictedGlucose)} ${label}. The system recommendation is: "${recommendation}". In 2-3 sentences, explain what this means and give 1-2 specific, practical things I can do right now to manage this.`,
                 [],
                 user.displayName,
             );
@@ -100,8 +102,8 @@ export default function PredictionCard({
                     <div>
                         <p className="text-sm text-gray-500 mb-1">Predicted Level</p>
                         <p className="text-4xl font-bold text-gray-900">
-                            ~{predictedGlucose}
-                            <span className="text-lg font-normal text-gray-400 ml-1">mg/dL</span>
+                            ~{format(predictedGlucose)}
+                            <span className="text-lg font-normal text-gray-400 ml-1">{label}</span>
                         </p>
                     </div>
                 </div>

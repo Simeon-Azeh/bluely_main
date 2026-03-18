@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Card, CardContent, Button, Input, Select, LoadingSpinner } from '@/components/ui';
 import {
     FiUser,
@@ -26,8 +28,10 @@ import {
     FiDroplet,
     FiDownload,
     FiBarChart2,
+    FiFileText,
     FiClock,
     FiAlertCircle,
+    FiLock,
 } from 'react-icons/fi';
 import { TbPill } from 'react-icons/tb';
 import api from '@/lib/api';
@@ -75,12 +79,17 @@ interface ProfileFormData {
     insightNotifications: boolean;
     medicationReminders: boolean;
     weeklySummary: boolean;
-    darkMode: boolean;
+    shareDataWithDiaBuddy: boolean;
 }
 
+const MMOL_FACTOR = 18.0182;
+function toMmol(mgdl: number) { return Math.round((mgdl / MMOL_FACTOR) * 10) / 10; }
+function toMgdl(mmol: number) { return Math.round(mmol * MMOL_FACTOR); }
+
 export default function SettingsPage() {
-    const { user, signOut } = useAuth();
+    const { user, signOut, refreshUserProfile } = useAuth();
     const router = useRouter();
+    const { isDark, toggleDark } = useTheme();
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -91,6 +100,8 @@ export default function SettingsPage() {
     const [isExporting, setIsExporting] = useState(false);
     const reminderIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [reminderActive, setReminderActive] = useState(false);
+    // Track previous unit so we can convert the target fields when the user toggles
+    const prevUnitRef = useRef<string>('mg/dL');
 
     const {
         register,
@@ -107,12 +118,31 @@ export default function SettingsPage() {
     const watchedPush = watch('pushNotifications');
     const watchedReminder = watch('reminderEnabled');
 
+    // When the user flips the unit toggle, convert the current target fields live
+    useEffect(() => {
+        if (!watchedUnit || watchedUnit === prevUnitRef.current) return;
+        const curMin = parseFloat(watchedMin ?? '');
+        const curMax = parseFloat(watchedMax ?? '');
+        if (!isNaN(curMin) && !isNaN(curMax)) {
+            if (watchedUnit === 'mmol/L' && prevUnitRef.current === 'mg/dL') {
+                setValue('targetGlucoseMin', toMmol(curMin).toString(), { shouldDirty: true });
+                setValue('targetGlucoseMax', toMmol(curMax).toString(), { shouldDirty: true });
+            } else if (watchedUnit === 'mg/dL' && prevUnitRef.current === 'mmol/L') {
+                setValue('targetGlucoseMin', toMgdl(curMin).toString(), { shouldDirty: true });
+                setValue('targetGlucoseMax', toMgdl(curMax).toString(), { shouldDirty: true });
+            }
+        }
+        prevUnitRef.current = watchedUnit;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watchedUnit]);
+
     const menuItems = [
         { id: 'profile', label: 'Profile', icon: FiUser },
         { id: 'health', label: 'Health Info', icon: FiHeart },
         { id: 'targets', label: 'Glucose Targets', icon: FiTarget },
         { id: 'notifications', label: 'Notifications', icon: FiBell },
         { id: 'preferences', label: 'Preferences', icon: FiGlobe },
+        { id: 'privacy', label: 'Privacy & AI', icon: FiLock },
         { id: 'data', label: 'Data & Export', icon: FiDownload },
         { id: 'account', label: 'Account', icon: FiShield },
     ];
@@ -219,13 +249,20 @@ export default function SettingsPage() {
             if (!user) return;
             try {
                 const data = await api.getUser(user.uid);
+                const unit = data.preferredUnit || 'mg/dL';
+                const rawMin = data.targetGlucoseMin ?? 70;
+                const rawMax = data.targetGlucoseMax ?? 180;
+                // DB stores in mg/dL — convert to user's unit for display
+                const displayMin = unit === 'mmol/L' ? toMmol(rawMin) : rawMin;
+                const displayMax = unit === 'mmol/L' ? toMmol(rawMax) : rawMax;
+                prevUnitRef.current = unit;
                 reset({
                     displayName: data.displayName || user.displayName || '',
                     diabetesType: data.diabetesType || '',
                     diagnosisYear: data.diagnosisYear?.toString() || '',
-                    preferredUnit: data.preferredUnit || 'mg/dL',
-                    targetGlucoseMin: data.targetGlucoseMin?.toString() || '70',
-                    targetGlucoseMax: data.targetGlucoseMax?.toString() || '180',
+                    preferredUnit: unit,
+                    targetGlucoseMin: displayMin.toString(),
+                    targetGlucoseMax: displayMax.toString(),
                     activityLevel: data.activityLevel || 'moderate',
                     reminderEnabled: data.reminderEnabled ?? true,
                     reminderInterval: '4',
@@ -233,7 +270,7 @@ export default function SettingsPage() {
                     insightNotifications: true,
                     medicationReminders: true,
                     weeklySummary: false,
-                    darkMode: false,
+                    shareDataWithDiaBuddy: data.shareDataWithDiaBuddy ?? true,
                 });
             } catch (err) {
                 console.error('Error fetching profile:', err);
@@ -269,16 +306,28 @@ export default function SettingsPage() {
         try {
             setIsSaving(true);
             setError(null);
+            // Convert targets back to mg/dL for storage (backend always stores mg/dL)
+            const minMgdl = data.preferredUnit === 'mmol/L'
+                ? toMgdl(parseFloat(data.targetGlucoseMin))
+                : parseInt(data.targetGlucoseMin);
+            const maxMgdl = data.preferredUnit === 'mmol/L'
+                ? toMgdl(parseFloat(data.targetGlucoseMax))
+                : parseInt(data.targetGlucoseMax);
+
             await api.updateUser(user.uid, {
                 displayName: data.displayName,
                 diabetesType: data.diabetesType || undefined,
                 diagnosisYear: data.diagnosisYear ? parseInt(data.diagnosisYear) : undefined,
                 preferredUnit: data.preferredUnit,
-                targetGlucoseMin: parseInt(data.targetGlucoseMin),
-                targetGlucoseMax: parseInt(data.targetGlucoseMax),
+                targetGlucoseMin: minMgdl,
+                targetGlucoseMax: maxMgdl,
                 activityLevel: data.activityLevel,
                 reminderEnabled: data.reminderEnabled,
+                shareDataWithDiaBuddy: data.shareDataWithDiaBuddy,
             });
+
+            // Refresh the auth context so every hook-dependent component re-renders with the new unit immediately
+            await refreshUserProfile();
 
             // -- Start/stop actual browser reminders --
             if (data.reminderEnabled && pushPermission === 'granted') {
@@ -519,25 +568,75 @@ export default function SettingsPage() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Target Minimum</label>
-                                                <Input type="number" error={errors.targetGlucoseMin?.message} {...register('targetGlucoseMin', { required: 'Required', min: { value: 40, message: 'Min 40' }, max: { value: 200, message: 'Max 200' } })} />
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Target Minimum
+                                                    <span className="ml-1 text-gray-400 font-normal">({watchedUnit || 'mg/dL'})</span>
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step={watchedUnit === 'mmol/L' ? '0.1' : '1'}
+                                                    error={errors.targetGlucoseMin?.message}
+                                                    {...register('targetGlucoseMin', {
+                                                        required: 'Required',
+                                                        validate: v => {
+                                                            const n = parseFloat(v);
+                                                            if (isNaN(n)) return 'Required';
+                                                            const lo = watchedUnit === 'mmol/L' ? 2.2 : 40;
+                                                            const hi = watchedUnit === 'mmol/L' ? 11.1 : 200;
+                                                            if (n < lo) return `Min ${lo}`;
+                                                            if (n > hi) return `Max ${hi}`;
+                                                        },
+                                                    })}
+                                                />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Target Maximum</label>
-                                                <Input type="number" error={errors.targetGlucoseMax?.message} {...register('targetGlucoseMax', { required: 'Required', min: { value: 100, message: 'Min 100' }, max: { value: 400, message: 'Max 400' } })} />
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Target Maximum
+                                                    <span className="ml-1 text-gray-400 font-normal">({watchedUnit || 'mg/dL'})</span>
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step={watchedUnit === 'mmol/L' ? '0.1' : '1'}
+                                                    error={errors.targetGlucoseMax?.message}
+                                                    {...register('targetGlucoseMax', {
+                                                        required: 'Required',
+                                                        validate: v => {
+                                                            const n = parseFloat(v);
+                                                            if (isNaN(n)) return 'Required';
+                                                            const lo = watchedUnit === 'mmol/L' ? 5.6 : 100;
+                                                            const hi = watchedUnit === 'mmol/L' ? 22.2 : 400;
+                                                            if (n < lo) return `Min ${lo}`;
+                                                            if (n > hi) return `Max ${hi}`;
+                                                        },
+                                                    })}
+                                                />
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-gray-50 rounded-xl">
-                                            <p className="text-sm font-medium text-gray-700 mb-3">Your Target Range</p>
-                                            <div className="relative h-8 bg-gradient-to-r from-red-200 via-green-200 to-orange-200 rounded-full overflow-hidden">
-                                                <div className="absolute top-0 bottom-0 bg-green-500/30 border-l-2 border-r-2 border-green-600" style={{ left: `${Math.max(0, ((parseInt(watchedMin || '70') - 40) / 360) * 100)}%`, right: `${Math.max(0, 100 - ((parseInt(watchedMax || '180') - 40) / 360) * 100)}%` }} />
-                                            </div>
-                                            <div className="flex justify-between mt-2 text-xs text-gray-500">
-                                                <span>40</span>
-                                                <span className="text-green-600 font-medium">{watchedMin || 70} - {watchedMax || 180} {watchedUnit || 'mg/dL'}</span>
-                                                <span>400</span>
-                                            </div>
-                                        </div>
+                                        {/* Range visualiser — scale adapts to selected unit */}
+                                        {(() => {
+                                            const isMmol = watchedUnit === 'mmol/L';
+                                            const scaleMin = isMmol ? 2.2 : 40;
+                                            const scaleMax = isMmol ? 22.2 : 400;
+                                            const scaleRange = scaleMax - scaleMin;
+                                            const curMin = parseFloat(watchedMin ?? '') || (isMmol ? 3.9 : 70);
+                                            const curMax = parseFloat(watchedMax ?? '') || (isMmol ? 10.0 : 180);
+                                            const leftPct = Math.max(0, ((curMin - scaleMin) / scaleRange) * 100);
+                                            const rightPct = Math.max(0, 100 - ((curMax - scaleMin) / scaleRange) * 100);
+                                            return (
+                                                <div className="p-4 bg-gray-50 rounded-xl">
+                                                    <p className="text-sm font-medium text-gray-700 mb-3">Your Target Range</p>
+                                                    <div className="relative h-8 bg-linear-to-r from-red-200 via-green-200 to-orange-200 rounded-full overflow-hidden">
+                                                        <div className="absolute top-0 bottom-0 bg-green-500/30 border-l-2 border-r-2 border-green-600"
+                                                            style={{ left: `${leftPct}%`, right: `${rightPct}%` }} />
+                                                    </div>
+                                                    <div className="flex justify-between mt-2 text-xs text-gray-500">
+                                                        <span>{isMmol ? '2.2' : '40'}</span>
+                                                        <span className="text-green-600 font-medium">{curMin} – {curMax} {watchedUnit || 'mg/dL'}</span>
+                                                        <span>{isMmol ? '22.2' : '400'}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                         <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                                             <p className="text-sm text-amber-800"><strong>Important:</strong> Consult with your healthcare provider to determine the best target range for your situation.</p>
                                         </div>
@@ -735,7 +834,7 @@ export default function SettingsPage() {
                                                 <div><p className="font-medium text-gray-900">Dark Mode</p><p className="text-sm text-gray-500">Reduce eye strain at night</p></div>
                                             </div>
                                             <label className="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" className="sr-only peer" {...register('darkMode')} />
+                                                <input type="checkbox" className="sr-only peer" checked={isDark} onChange={() => toggleDark()} />
                                                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
                                             </label>
                                         </div>
@@ -755,6 +854,68 @@ export default function SettingsPage() {
                                     </div>
                                 </CardContent>
                             </Card>
+                        )}
+
+                        {/* ----- Privacy & AI ----- */}
+                        {activeSection === 'privacy' && (
+                            <div className="space-y-6">
+                                <Card className="border-0 shadow-lg shadow-gray-100">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                                <FiLock className="w-6 h-6 text-indigo-600" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-bold text-gray-900">Privacy &amp; AI</h2>
+                                                <p className="text-gray-500 text-sm">Control how your health data is used</p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl gap-4">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+                                                        <FiShield className="w-5 h-5 text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Share health data with DiaBuddy</p>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            When enabled, DiaBuddy reads your recent glucose readings, meals, medications, activity, and mood to give personalised responses. When disabled, DiaBuddy can still answer general diabetes questions but will not reference your personal health data.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                                                    <input type="checkbox" className="sr-only peer" {...register('shareDataWithDiaBuddy')} />
+                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
+                                                </label>
+                                            </div>
+                                            <Link href="/privacy" className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                                                        <FiShield className="w-5 h-5 text-gray-500" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Privacy Policy</p>
+                                                        <p className="text-sm text-gray-500">How we collect, use, and protect your data</p>
+                                                    </div>
+                                                </div>
+                                                <FiChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                                            </Link>
+                                            <Link href="/terms" className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                                                        <FiFileText className="w-5 h-5 text-gray-500" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Terms of Service</p>
+                                                        <p className="text-sm text-gray-500">Your rights, responsibilities, and medical disclaimer</p>
+                                                    </div>
+                                                </div>
+                                                <FiChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                                            </Link>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
                         )}
 
                         {/* ----- Data & Export ----- */}

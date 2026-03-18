@@ -336,14 +336,14 @@ export default function MedicationsPage() {
 
     if (authLoading || loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:bg-none dark:bg-[#121212] flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-[#1F2F98] border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24 md:pb-8">
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:bg-none dark:bg-[#121212] pb-24 md:pb-8">
             <div className="max-w-2xl mx-auto px-4 py-6">
                 {/* Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6">

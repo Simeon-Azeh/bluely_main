@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui';
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiBarChart2 } from 'react-icons/fi';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface WeeklyTrendCardProps {
     direction: 'rising' | 'stable' | 'declining';
@@ -47,6 +48,7 @@ export default function WeeklyTrendCard({
     riskPeriod,
     recommendation,
 }: WeeklyTrendCardProps) {
+    const { format, label } = useGlucoseUnit();
     const config = trendConfig[direction];
     const TrendIcon = config.icon;
 
@@ -74,16 +76,16 @@ export default function WeeklyTrendCard({
                     <div className="p-3 bg-white rounded-xl border border-gray-100">
                         <p className="text-xs text-gray-500 mb-1">This Week Avg</p>
                         <p className="text-2xl font-bold text-gray-900">
-                            {currentAverage}
-                            <span className="text-sm font-normal text-gray-400 ml-1">mg/dL</span>
+                            {format(currentAverage)}
+                            <span className="text-sm font-normal text-gray-400 ml-1">{label}</span>
                         </p>
                     </div>
                     <div className="p-3 bg-white rounded-xl border border-gray-100">
                         <p className="text-xs text-gray-500 mb-1">Last Week Avg</p>
                         <p className="text-2xl font-bold text-gray-900">
-                            {previousAverage ?? '—'}
+                            {previousAverage ? format(previousAverage) : '—'}
                             {previousAverage && (
-                                <span className="text-sm font-normal text-gray-400 ml-1">mg/dL</span>
+                                <span className="text-sm font-normal text-gray-400 ml-1">{label}</span>
                             )}
                         </p>
                         {previousAverage && (

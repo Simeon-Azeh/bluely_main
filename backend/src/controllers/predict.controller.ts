@@ -888,6 +888,15 @@ export const getDiaBuddySummary = async (req: Request, res: Response): Promise<v
         const user = await User.findOne({ firebaseUid: firebaseUid as string });
         const firstName = user?.displayName?.split(' ')[0] || 'there';
 
+        if (user?.shareDataWithDiaBuddy === false) {
+            res.status(200).json({
+                summary: `Hey ${firstName}! Data sharing with DiaBuddy is currently turned off. Go to Settings → Privacy & AI to enable personalised summaries.`,
+                source: 'rule-based',
+                readingCount: 0,
+            });
+            return;
+        }
+
         if (readings.length < 3) {
             res.status(200).json({
                 summary: `Hey ${firstName}! I'm DiaBuddy, your glucose companion. I need at least 3 readings to create a summary for you. Keep logging and I'll have insights ready soon!`,
@@ -907,6 +916,7 @@ export const getDiaBuddySummary = async (req: Request, res: Response): Promise<v
             diabetes_type: user?.diabetesType || 'unknown',
             targetMin: user?.targetGlucoseMin || 70,
             targetMax: user?.targetGlucoseMax || 180,
+            preferred_unit: user?.preferredUnit || 'mg/dL',
         };
 
         try {
@@ -916,6 +926,7 @@ export const getDiaBuddySummary = async (req: Request, res: Response): Promise<v
                 body: JSON.stringify({
                     readings: readingsData,
                     profile: profileData,
+                    preferredUnit: user?.preferredUnit || 'mg/dL',
                 }),
             });
 
@@ -936,6 +947,11 @@ export const getDiaBuddySummary = async (req: Request, res: Response): Promise<v
             const tir = Math.round((inRange / values.length) * 100);
 
             const name = user?.displayName?.split(' ')[0] || 'there';
+            const prefUnit = user?.preferredUnit || 'mg/dL';
+            const MMOL = 18.0182;
+            const displayAvg = prefUnit === 'mmol/L'
+                ? (Math.round(avg / MMOL * 10) / 10).toFixed(1)
+                : Math.round(avg).toString();
             let summary = `Hey ${name}! `;
 
             if (tir >= 70) {
@@ -946,7 +962,7 @@ export const getDiaBuddySummary = async (req: Request, res: Response): Promise<v
                 summary += `Your time in range is ${tir}% right now. Let's work on improving that together. `;
             }
 
-            summary += `Your average glucose is around ${Math.round(avg)} mg/dL across ${readings.length} readings. `;
+            summary += `Your average glucose is around ${displayAvg} ${prefUnit} across ${readings.length} readings. `;
             summary += 'Keep logging consistently — the more data we have, the better insights I can provide!';
 
             res.status(200).json({
@@ -1081,72 +1097,80 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
             ? candidateName.split(' ')[0]
             : null;
 
+        const preferredUnit = user?.preferredUnit || 'mg/dL';
+        const isMmol = preferredUnit === 'mmol/L';
+        const MMOL = 18.0182;
+        const toDisplay = (mgdl: number) => isMmol ? Math.round(mgdl / MMOL * 10) / 10 : mgdl;
+
         // ── Fetch recent user data for context ──────────────────────────
-        let userDataContext: string | null = null;
-        try {
-            const now = new Date();
-            const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+        let userDataContext: string | null = `User's preferred glucose unit: ${preferredUnit}.`;
+        if (user?.shareDataWithDiaBuddy !== false) {
+            try {
+                const now = new Date();
+                const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-            const [recentGlucose, recentMeals, recentMeds, recentActivity, recentMood] = await Promise.all([
-                GlucoseReading.find({ firebaseUid, recordedAt: { $gte: threeDaysAgo } })
-                    .sort({ recordedAt: -1 }).limit(8).lean(),
-                Meal.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
-                    .sort({ timestamp: -1 }).limit(5).lean(),
-                MedicationLog.find({ firebaseUid, takenAt: { $gte: threeDaysAgo } })
-                    .sort({ takenAt: -1 }).limit(5).lean(),
-                Activity.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
-                    .sort({ timestamp: -1 }).limit(5).lean(),
-                MoodLog.find({ firebaseUid, createdAt: { $gte: threeDaysAgo } })
-                    .sort({ createdAt: -1 }).limit(2).lean(),
-            ]);
+                const [recentGlucose, recentMeals, recentMeds, recentActivity, recentMood] = await Promise.all([
+                    GlucoseReading.find({ firebaseUid, recordedAt: { $gte: threeDaysAgo } })
+                        .sort({ recordedAt: -1 }).limit(8).lean(),
+                    Meal.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
+                        .sort({ timestamp: -1 }).limit(5).lean(),
+                    MedicationLog.find({ firebaseUid, takenAt: { $gte: threeDaysAgo } })
+                        .sort({ takenAt: -1 }).limit(5).lean(),
+                    Activity.find({ firebaseUid, timestamp: { $gte: threeDaysAgo } })
+                        .sort({ timestamp: -1 }).limit(5).lean(),
+                    MoodLog.find({ firebaseUid, createdAt: { $gte: threeDaysAgo } })
+                        .sort({ createdAt: -1 }).limit(2).lean(),
+                ]);
 
-            const parts: string[] = [];
+                const parts: string[] = [];
 
-            if (recentGlucose.length > 0) {
-                const readings = recentGlucose.map((r: any) => {
-                    const time = new Date(r.recordedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                    return `${r.value} mg/dL (${r.mealContext || 'unknown'}, ${time})`;
-                });
-                parts.push(`Recent glucose readings: ${readings.join('; ')}`);
+                if (recentGlucose.length > 0) {
+                    const readings = recentGlucose.map((r: any) => {
+                        const time = new Date(r.recordedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                        const displayVal = toDisplay(r.value);
+                        return `${displayVal} ${preferredUnit} (${r.mealContext || 'unknown'}, ${time})`;
+                    });
+                    parts.push(`Recent glucose readings: ${readings.join('; ')}`);
+                }
+
+                if (recentMeals.length > 0) {
+                    const meals = recentMeals.map((m: any) => {
+                        const time = new Date(m.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                        return `${m.mealType}: ${m.description || 'meal'} (${m.carbsEstimate ? m.carbsEstimate + 'g carbs, ' : ''}${time})`;
+                    });
+                    parts.push(`Recent meals: ${meals.join('; ')}`);
+                }
+
+                if (recentMeds.length > 0) {
+                    const meds = recentMeds.map((m: any) => {
+                        const time = new Date(m.takenAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                        return `${m.medicationName} ${m.dosage}${m.doseUnit} (${time})`;
+                    });
+                    parts.push(`Recent medications: ${meds.join('; ')}`);
+                }
+
+                if (recentActivity.length > 0) {
+                    const activities = recentActivity.map((a: any) => {
+                        const time = new Date(a.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                        return `${a.activityType || a.activityLevel} ${a.durationMinutes || '?'}min, intensity ${a.activityLevel} (${time})`;
+                    });
+                    parts.push(`Recent activities: ${activities.join('; ')}`);
+                }
+
+                if (recentMood.length > 0) {
+                    const moods = recentMood.map((m: any) => {
+                        const time = new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+                        return `mood: ${m.mood}${m.period ? ', ' + m.period : ''}${m.note ? ' — ' + m.note : ''} (${time})`;
+                    });
+                    parts.push(`Recent wellness: ${moods.join('; ')}`);
+                }
+
+                if (parts.length > 0) {
+                    userDataContext = `User's preferred glucose unit: ${preferredUnit}. ` + parts.join('. ');
+                }
+            } catch (dataErr) {
+                console.warn('Failed to fetch user data context for chat:', dataErr);
             }
-
-            if (recentMeals.length > 0) {
-                const meals = recentMeals.map((m: any) => {
-                    const time = new Date(m.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                    return `${m.mealType}: ${m.description || 'meal'} (${m.carbsEstimate ? m.carbsEstimate + 'g carbs, ' : ''}${time})`;
-                });
-                parts.push(`Recent meals: ${meals.join('; ')}`);
-            }
-
-            if (recentMeds.length > 0) {
-                const meds = recentMeds.map((m: any) => {
-                    const time = new Date(m.takenAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                    return `${m.medicationName} ${m.dosage}${m.doseUnit} (${time})`;
-                });
-                parts.push(`Recent medications: ${meds.join('; ')}`);
-            }
-
-            if (recentActivity.length > 0) {
-                const activities = recentActivity.map((a: any) => {
-                    const time = new Date(a.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric' });
-                    return `${a.activityType || a.activityLevel} ${a.durationMinutes || '?'}min, intensity ${a.activityLevel} (${time})`;
-                });
-                parts.push(`Recent activities: ${activities.join('; ')}`);
-            }
-
-            if (recentMood.length > 0) {
-                const moods = recentMood.map((m: any) => {
-                    const time = new Date(m.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric' });
-                    return `mood: ${m.mood}${m.period ? ', ' + m.period : ''}${m.note ? ' — ' + m.note : ''} (${time})`;
-                });
-                parts.push(`Recent wellness: ${moods.join('; ')}`);
-            }
-
-            if (parts.length > 0) {
-                userDataContext = parts.join('. ');
-            }
-        } catch (dataErr) {
-            console.warn('Failed to fetch user data context for chat:', dataErr);
         }
 
         // Build messages array from history + current message
@@ -1171,6 +1195,7 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
                     messages,
                     userName: firstName,
                     userDataContext,
+                    preferredUnit,
                 }),
                 signal: controller.signal,
             });

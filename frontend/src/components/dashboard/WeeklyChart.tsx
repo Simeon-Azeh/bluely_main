@@ -15,6 +15,8 @@ import {
     ResponsiveContainer,
     ReferenceLine,
 } from 'recharts';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
+import { convertGlucose, type GlucoseUnit } from '@/lib/glucose';
 
 interface ChartDataPoint {
     date: string;
@@ -29,14 +31,17 @@ interface WeeklyChartProps {
     targetMax: number;
 }
 
-// Custom tooltip component
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
+// Custom tooltip component — receives unit as extra prop via content
+const CustomTooltip = ({ active, payload, label, unit }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; unit?: GlucoseUnit }) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-3">
                 <p className="text-sm font-medium text-gray-900">{label}</p>
                 <p className="text-lg font-bold text-[#1F2F98]">
-                    {payload[0].value} <span className="text-sm font-normal text-gray-500">mg/dL</span>
+                    {unit === 'mmol/L'
+                        ? (payload[0].value as number).toFixed(1)
+                        : Math.round(payload[0].value as number)}
+                    {' '}<span className="text-sm font-normal text-gray-500">{unit ?? 'mg/dL'}</span>
                 </p>
             </div>
         );
@@ -45,6 +50,15 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 export default function WeeklyChart({ chartData, targetMin, targetMax }: WeeklyChartProps) {
+    const { unit, label } = useGlucoseUnit();
+    // Convert chart data values for display
+    const convertedData = chartData.map(d => ({
+        ...d,
+        average: convertGlucose(d.average, unit),
+    }));
+    const convertedTargetMin = convertGlucose(targetMin, unit);
+    const convertedTargetMax = convertGlucose(targetMax, unit);
+    const yDomain: [number, number] = unit === 'mmol/L' ? [2.2, 16.7] : [40, 300];
     return (
         <Card className="border-0 shadow-lg shadow-gray-100">
             <CardHeader className="pb-2">
@@ -68,7 +82,7 @@ export default function WeeklyChart({ chartData, targetMin, targetMax }: WeeklyC
                 {chartData.length > 0 ? (
                     <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
+                            <AreaChart data={convertedData}>
                                 <defs>
                                     <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#1F2F98" stopOpacity={0.2} />
@@ -88,17 +102,17 @@ export default function WeeklyChart({ chartData, targetMin, targetMax }: WeeklyC
                                     fontSize={12}
                                     tickLine={false}
                                     axisLine={false}
-                                    domain={[40, 300]}
+                                    domain={yDomain}
                                 />
-                                <Tooltip content={<CustomTooltip />} />
+                                <Tooltip content={<CustomTooltip unit={unit} />} />
                                 <ReferenceLine
-                                    y={targetMax}
+                                    y={convertedTargetMax}
                                     stroke="#f59e0b"
                                     strokeDasharray="5 5"
                                     strokeWidth={1.5}
                                 />
                                 <ReferenceLine
-                                    y={targetMin}
+                                    y={convertedTargetMin}
                                     stroke="#ef4444"
                                     strokeDasharray="5 5"
                                     strokeWidth={1.5}

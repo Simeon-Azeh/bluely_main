@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import { FiClock, FiArrowRight, FiPlus, FiSun, FiMoon, FiCoffee, FiActivity, FiHeart } from 'react-icons/fi';
 import { format, isToday, isYesterday } from 'date-fns';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface Reading {
     _id: string;
@@ -22,6 +23,7 @@ interface RecentReadingsProps {
 }
 
 export default function RecentReadings({ readings, targetMin, targetMax }: RecentReadingsProps) {
+    const { format: fmtGlucose, label } = useGlucoseUnit();
     const getGlucoseStatus = (value: number) => {
         if (value < targetMin) return { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', label: 'Low' };
         if (value > targetMax) return { color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', label: 'High' };
@@ -83,9 +85,9 @@ export default function RecentReadings({ readings, targetMin, targetMax }: Recen
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-2xl font-bold ${status.color}`}>
-                                                    {reading.value}
+                                                    {fmtGlucose(reading.value)}
                                                 </span>
-                                                <span className="text-sm text-gray-500">{reading.unit}</span>
+                                                <span className="text-sm text-gray-500">{label}</span>
                                                 <span className={`text-xs px-2 py-0.5 rounded-full ${status.bg} ${status.color} font-medium`}>
                                                     {status.label}
                                                 </span>

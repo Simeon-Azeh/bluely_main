@@ -27,6 +27,7 @@ import { TbPill } from 'react-icons/tb';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import FloatingChat from '../dashboard/FloatingChat';
 import api from '@/lib/api';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -56,6 +57,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showFloatingChat, setShowFloatingChat] = useState(false);
+    const { isDark } = useTheme();
 
     const isActive = (path: string) => pathname === path;
 
@@ -101,7 +103,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 dark:bg-[#121212] dark:bg-none">
                 <div className="text-center">
                     <div className="w-20 h-20 bg-[#1F2F98] rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
                         <Image
@@ -124,14 +126,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:bg-[#121212] dark:bg-none">
             {/* Desktop Sidebar */}
             <aside
-                className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 bg-white border-r border-gray-100 shadow-xl transition-all duration-300 ease-in-out z-30 ${sidebarCollapsed ? 'md:w-20' : 'md:w-72'
+                className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 bg-white border-r border-gray-100 shadow-xl dark:bg-[#1a1a1a] dark:border-[#2a2a2a] dark:shadow-black/50 transition-all duration-300 ease-in-out z-30 ${sidebarCollapsed ? 'md:w-20' : 'md:w-72'
                     }`}
             >
                 {/* Logo Section */}
-                <div className={`flex items-center h-20 px-6 border-b border-gray-100 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+                <div className={`flex items-center h-20 px-6 border-b border-gray-100 dark:border-[#2a2a2a] ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
                     <Link href="/dashboard" className="flex items-center space-x-3">
                         {sidebarCollapsed ? (
                             <Image
@@ -143,7 +145,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                             />
                         ) : (
                             <Image
-                                src="/icons/full_logotext.png"
+                                src={isDark ? "/icons/full_logotext_white.png" : "/icons/full_logotext.png"}
                                 alt="Bluely"
                                 width={140}
                                 height={40}
@@ -165,7 +167,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 {sidebarCollapsed && (
                     <button
                         onClick={() => setSidebarCollapsed(false)}
-                        className="mx-auto mt-4 p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] dark:hover:text-gray-200 transition-colors"
                     >
                         <FiChevronRight className="w-5 h-5" />
                     </button>
@@ -209,8 +211,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`group flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 ${active
-                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98]'
+                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25 dark:bg-none dark:bg-[#2a2a2a] dark:text-white dark:shadow-none'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98] dark:text-gray-300 dark:hover:bg-[#2a2a2a] dark:hover:text-white'
                                     }`}
                                 title={sidebarCollapsed ? item.label : undefined}
                             >
@@ -236,8 +238,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`group flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${active
-                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98]'
+                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25 dark:bg-none dark:bg-[#2a2a2a] dark:text-white dark:shadow-none'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98] dark:text-gray-300 dark:hover:bg-[#2a2a2a] dark:hover:text-white'
                                     }`}
                                 title={sidebarCollapsed ? item.label : undefined}
                             >
@@ -248,7 +250,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     })}
 
                     {/* User Profile Card */}
-                    <div className={`mt-4 p-3 rounded-xl bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-100 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
+                    <div className={`mt-4 p-3 rounded-xl bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-100 dark:bg-none dark:bg-[#242424] dark:border-[#3a3a3a] ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
                         <div className={`flex items-center ${sidebarCollapsed ? '' : 'space-x-3'}`}>
                             <div className="w-10 h-10 bg-gradient-to-br from-[#1F2F98] to-[#3B4CC0] rounded-xl flex items-center justify-center shadow-md">
                                 <span className="text-white font-semibold text-sm">
@@ -274,7 +276,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     {/* Sign Out Button */}
                     <button
                         onClick={handleSignOut}
-                        className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200`}
+                        className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20 transition-all duration-200`}
                         title={sidebarCollapsed ? 'Sign Out' : undefined}
                     >
                         <FiLogOut className="w-5 h-5" />
@@ -284,7 +286,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </aside>
 
             {/* Top Header */}
-            <header className={`fixed top-0 right-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300 ${sidebarCollapsed ? 'md:left-20' : 'md:left-72'
+            <header className={`fixed top-0 right-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-100 dark:bg-[#1a1a1a] dark:border-[#2a2a2a] transition-all duration-300 ${sidebarCollapsed ? 'md:left-20' : 'md:left-72'
                 } left-0`}>
                 <div className="flex items-center justify-between h-20 px-4 sm:px-6 lg:px-8">
                     {/* Left Section - Greeting (Desktop) / Logo (Mobile) */}
@@ -292,7 +294,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         {/* Mobile Logo */}
                         <Link href="/dashboard" className="md:hidden flex items-center mr-4">
                             <Image
-                                src="/icons/full_logotext.png"
+                                src={isDark ? "/icons/full_logotext_white.png" : "/icons/full_logotext.png"}
                                 alt="Bluely"
                                 width={130}
                                 height={38}
@@ -320,7 +322,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 <input
                                     type="text"
                                     placeholder="Search..."
-                                    className="w-64 pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/20 focus:border-[#1F2F98] transition-all"
+                                    className="w-64 pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/20 focus:border-[#1F2F98] dark:bg-[#2a2a2a] dark:border-[#3a3a3a] dark:text-gray-100 dark:placeholder-gray-500 transition-all"
                                 />
                             </div>
                         </div>
@@ -329,7 +331,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         {user?.emailVerified ? (
                             <Link
                                 href="/glucose"
-                                className="hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
+                                className="hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all dark:bg-none dark:bg-[#2a2a2a] dark:shadow-none dark:hover:shadow-none dark:hover:bg-[#3a3a3a]"
                             >
                                 <FiDroplet className="w-4 h-4" />
                                 <span>Log Reading</span>
@@ -343,7 +345,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
                         {/* Notifications */}
                         {user?.emailVerified ? (
-                            <Link href="/notifications" className="relative p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
+                            <Link href="/notifications" className="relative p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-[#2a2a2a] dark:text-gray-300 dark:hover:bg-[#333] transition-colors">
                                 <FiBell className="w-5 h-5" />
                                 {unreadCount > 0 && (
                                     <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
@@ -360,7 +362,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         {/* DiaBuddy Chat */}
                         <Link
                             href="/dashboard/chat"
-                            className="hidden sm:flex p-2.5 rounded-xl bg-gradient-to-br from-[#1F2F98]/10 to-[#4F5FD8]/10 text-[#1F2F98] hover:from-[#1F2F98]/20 hover:to-[#4F5FD8]/20 transition-colors"
+                            className="hidden sm:flex p-2.5 rounded-xl bg-gradient-to-br from-[#1F2F98]/10 to-[#4F5FD8]/10 text-[#1F2F98] hover:from-[#1F2F98]/20 hover:to-[#4F5FD8]/20 dark:from-[#1F2F98]/25 dark:to-[#4F5FD8]/25 dark:text-blue-300 transition-colors"
                             title="Chat with DiaBuddy"
                         >
                             <FiMessageCircle className="w-5 h-5" />
@@ -379,7 +381,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
                             {/* Mobile User Dropdown */}
                             {showUserMenu && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 dark:bg-[#1e1e1e] dark:border-[#3a3a3a]">
                                     <div className="px-4 py-2 border-b border-gray-100">
                                         <p className="text-sm font-semibold text-gray-900 truncate">
                                             {user.displayName}
@@ -417,7 +419,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </main>
 
             {/* Mobile Bottom Tab Navigation */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-2xl">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-2xl dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
                 <div className="flex items-center justify-around h-20 px-1">
                     {[
                         { href: '/dashboard', label: 'Home', icon: FiHome },
@@ -454,14 +456,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all min-w-0 ${active
-                                    ? 'text-[#1F2F98]'
-                                    : 'text-gray-400'
+                                    ? 'text-[#1F2F98] dark:text-white'
+                                    : 'text-gray-400 dark:text-gray-500'
                                     }`}
                             >
-                                <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50' : ''}`}>
+                                <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50 dark:bg-[#1F2F98]/20' : ''}`}>
                                     <Icon className="w-5 h-5" />
                                 </div>
-                                <span className={`text-[10px] mt-0.5 font-medium truncate ${active ? 'text-[#1F2F98]' : 'text-gray-500'}`}>
+                                <span className={`text-[10px] mt-0.5 font-medium truncate ${active ? 'text-[#1F2F98] dark:text-white' : 'text-gray-500'}`}>
                                     {item.label}
                                 </span>
                             </Link>
@@ -476,7 +478,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     <FloatingChat isOpen={showFloatingChat} onClose={() => setShowFloatingChat(false)} />
                     <button
                         onClick={() => setShowFloatingChat((v) => !v)}
-                        className="fixed z-50 bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full shadow-lg shadow-[#1F2F98]/25 hover:shadow-xl hover:shadow-[#1F2F98]/30 transition-all hover:scale-105 active:scale-95 overflow-hidden ring-2 ring-white"
+                        className="fixed z-50 bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 rounded-full shadow-lg shadow-[#1F2F98]/25 hover:shadow-xl hover:shadow-[#1F2F98]/30 transition-all hover:scale-105 active:scale-95 overflow-hidden ring-2 ring-white dark:ring-[#2a2a2a]"
                         title="Chat with DiaBuddy"
                     >
                         {showFloatingChat ? (

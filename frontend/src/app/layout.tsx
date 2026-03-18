@@ -59,6 +59,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${plusJakarta.variable} ${inter.variable} font-sans antialiased`}>
+        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('bluely-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}` }} />
         <Providers>{children}</Providers>
         <script
           dangerouslySetInnerHTML={{

@@ -10,6 +10,7 @@ import { TbPill } from 'react-icons/tb';
 import { IoArrowUp, IoArrowDown, IoArrowForward } from 'react-icons/io5';
 import { MdOutlineLocalFireDepartment } from 'react-icons/md';
 import Link from 'next/link';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface MissingDataAction {
     label: string;
@@ -102,6 +103,7 @@ export default function GlucoseForecastCard({
     aiInsight,
 }: GlucoseForecastCardProps) {
     const { user } = useAuth();
+    const { format, label, convert, isMmol } = useGlucoseUnit();
     const [showTooltip, setShowTooltip] = useState(false);
     const [showFactors, setShowFactors] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState<number>(30 * 60 * 1000);
@@ -119,8 +121,10 @@ export default function GlucoseForecastCard({
 
     // Count-up animation for the glucose number on mount
     useEffect(() => {
-        const target = Math.round(predictedGlucose);
-        const start = Math.max(0, target - 40);
+        const target = isMmol
+            ? parseFloat(format(predictedGlucose))
+            : Math.round(predictedGlucose);
+        const start = isMmol ? Math.max(0, target - 2) : Math.max(0, target - 40);
         const duration = 700;
         const steps = 28;
         const increment = (target - start) / steps;
@@ -129,13 +133,15 @@ export default function GlucoseForecastCard({
         if (animationRef.current) clearInterval(animationRef.current);
         animationRef.current = setInterval(() => {
             step++;
-            current = step >= steps ? target : Math.round(start + increment * step);
-            setDisplayedGlucose(current);
+            current = step >= steps ? target : start + increment * step;
+            setDisplayedGlucose(isMmol
+                ? parseFloat(current.toFixed(1))
+                : Math.round(current));
             if (step >= steps) clearInterval(animationRef.current!);
         }, duration / steps);
         return () => { if (animationRef.current) clearInterval(animationRef.current); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [predictedGlucose]);
+    }, [predictedGlucose, isMmol]);
 
     // Confidence bar animation on mount
     useEffect(() => {
@@ -148,7 +154,7 @@ export default function GlucoseForecastCard({
         setDiaBuddyLoading(true);
         setDiaBuddyError(false);
         try {
-            const prompt = `My 30-minute glucose forecast shows my glucose is ${direction} and expected to be ~${Math.round(predictedGlucose)} mg/dL (${confidencePercent}% model confidence). The system note says: "${recommendation}". In 2-3 sentences, explain what this means for me right now and give 1-2 specific, practical things I can do to manage this.`;
+            const prompt = `My 30-minute glucose forecast shows my glucose is ${direction} and expected to be ~${format(predictedGlucose)} ${label} (${confidencePercent}% model confidence). The system note says: "${recommendation}". In 2-3 sentences, explain what this means for me right now and give 1-2 specific, practical things I can do to manage this.`;
             const result = await api.chatWithDiaBuddy(user.uid, prompt, [], user.displayName ?? undefined);
             setDiaBuddyReply(result.reply);
         } catch {
@@ -228,7 +234,7 @@ export default function GlucoseForecastCard({
                 'Low confidence — active physiological factors';
 
     return (
-        <Card className={`border-0 shadow-[0_4px_20px_rgba(0,0,0,0.08)] bg-linear-to-br ${config.gradient} overflow-hidden`}>
+        <Card className={`border-0 shadow-[0_4px_20px_rgba(0,0,0,0.08)] bg-linear-to-br ${config.gradient} dark:bg-none dark:bg-[#1e1e1e] dark:border dark:border-[#3a3a3a] overflow-hidden`}>
             <CardContent className="p-0">
                 {/* Top accent bar */}
                 <div className={`h-1 w-full ${config.barColor}`} />
@@ -255,7 +261,7 @@ export default function GlucoseForecastCard({
 
                     {/* Expired state */}
                     {isExpired ? (
-                        <div className="mb-4 p-5 bg-white/80 border border-gray-200 rounded-2xl text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                        <div className="mb-4 p-5 bg-white/80 border border-gray-200 rounded-2xl text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:bg-[#242424] dark:border-[#3a3a3a]">
                             <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                 <FiClock className="w-6 h-6 text-gray-400" />
                             </div>
@@ -290,16 +296,16 @@ export default function GlucoseForecastCard({
                             </div>
 
                             {/* Main glucose value + direction */}
-                            <div className="flex items-center gap-4 mb-5 bg-white/60 rounded-2xl p-5 border border-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                            <div className="flex items-center gap-4 mb-5 bg-white/60 dark:bg-[#242424] rounded-2xl p-5 border border-white/80 dark:border-[#3a3a3a] shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                                 <div className="flex-1">
                                     <p className="text-[11px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">
                                         Expected by {formatTime(targetTime)}
                                     </p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-bold text-gray-900 tabular-nums leading-none tracking-tighter">
-                                            {displayedGlucose}
+                                            {isMmol ? displayedGlucose.toFixed(1) : displayedGlucose}
                                         </span>
-                                        <span className="text-xl font-medium text-gray-300">mg/dL</span>
+                                        <span className="text-xl font-bold text-gray-300">{label}</span>
                                     </div>
                                 </div>
                                 {/* Direction button */}
@@ -349,10 +355,10 @@ export default function GlucoseForecastCard({
                                 <span className="text-[11px] font-semibold text-gray-500">Model Confidence</span>
                                 <div className="flex items-center gap-1.5">
                                     <span className={`text-[11px] font-medium ${confidencePercent >= 70 ? 'text-emerald-600' :
-                                            confidencePercent >= 50 ? 'text-amber-500' : 'text-red-500'
+                                        confidencePercent >= 50 ? 'text-amber-500' : 'text-red-500'
                                         }`}>{confidenceLabel}</span>
                                     <span className={`text-sm font-black tabular-nums ${confidencePercent >= 70 ? 'text-emerald-600' :
-                                            confidencePercent >= 50 ? 'text-amber-600' : 'text-red-500'
+                                        confidencePercent >= 50 ? 'text-amber-600' : 'text-red-500'
                                         }`}>{confidencePercent}%</span>
                                 </div>
                             </div>
@@ -368,7 +374,7 @@ export default function GlucoseForecastCard({
                                     style={{ left: `${confidenceAnimated}%` }}
                                 >
                                     <div className={`-ml-2 w-4 h-4 rounded-full bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] border-2 ${confidencePercent >= 70 ? 'border-emerald-500' :
-                                            confidencePercent >= 50 ? 'border-amber-500' : 'border-red-500'
+                                        confidencePercent >= 50 ? 'border-amber-500' : 'border-red-500'
                                         }`} />
                                 </div>
                             </div>
@@ -377,7 +383,7 @@ export default function GlucoseForecastCard({
 
                     {/* Recommendation */}
                     {!isExpired && (
-                        <div className={`p-4 rounded-2xl ${config.bgColor} border ${config.borderColor} mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)]`}>
+                        <div className={`p-4 rounded-2xl ${config.bgColor} border ${config.borderColor} mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:bg-[#242424] dark:border-[#3a3a3a]`}>
                             <p className="text-[13px] font-medium text-gray-700 leading-relaxed">{recommendation}</p>
                         </div>
                     )}
@@ -465,7 +471,7 @@ export default function GlucoseForecastCard({
                                 <button
                                     type="button"
                                     onClick={handleAskDiaBuddy}
-                                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-indigo-100 bg-white/80 hover:bg-indigo-50/80 hover:border-indigo-200 transition-all text-left shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] group"
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-indigo-100 dark:border-[#3a3a3a] bg-white/80 dark:bg-[#242424] hover:bg-indigo-50/80 dark:hover:bg-[#2a2a2a] hover:border-indigo-200 transition-all text-left shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] group"
                                 >
                                     <div className="relative w-9 h-9 shrink-0">
                                         <div className="absolute inset-0 rounded-xl bg-indigo-100 group-hover:bg-indigo-200 transition-colors" />

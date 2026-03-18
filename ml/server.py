@@ -1256,6 +1256,7 @@ class DiaBuddySummaryInput(BaseModel):
     """Input for DiaBuddy health summary generation."""
     readings: List[DiaBuddyReadingInput] = Field(..., min_length=1)
     profile: Optional[Dict] = Field(None, description="User health profile data")
+    preferredUnit: Optional[str] = "mg/dL"
 
 
 class DiaBuddySummaryOutput(BaseModel):
@@ -1295,6 +1296,7 @@ class DiaBuddyChatInput(BaseModel):
     messages: List[ChatMessage]
     userName: Optional[str] = None
     userDataContext: Optional[str] = None
+    preferredUnit: Optional[str] = "mg/dL"
 
 class ChatAction(BaseModel):
     type: str              # 'LOG_GLUCOSE' or 'LOG_MEAL'
@@ -1378,6 +1380,8 @@ async def diabuddy_chat(input_data: DiaBuddyChatInput):
         context_prefix = ""
         if input_data.userName:
             context_prefix += f"[User's name is {input_data.userName}] "
+        if input_data.preferredUnit and input_data.preferredUnit != "mg/dL":
+            context_prefix += f"[User's preferred glucose unit: {input_data.preferredUnit}. Use {input_data.preferredUnit} in all your responses. When emitting LOG_GLUCOSE action tags, convert to mg/dL first.] "
         if input_data.userDataContext:
             context_prefix += f"[USER DATA CONTEXT: {input_data.userDataContext}] "
 
