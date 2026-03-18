@@ -234,7 +234,7 @@ export default function GlucoseForecastCard({
                 'Low confidence — active physiological factors';
 
     return (
-        <Card className={`border-0 shadow-[0_4px_20px_rgba(0,0,0,0.08)] bg-linear-to-br ${config.gradient} overflow-hidden`}>
+        <Card className={`border-0 shadow-[0_4px_20px_rgba(0,0,0,0.08)] bg-linear-to-br ${config.gradient} dark:bg-none dark:bg-[#1e1e1e] dark:border dark:border-[#3a3a3a] overflow-hidden`}>
             <CardContent className="p-0">
                 {/* Top accent bar */}
                 <div className={`h-1 w-full ${config.barColor}`} />
@@ -261,7 +261,7 @@ export default function GlucoseForecastCard({
 
                     {/* Expired state */}
                     {isExpired ? (
-                        <div className="mb-4 p-5 bg-white/80 border border-gray-200 rounded-2xl text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                        <div className="mb-4 p-5 bg-white/80 border border-gray-200 rounded-2xl text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:bg-[#242424] dark:border-[#3a3a3a]">
                             <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                 <FiClock className="w-6 h-6 text-gray-400" />
                             </div>
@@ -296,7 +296,7 @@ export default function GlucoseForecastCard({
                             </div>
 
                             {/* Main glucose value + direction */}
-                            <div className="flex items-center gap-4 mb-5 bg-white/60 rounded-2xl p-5 border border-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                            <div className="flex items-center gap-4 mb-5 bg-white/60 dark:bg-[#242424] rounded-2xl p-5 border border-white/80 dark:border-[#3a3a3a] shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
                                 <div className="flex-1">
                                     <p className="text-[11px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">
                                         Expected by {formatTime(targetTime)}
@@ -383,7 +383,7 @@ export default function GlucoseForecastCard({
 
                     {/* Recommendation */}
                     {!isExpired && (
-                        <div className={`p-4 rounded-2xl ${config.bgColor} border ${config.borderColor} mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)]`}>
+                        <div className={`p-4 rounded-2xl ${config.bgColor} border ${config.borderColor} mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:bg-[#242424] dark:border-[#3a3a3a]`}>
                             <p className="text-[13px] font-medium text-gray-700 leading-relaxed">{recommendation}</p>
                         </div>
                     )}
@@ -471,7 +471,7 @@ export default function GlucoseForecastCard({
                                 <button
                                     type="button"
                                     onClick={handleAskDiaBuddy}
-                                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-indigo-100 bg-white/80 hover:bg-indigo-50/80 hover:border-indigo-200 transition-all text-left shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] group"
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-indigo-100 dark:border-[#3a3a3a] bg-white/80 dark:bg-[#242424] hover:bg-indigo-50/80 dark:hover:bg-[#2a2a2a] hover:border-indigo-200 transition-all text-left shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] group"
                                 >
                                     <div className="relative w-9 h-9 shrink-0">
                                         <div className="absolute inset-0 rounded-xl bg-indigo-100 group-hover:bg-indigo-200 transition-colors" />

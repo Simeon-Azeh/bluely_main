@@ -345,6 +345,92 @@ body {
   background-color: #4a4a4a !important;
 }
 
+/* ── Page-level gradient backgrounds ─────────────────────── */
+.dark [class*="bg-gradient-to-b"] {
+  background-image: none !important;
+  background-color: #121212 !important;
+}
+
+.dark [class*="bg-gradient-to-r"] {
+  background-image: none !important;
+  background-color: #2a2a2a !important;
+}
+
+/* ── Blue brand overrides for dark mode ──────────────────── */
+.dark .bg-blue-50\/40 {
+  background-color: rgba(96, 165, 250, 0.08) !important;
+}
+
+.dark .bg-blue-50\/60 {
+  background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+.dark .bg-purple-100 {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+}
+
+.dark .bg-yellow-100 {
+  background-color: rgba(234, 179, 8, 0.2) !important;
+}
+
+.dark .shadow-blue-500\/25 {
+  --tw-shadow-color: transparent !important;
+}
+
+.dark .shadow-blue-500\/30 {
+  --tw-shadow-color: transparent !important;
+}
+
+/* Brand blue text lighter in dark mode */
+.dark .text-\[\#1F2F98\] {
+  color: #93a3f8 !important;
+}
+
+.dark .text-\[\#1f2f98\] {
+  color: #93a3f8 !important;
+}
+
+/* ── Semi-transparent brand panels ───────────────────────── */
+.dark [class*="from-\[\#1F2F98\]"] {
+  background-image: none !important;
+  background-color: #1e1e1e !important;
+}
+
+.dark .bg-\[\#1F2F98\] {
+  background-color: #2a2a2a !important;
+}
+
+.dark .bg-\[\#1F2F98\]\/5 {
+  background-color: rgba(96, 165, 250, 0.08) !important;
+}
+
+.dark .bg-\[\#1F2F98\]\/10 {
+  background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+/* ── DiaBuddy forecast card gradient panels ──────────────── */
+.dark [class*="from-indigo-50"] {
+  background-image: none !important;
+  background-color: #1e1e1e !important;
+}
+
+.dark .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+.dark .bg-violet-50 {
+  background-color: rgba(139, 92, 246, 0.12) !important;
+}
+
+/* ── Cyan / Amber accents (forecast card) ────────────────── */
+.dark .bg-cyan-50 {
+  background-color: rgba(34, 211, 238, 0.12) !important;
+}
+
+.dark .bg-amber-50\/60 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
 /* ── Dark scrollbar ──────────────────────────────────────── */
 .dark ::-webkit-scrollbar-track {
   background: #1a1a1a;

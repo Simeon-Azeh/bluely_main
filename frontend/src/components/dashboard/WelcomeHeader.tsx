@@ -36,7 +36,7 @@ export default function WelcomeHeader({
     const GreetingIcon = greeting.icon;
 
     return (
-        <div className="bg-gradient-to-br from-[#1F2F98] via-[#2D3DA8] to-[#3B4CC0] rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-[#1F2F98] via-[#2D3DA8] to-[#3B4CC0] dark:bg-none dark:bg-[#1e1e1e] dark:border dark:border-[#3a3a3a] rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden">
             {/* Background decorations */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
@@ -57,9 +57,9 @@ export default function WelcomeHeader({
                     </div>
                     {isOnboardingComplete && (
                         <Link href="/glucose">
-                            <Button className="bg-white text-[#1F2F98] hover:bg-white/90 shadow-lg font-semibold">
-                                <FiPlus className="w-4 h-4 mr-2 text-[#1F2F98]" />
-                                <span className="text-[#1f2f98]">Quick Log</span>
+                            <Button className="bg-white text-[#1F2F98] hover:bg-white/90 shadow-lg font-semibold dark:bg-[#2a2a2a] dark:text-white dark:hover:bg-[#3a3a3a]">
+                                <FiPlus className="w-4 h-4 mr-2 text-[#1F2F98] dark:text-white" />
+                                <span className="text-[#1f2f98] dark:text-white">Quick Log</span>
                             </Button>
                         </Link>
                     )}

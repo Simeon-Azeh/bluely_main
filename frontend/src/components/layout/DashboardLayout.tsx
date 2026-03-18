@@ -211,7 +211,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`group flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 ${active
-                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
+                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25 dark:bg-none dark:bg-[#2a2a2a] dark:text-white dark:shadow-none'
                                     : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98] dark:text-gray-300 dark:hover:bg-[#2a2a2a] dark:hover:text-white'
                                     }`}
                                 title={sidebarCollapsed ? item.label : undefined}
@@ -238,7 +238,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`group flex items-center ${sidebarCollapsed ? 'justify-center' : ''} space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${active
-                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25'
+                                    ? 'bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white shadow-lg shadow-blue-500/25 dark:bg-none dark:bg-[#2a2a2a] dark:text-white dark:shadow-none'
                                     : 'text-gray-600 hover:bg-gray-50 hover:text-[#1F2F98] dark:text-gray-300 dark:hover:bg-[#2a2a2a] dark:hover:text-white'
                                     }`}
                                 title={sidebarCollapsed ? item.label : undefined}
@@ -331,7 +331,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         {user?.emailVerified ? (
                             <Link
                                 href="/glucose"
-                                className="hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
+                                className="hidden sm:flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all dark:bg-none dark:bg-[#2a2a2a] dark:shadow-none dark:hover:shadow-none dark:hover:bg-[#3a3a3a]"
                             >
                                 <FiDroplet className="w-4 h-4" />
                                 <span>Log Reading</span>
@@ -381,7 +381,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
                             {/* Mobile User Dropdown */}
                             {showUserMenu && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 dark:bg-[#1e1e1e] dark:border-[#3a3a3a]">
                                     <div className="px-4 py-2 border-b border-gray-100">
                                         <p className="text-sm font-semibold text-gray-900 truncate">
                                             {user.displayName}
@@ -456,14 +456,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                 key={item.href}
                                 href={item.href}
                                 className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all min-w-0 ${active
-                                    ? 'text-[#1F2F98]'
-                                    : 'text-gray-400'
+                                    ? 'text-[#1F2F98] dark:text-white'
+                                    : 'text-gray-400 dark:text-gray-500'
                                     }`}
                             >
                                 <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50 dark:bg-[#1F2F98]/20' : ''}`}>
                                     <Icon className="w-5 h-5" />
                                 </div>
-                                <span className={`text-[10px] mt-0.5 font-medium truncate ${active ? 'text-[#1F2F98]' : 'text-gray-500'}`}>
+                                <span className={`text-[10px] mt-0.5 font-medium truncate ${active ? 'text-[#1F2F98] dark:text-white' : 'text-gray-500'}`}>
                                     {item.label}
                                 </span>
                             </Link>
