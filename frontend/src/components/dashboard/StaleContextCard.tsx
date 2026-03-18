@@ -9,6 +9,7 @@ import {
 import { TbPill } from 'react-icons/tb';
 import { QuickLogData } from './MissingInputsCard';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -123,6 +124,7 @@ export default function StaleContextCard({
     onLogEverythingFresh,
 }: StaleContextCardProps) {
     const { user } = useAuth();
+    const { unit, label, bounds, isMmol } = useGlucoseUnit();
 
     // ── Glucose (always required fresh) ───────────────────────────────────
     const [glucoseValue, setGlucoseValue] = useState('');
@@ -252,8 +254,8 @@ export default function StaleContextCard({
     const handleSubmit = async () => {
         setError('');
         const glc = parseFloat(glucoseValue);
-        if (!glucoseValue || isNaN(glc) || glc < 20 || glc > 600) {
-            setError('Please enter a valid glucose value (20–600 mg/dL).');
+        if (!glucoseValue || isNaN(glc) || glc < bounds.min || glc > bounds.max) {
+            setError(`Please enter a valid glucose value (${bounds.minDisplay}–${bounds.maxDisplay} ${label}).`);
             return;
         }
         if (mealChoice === 'update' && acceptedCarbs === null) {
@@ -265,7 +267,7 @@ export default function StaleContextCard({
             return;
         }
 
-        const data: QuickLogData = { glucose: { value: glc, readingType: glucoseType } };
+        const data: QuickLogData = { glucose: { value: isMmol ? Math.round(glc * 18.0182) : glc, readingType: glucoseType } };
 
         if (mealChoice === 'update' && acceptedCarbs !== null) {
             data.meal = { carbsEstimate: acceptedCarbs, mealType };
@@ -356,14 +358,14 @@ export default function StaleContextCard({
                                     max={600}
                                     className="w-full px-3 py-2.5 text-sm border-2 border-amber-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all placeholder:text-gray-400 pr-16"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-400">mg/dL</span>
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-400">{label}</span>
                             </div>
                         </div>
-                        {glucoseValue && (parseFloat(glucoseValue) < 70) && (
-                            <p className="text-[11px] text-amber-700 bg-amber-100 rounded-lg px-3 py-1.5">⚠ Reading below 70 mg/dL — monitor closely.</p>
+                        {glucoseValue && (parseFloat(glucoseValue) < (isMmol ? 3.9 : 70)) && (
+                            <p className="text-[11px] text-amber-700 bg-amber-100 rounded-lg px-3 py-1.5">⚠ Reading below {isMmol ? '3.9' : '70'} {label} — monitor closely.</p>
                         )}
-                        {glucoseValue && (parseFloat(glucoseValue) > 250) && (
-                            <p className="text-[11px] text-red-600 bg-red-50 rounded-lg px-3 py-1.5">⚠ Reading above 250 mg/dL — consider consulting your healthcare provider.</p>
+                        {glucoseValue && (parseFloat(glucoseValue) > (isMmol ? 13.9 : 250)) && (
+                            <p className="text-[11px] text-red-600 bg-red-50 rounded-lg px-3 py-1.5">⚠ Reading above {isMmol ? '13.9' : '250'} {label} — consider consulting your healthcare provider.</p>
                         )}
                     </div>
                 </div>
@@ -779,8 +781,8 @@ export default function StaleContextCard({
                                             type="button"
                                             onClick={() => setMood(m.value)}
                                             className={`flex flex-col items-center py-2 px-1 rounded-xl border-2 transition-all ${mood === m.value
-                                                    ? `${m.activeBg} border-transparent text-white shadow-sm scale-105`
-                                                    : 'bg-white border-gray-200 hover:border-gray-300'
+                                                ? `${m.activeBg} border-transparent text-white shadow-sm scale-105`
+                                                : 'bg-white border-gray-200 hover:border-gray-300'
                                                 }`}
                                         >
                                             <span className="text-lg leading-none mb-0.5">{m.emoji}</span>
@@ -805,8 +807,8 @@ export default function StaleContextCard({
                                             type="button"
                                             onClick={() => setSleepQuality(s.value)}
                                             className={`flex flex-col items-center py-2 px-1 rounded-xl border-2 transition-all ${sleepQuality === s.value
-                                                    ? 'bg-[#1F2F98] border-[#1F2F98] text-white shadow-sm scale-105'
-                                                    : 'bg-white border-gray-200 hover:border-[#1F2F98]/40'
+                                                ? 'bg-[#1F2F98] border-[#1F2F98] text-white shadow-sm scale-105'
+                                                : 'bg-white border-gray-200 hover:border-[#1F2F98]/40'
                                                 }`}
                                         >
                                             <span className="text-base leading-none mb-0.5">{s.emoji}</span>

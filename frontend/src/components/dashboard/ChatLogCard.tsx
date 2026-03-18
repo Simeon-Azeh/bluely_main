@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiCheck, FiX, FiEdit3, FiChevronDown, FiDroplet } from 'react-icons/fi';
 import api from '@/lib/api';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 export interface ActionProposal {
     type: string;
@@ -44,6 +45,7 @@ const MEAL_TYPES = [
 
 export default function ChatLogCard({ action, firebaseUid, compact = false, messageTimestamp, onLogged }: ChatLogCardProps) {
     const data = action.data || {};
+    const { unit, label, bounds, isMmol } = useGlucoseUnit();
     const [status, setStatus] = useState<'pending' | 'saving' | 'saved' | 'dismissed'>(() => {
         // Old format actions (already logged) have status/summary instead of data
         if (!action.data && (action as any).status) return 'saved';
@@ -51,7 +53,15 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
     });
 
     // Glucose fields
-    const [glucoseValue, setGlucoseValue] = useState(data.value || '');
+    // data.value is always in mg/dL (action tags are always mg/dL per system prompt).
+    // Convert to the user's preferred display unit for the input field.
+    const rawMgdl = parseFloat(data.value || '');
+    const initialDisplayValue = data.value
+        ? isMmol
+            ? String(Math.round((rawMgdl / 18.0182) * 10) / 10)
+            : String(Math.round(rawMgdl))
+        : '';
+    const [glucoseValue, setGlucoseValue] = useState(initialDisplayValue);
     const [readingType, setReadingType] = useState(data.readingType || 'random');
     const [notes, setNotes] = useState('');
     const [medicationTaken, setMedicationTaken] = useState(false);
@@ -88,7 +98,7 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
                 {isGlucose ? <FiDroplet size={compact ? 12 : 14} /> : null}
                 <span>
                     {isGlucose
-                        ? `Logged ${glucoseValue} mg/dL (${READING_TYPES.find(r => r.value === readingType)?.label || readingType})`
+                        ? `Logged ${glucoseValue} ${label} (${READING_TYPES.find(r => r.value === readingType)?.label || readingType})`
                         : `Logged ${description} (${MEAL_TYPES.find(m => m.value === mealType)?.label || mealType}, ~${carbsEstimate}g)`
                     }
                 </span>
@@ -100,8 +110,9 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
         setStatus('saving');
         try {
             if (isGlucose) {
-                const val = parseInt(glucoseValue, 10);
-                if (!val || val < 20 || val > 600) { setStatus('pending'); return; }
+                const val = parseFloat(glucoseValue);
+                if (!val || isNaN(val) || val < bounds.min || val > bounds.max) { setStatus('pending'); return; }
+                const valMgdl = isMmol ? Math.round(val * 18.0182) : Math.round(val);
                 const medName = selectedMed ? selectedMed.medicationName : customMedName || undefined;
                 const medType = selectedMed ? selectedMed.medicationType : undefined;
                 const medDose = selectedMed ? selectedMed.dosage : undefined;
@@ -109,7 +120,7 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
                 const injSite = selectedMed?.isInjectable ? selectedMed.injectionSite : undefined;
                 await api.createGlucoseReading({
                     firebaseUid,
-                    value: val,
+                    value: valMgdl,
                     unit: 'mg/dL',
                     readingType,
                     notes: notes || 'Logged via DiaBuddy',
@@ -168,16 +179,17 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
                 <div className={`grid gap-1.5 ${compact ? 'grid-cols-2' : 'grid-cols-2'}`}>
                     {/* Value */}
                     <div>
-                        <label className={`block ${compact ? 'text-[9px]' : 'text-[10px]'} text-gray-500 font-medium mb-0.5`}>Blood Glucose</label>
+                        <label className={`block ${compact ? 'text-[9px]' : 'text-[10px]'} text-gray-500 font-medium mb-0.5`}>Blood Glucose ({label})</label>
                         <div className="flex items-center gap-1">
                             <input
                                 type="number"
                                 value={glucoseValue}
                                 onChange={(e) => setGlucoseValue(e.target.value)}
-                                min={20}
-                                max={600}
+                                min={bounds.min}
+                                max={bounds.max}
+                                step={isMmol ? '0.1' : '1'}
                                 className={`${inputClass} w-full`}
-                                placeholder="mg/dL"
+                                placeholder={isMmol ? 'e.g. 7.5' : 'e.g. 140'}
                             />
                         </div>
                     </div>

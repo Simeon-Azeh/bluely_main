@@ -12,6 +12,7 @@ interface UserProfile {
     preferredUnit?: string;
     targetGlucoseMin?: number;
     targetGlucoseMax?: number;
+    shareDataWithDiaBuddy?: boolean;
 }
 
 interface AuthContextType {

@@ -8,6 +8,7 @@ import { FiAlertCircle, FiX, FiArrowRight, FiDroplet, FiCoffee, FiTrendingDown, 
 import { TbPill } from 'react-icons/tb';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 export interface MissingInput {
     field: string;
@@ -61,6 +62,7 @@ export default function MissingInputsCard({
     isLoading = false,
 }: MissingInputsCardProps) {
     const { user } = useAuth();
+    const { label, bounds, isMmol } = useGlucoseUnit();
     const [quickLogData, setQuickLogData] = useState<QuickLogData>({});
     const [fieldsToLog, setFieldsToLog] = useState<Set<string>>(new Set());
     const [submitting, setSubmitting] = useState(false);
@@ -167,9 +169,15 @@ export default function MissingInputsCard({
     const handleQuickLogSubmit = async () => {
         if (!onQuickLog) return;
 
+        // Convert glucose from user's preferred unit to mg/dL before submitting
+        const dataToSubmit = { ...quickLogData };
+        if (dataToSubmit.glucose && isMmol) {
+            dataToSubmit.glucose = { ...dataToSubmit.glucose, value: Math.round(dataToSubmit.glucose.value * 18.0182) };
+        }
+
         setSubmitting(true);
         try {
-            await onQuickLog(quickLogData);
+            await onQuickLog(dataToSubmit);
             setSubmitted(true);
             setFieldsToLog(new Set());
             setQuickLogData({});
@@ -429,7 +437,7 @@ export default function MissingInputsCard({
                                                                 onChange={e => handleQuickInputChange('glucoseValue', e.target.value)}
                                                                 className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/20 focus:border-[#1F2F98] bg-white"
                                                             />
-                                                            <span className="text-sm font-medium text-gray-500 shrink-0">mg/dL</span>
+                                                            <span className="text-sm font-medium text-gray-500 shrink-0">{label}</span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -905,7 +913,7 @@ export default function MissingInputsCard({
                                                                 onChange={e => handleQuickInputChange('glucoseValue', e.target.value)}
                                                                 className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/20 focus:border-[#1F2F98] bg-white"
                                                             />
-                                                            <span className="text-sm font-medium text-gray-500 shrink-0">mg/dL</span>
+                                                            <span className="text-sm font-medium text-gray-500 shrink-0">{label}</span>
                                                         </div>
                                                     </div>
                                                 )}

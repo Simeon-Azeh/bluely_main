@@ -26,8 +26,10 @@ import {
     FiDroplet,
     FiDownload,
     FiBarChart2,
+    FiFileText,
     FiClock,
     FiAlertCircle,
+    FiLock,
 } from 'react-icons/fi';
 import { TbPill } from 'react-icons/tb';
 import api from '@/lib/api';
@@ -76,10 +78,15 @@ interface ProfileFormData {
     medicationReminders: boolean;
     weeklySummary: boolean;
     darkMode: boolean;
+    shareDataWithDiaBuddy: boolean;
 }
 
+const MMOL_FACTOR = 18.0182;
+function toMmol(mgdl: number) { return Math.round((mgdl / MMOL_FACTOR) * 10) / 10; }
+function toMgdl(mmol: number) { return Math.round(mmol * MMOL_FACTOR); }
+
 export default function SettingsPage() {
-    const { user, signOut } = useAuth();
+    const { user, signOut, refreshUserProfile } = useAuth();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -91,6 +98,8 @@ export default function SettingsPage() {
     const [isExporting, setIsExporting] = useState(false);
     const reminderIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [reminderActive, setReminderActive] = useState(false);
+    // Track previous unit so we can convert the target fields when the user toggles
+    const prevUnitRef = useRef<string>('mg/dL');
 
     const {
         register,
@@ -107,12 +116,31 @@ export default function SettingsPage() {
     const watchedPush = watch('pushNotifications');
     const watchedReminder = watch('reminderEnabled');
 
+    // When the user flips the unit toggle, convert the current target fields live
+    useEffect(() => {
+        if (!watchedUnit || watchedUnit === prevUnitRef.current) return;
+        const curMin = parseFloat(watchedMin ?? '');
+        const curMax = parseFloat(watchedMax ?? '');
+        if (!isNaN(curMin) && !isNaN(curMax)) {
+            if (watchedUnit === 'mmol/L' && prevUnitRef.current === 'mg/dL') {
+                setValue('targetGlucoseMin', toMmol(curMin).toString(), { shouldDirty: true });
+                setValue('targetGlucoseMax', toMmol(curMax).toString(), { shouldDirty: true });
+            } else if (watchedUnit === 'mg/dL' && prevUnitRef.current === 'mmol/L') {
+                setValue('targetGlucoseMin', toMgdl(curMin).toString(), { shouldDirty: true });
+                setValue('targetGlucoseMax', toMgdl(curMax).toString(), { shouldDirty: true });
+            }
+        }
+        prevUnitRef.current = watchedUnit;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [watchedUnit]);
+
     const menuItems = [
         { id: 'profile', label: 'Profile', icon: FiUser },
         { id: 'health', label: 'Health Info', icon: FiHeart },
         { id: 'targets', label: 'Glucose Targets', icon: FiTarget },
         { id: 'notifications', label: 'Notifications', icon: FiBell },
         { id: 'preferences', label: 'Preferences', icon: FiGlobe },
+        { id: 'privacy', label: 'Privacy & AI', icon: FiLock },
         { id: 'data', label: 'Data & Export', icon: FiDownload },
         { id: 'account', label: 'Account', icon: FiShield },
     ];
@@ -219,13 +247,20 @@ export default function SettingsPage() {
             if (!user) return;
             try {
                 const data = await api.getUser(user.uid);
+                const unit = data.preferredUnit || 'mg/dL';
+                const rawMin = data.targetGlucoseMin ?? 70;
+                const rawMax = data.targetGlucoseMax ?? 180;
+                // DB stores in mg/dL — convert to user's unit for display
+                const displayMin = unit === 'mmol/L' ? toMmol(rawMin) : rawMin;
+                const displayMax = unit === 'mmol/L' ? toMmol(rawMax) : rawMax;
+                prevUnitRef.current = unit;
                 reset({
                     displayName: data.displayName || user.displayName || '',
                     diabetesType: data.diabetesType || '',
                     diagnosisYear: data.diagnosisYear?.toString() || '',
-                    preferredUnit: data.preferredUnit || 'mg/dL',
-                    targetGlucoseMin: data.targetGlucoseMin?.toString() || '70',
-                    targetGlucoseMax: data.targetGlucoseMax?.toString() || '180',
+                    preferredUnit: unit,
+                    targetGlucoseMin: displayMin.toString(),
+                    targetGlucoseMax: displayMax.toString(),
                     activityLevel: data.activityLevel || 'moderate',
                     reminderEnabled: data.reminderEnabled ?? true,
                     reminderInterval: '4',
@@ -234,6 +269,7 @@ export default function SettingsPage() {
                     medicationReminders: true,
                     weeklySummary: false,
                     darkMode: false,
+                    shareDataWithDiaBuddy: data.shareDataWithDiaBuddy ?? true,
                 });
             } catch (err) {
                 console.error('Error fetching profile:', err);
@@ -269,16 +305,28 @@ export default function SettingsPage() {
         try {
             setIsSaving(true);
             setError(null);
+            // Convert targets back to mg/dL for storage (backend always stores mg/dL)
+            const minMgdl = data.preferredUnit === 'mmol/L'
+                ? toMgdl(parseFloat(data.targetGlucoseMin))
+                : parseInt(data.targetGlucoseMin);
+            const maxMgdl = data.preferredUnit === 'mmol/L'
+                ? toMgdl(parseFloat(data.targetGlucoseMax))
+                : parseInt(data.targetGlucoseMax);
+
             await api.updateUser(user.uid, {
                 displayName: data.displayName,
                 diabetesType: data.diabetesType || undefined,
                 diagnosisYear: data.diagnosisYear ? parseInt(data.diagnosisYear) : undefined,
                 preferredUnit: data.preferredUnit,
-                targetGlucoseMin: parseInt(data.targetGlucoseMin),
-                targetGlucoseMax: parseInt(data.targetGlucoseMax),
+                targetGlucoseMin: minMgdl,
+                targetGlucoseMax: maxMgdl,
                 activityLevel: data.activityLevel,
                 reminderEnabled: data.reminderEnabled,
+                shareDataWithDiaBuddy: data.shareDataWithDiaBuddy,
             });
+
+            // Refresh the auth context so every hook-dependent component re-renders with the new unit immediately
+            await refreshUserProfile();
 
             // -- Start/stop actual browser reminders --
             if (data.reminderEnabled && pushPermission === 'granted') {
@@ -519,25 +567,75 @@ export default function SettingsPage() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Target Minimum</label>
-                                                <Input type="number" error={errors.targetGlucoseMin?.message} {...register('targetGlucoseMin', { required: 'Required', min: { value: 40, message: 'Min 40' }, max: { value: 200, message: 'Max 200' } })} />
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Target Minimum
+                                                    <span className="ml-1 text-gray-400 font-normal">({watchedUnit || 'mg/dL'})</span>
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step={watchedUnit === 'mmol/L' ? '0.1' : '1'}
+                                                    error={errors.targetGlucoseMin?.message}
+                                                    {...register('targetGlucoseMin', {
+                                                        required: 'Required',
+                                                        validate: v => {
+                                                            const n = parseFloat(v);
+                                                            if (isNaN(n)) return 'Required';
+                                                            const lo = watchedUnit === 'mmol/L' ? 2.2 : 40;
+                                                            const hi = watchedUnit === 'mmol/L' ? 11.1 : 200;
+                                                            if (n < lo) return `Min ${lo}`;
+                                                            if (n > hi) return `Max ${hi}`;
+                                                        },
+                                                    })}
+                                                />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Target Maximum</label>
-                                                <Input type="number" error={errors.targetGlucoseMax?.message} {...register('targetGlucoseMax', { required: 'Required', min: { value: 100, message: 'Min 100' }, max: { value: 400, message: 'Max 400' } })} />
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Target Maximum
+                                                    <span className="ml-1 text-gray-400 font-normal">({watchedUnit || 'mg/dL'})</span>
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step={watchedUnit === 'mmol/L' ? '0.1' : '1'}
+                                                    error={errors.targetGlucoseMax?.message}
+                                                    {...register('targetGlucoseMax', {
+                                                        required: 'Required',
+                                                        validate: v => {
+                                                            const n = parseFloat(v);
+                                                            if (isNaN(n)) return 'Required';
+                                                            const lo = watchedUnit === 'mmol/L' ? 5.6 : 100;
+                                                            const hi = watchedUnit === 'mmol/L' ? 22.2 : 400;
+                                                            if (n < lo) return `Min ${lo}`;
+                                                            if (n > hi) return `Max ${hi}`;
+                                                        },
+                                                    })}
+                                                />
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-gray-50 rounded-xl">
-                                            <p className="text-sm font-medium text-gray-700 mb-3">Your Target Range</p>
-                                            <div className="relative h-8 bg-gradient-to-r from-red-200 via-green-200 to-orange-200 rounded-full overflow-hidden">
-                                                <div className="absolute top-0 bottom-0 bg-green-500/30 border-l-2 border-r-2 border-green-600" style={{ left: `${Math.max(0, ((parseInt(watchedMin || '70') - 40) / 360) * 100)}%`, right: `${Math.max(0, 100 - ((parseInt(watchedMax || '180') - 40) / 360) * 100)}%` }} />
-                                            </div>
-                                            <div className="flex justify-between mt-2 text-xs text-gray-500">
-                                                <span>40</span>
-                                                <span className="text-green-600 font-medium">{watchedMin || 70} - {watchedMax || 180} {watchedUnit || 'mg/dL'}</span>
-                                                <span>400</span>
-                                            </div>
-                                        </div>
+                                        {/* Range visualiser — scale adapts to selected unit */}
+                                        {(() => {
+                                            const isMmol = watchedUnit === 'mmol/L';
+                                            const scaleMin = isMmol ? 2.2 : 40;
+                                            const scaleMax = isMmol ? 22.2 : 400;
+                                            const scaleRange = scaleMax - scaleMin;
+                                            const curMin = parseFloat(watchedMin ?? '') || (isMmol ? 3.9 : 70);
+                                            const curMax = parseFloat(watchedMax ?? '') || (isMmol ? 10.0 : 180);
+                                            const leftPct = Math.max(0, ((curMin - scaleMin) / scaleRange) * 100);
+                                            const rightPct = Math.max(0, 100 - ((curMax - scaleMin) / scaleRange) * 100);
+                                            return (
+                                                <div className="p-4 bg-gray-50 rounded-xl">
+                                                    <p className="text-sm font-medium text-gray-700 mb-3">Your Target Range</p>
+                                                    <div className="relative h-8 bg-linear-to-r from-red-200 via-green-200 to-orange-200 rounded-full overflow-hidden">
+                                                        <div className="absolute top-0 bottom-0 bg-green-500/30 border-l-2 border-r-2 border-green-600"
+                                                            style={{ left: `${leftPct}%`, right: `${rightPct}%` }} />
+                                                    </div>
+                                                    <div className="flex justify-between mt-2 text-xs text-gray-500">
+                                                        <span>{isMmol ? '2.2' : '40'}</span>
+                                                        <span className="text-green-600 font-medium">{curMin} – {curMax} {watchedUnit || 'mg/dL'}</span>
+                                                        <span>{isMmol ? '22.2' : '400'}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                         <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                                             <p className="text-sm text-amber-800"><strong>Important:</strong> Consult with your healthcare provider to determine the best target range for your situation.</p>
                                         </div>
@@ -755,6 +853,146 @@ export default function SettingsPage() {
                                     </div>
                                 </CardContent>
                             </Card>
+                        )}
+
+                        {/* ----- Privacy & AI ----- */}
+                        {activeSection === 'privacy' && (
+                            <div className="space-y-6">
+                                <Card className="border-0 shadow-lg shadow-gray-100">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                                <FiLock className="w-6 h-6 text-indigo-600" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-bold text-gray-900">Privacy &amp; AI</h2>
+                                                <p className="text-gray-500 text-sm">Control how your health data is used</p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl gap-4">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+                                                        <FiShield className="w-5 h-5 text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Share health data with DiaBuddy</p>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            When enabled, DiaBuddy reads your recent glucose readings, meals, medications, activity, and mood to give personalised responses. When disabled, DiaBuddy can still answer general diabetes questions but will not reference your personal health data.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                                                    <input type="checkbox" className="sr-only peer" {...register('shareDataWithDiaBuddy')} />
+                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Privacy Policy */}
+                                <Card className="border-0 shadow-lg shadow-gray-100">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                <FiShield className="w-5 h-5 text-gray-600" />
+                                            </div>
+                                            <h3 className="text-base font-bold text-gray-900">Privacy Policy</h3>
+                                        </div>
+                                        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+                                            <p className="font-semibold text-gray-800">Last updated: March 2026</p>
+                                            <p>Bluely (&quot;we&quot;, &quot;our&quot;, or &quot;the app&quot;) is committed to protecting your personal and health information. This policy explains what data we collect, how we use it, and your rights.</p>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">Data we collect</p>
+                                                <ul className="list-disc ml-5 space-y-0.5">
+                                                    <li>Account information: email address, display name</li>
+                                                    <li>Health data you log: glucose readings, meals, medications, activity, and mood entries</li>
+                                                    <li>Health profile: diabetes type, target glucose ranges, diagnosis year</li>
+                                                    <li>App usage data: feature interactions and session information used to improve the app</li>
+                                                </ul>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">How we use your data</p>
+                                                <ul className="list-disc ml-5 space-y-0.5">
+                                                    <li>To provide and operate the Bluely service, including glucose forecasting, trend analysis, and DiaBuddy AI responses</li>
+                                                    <li>To generate personalised health insights when you opt in to data sharing</li>
+                                                    <li>To improve app features and model accuracy using anonymised, aggregated data</li>
+                                                    <li>To send you optional reminders and notification alerts that you configure</li>
+                                                </ul>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">Data sharing and third parties</p>
+                                                <p>We do not sell, rent, or trade your personal or health data to any third party. We do not share your identifiable data with advertisers. Machine learning models used for predictions run on our own servers. Any third-party infrastructure providers (e.g. database hosting) operate under strict data processing agreements.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">Data retention and deletion</p>
+                                                <p>Your data is retained for as long as you have an active account. You may delete your account and all associated data at any time from the Account section of Settings. Deletion is permanent and irreversible.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">Security</p>
+                                                <p>All data is encrypted in transit (TLS) and at rest. Authentication is handled via Firebase Auth. We follow industry-standard security practices and conduct regular reviews.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">Your rights</p>
+                                                <p>You have the right to access, correct, or delete your data. You may also request a full export of your data from the Data &amp; Export section. For privacy-related enquiries, contact us at privacy@bluely.app.</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Terms of Service */}
+                                <Card className="border-0 shadow-lg shadow-gray-100">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                <FiFileText className="w-5 h-5 text-gray-600" />
+                                            </div>
+                                            <h3 className="text-base font-bold text-gray-900">Terms of Service</h3>
+                                        </div>
+                                        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+                                            <p className="font-semibold text-gray-800">Last updated: March 2026</p>
+                                            <p>By using Bluely you agree to these Terms of Service. Please read them carefully.</p>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">1. Medical disclaimer</p>
+                                                <p>Bluely is a self-management support tool and is <strong>not a medical device</strong>. All information, predictions, and AI responses provided by Bluely — including DiaBuddy — are for informational purposes only and do not constitute medical advice, diagnosis, or treatment. Always consult your qualified healthcare provider before making any changes to your diabetes management plan, medications, or diet.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">2. Eligibility</p>
+                                                <p>Bluely is intended for use by individuals aged 16 and over. If you are under 18, you should use the app with the knowledge and consent of a parent or guardian.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">3. Your account</p>
+                                                <p>You are responsible for keeping your login credentials secure. You must provide accurate information when creating your account. We reserve the right to suspend or terminate accounts that violate these terms.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">4. Acceptable use</p>
+                                                <p>You agree to use Bluely only for its intended personal health management purposes. Scraping, reverse engineering, or automated access of the service is prohibited. You may not use Bluely to harass, defraud, or harm others.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">5. DiaBuddy AI</p>
+                                                <p>DiaBuddy is an AI assistant that may produce inaccurate or incomplete information. It is trained to support self-management, not to replace clinical judgment. Never rely solely on DiaBuddy in an emergency — call emergency services or contact your healthcare provider immediately if you are in a medical emergency.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">6. Intellectual property</p>
+                                                <p>All app content, branding, and technology is the property of Bluely. Your health data belongs to you. We do not claim ownership of any content you enter into the app.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">7. Limitation of liability</p>
+                                                <p>To the maximum extent permitted by law, Bluely shall not be liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability to you shall not exceed the amount you paid (if any) in the 12 months preceding the claim.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">8. Changes to these terms</p>
+                                                <p>We may update these terms from time to time. Continued use of the app after changes are posted constitutes your acceptance. We will notify you of material changes via the app or email.</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800 mb-1">9. Contact</p>
+                                                <p>Questions about these terms? Contact us at support@bluely.app.</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
                         )}
 
                         {/* ----- Data & Export ----- */}

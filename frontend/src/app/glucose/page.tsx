@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '@/components/ui';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 import { FiDroplet, FiCheck, FiClock, FiAlertTriangle, FiTrendingUp, FiTrendingDown, FiThumbsUp, FiInfo, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { TbPill, TbVaccine, TbTargetArrow } from 'react-icons/tb';
 import api from '@/lib/api';
@@ -25,7 +26,7 @@ const glucoseSchema = z.object({
     value: z.string()
         .min(1, 'Value is required')
         .refine(v => !isNaN(parseFloat(v)), 'Please enter a valid number')
-        .refine(v => parseFloat(v) >= 20 && parseFloat(v) <= 600, 'Value must be between 20 and 600 mg/dL'),
+        .refine(v => parseFloat(v) > 0, 'Please enter a valid glucose value'),
     readingType: z.string().min(1, 'Please select a reading type'),
     mealContext: z.string().optional(),
     activityContext: z.string().optional(),
@@ -144,16 +145,20 @@ export default function GlucosePage() {
         },
     });
 
+    const { unit, label, bounds, isMmol } = useGlucoseUnit();
+
     const watchedValue = watch('value');
     const watchedMedTaken = watch('medicationTaken');
     const watchedMedType = watch('medicationType');
     const watchedReadingType = watch('readingType');
     const glucoseNum = watchedValue ? parseFloat(watchedValue) : null;
-    const glucoseRangeError = glucoseNum !== null && !isNaN(glucoseNum) && (glucoseNum < 20 || glucoseNum > 600)
-        ? (glucoseNum < 20 ? 'Value is too low — valid range is 20–600 mg/dL' : 'Value is too high — valid range is 20–600 mg/dL')
+    // Convert user input to mg/dL for threshold comparisons (getGlucoseMessage, getGlucoseIndicator)
+    const glucoseNumMgdl = glucoseNum !== null && !isNaN(glucoseNum) ? (isMmol ? glucoseNum * 18.0182 : glucoseNum) : null;
+    const glucoseRangeError = glucoseNum !== null && !isNaN(glucoseNum) && (glucoseNum < bounds.min || glucoseNum > bounds.max)
+        ? (glucoseNum < bounds.min ? `Value is too low — valid range is ${bounds.minDisplay}–${bounds.maxDisplay} ${label}` : `Value is too high — valid range is ${bounds.minDisplay}–${bounds.maxDisplay} ${label}`)
         : null;
-    const glucoseMessage = glucoseNum && !isNaN(glucoseNum) && glucoseNum >= 20 && glucoseNum <= 600
-        ? getGlucoseMessage(glucoseNum, user?.displayName || undefined)
+    const glucoseMessage = glucoseNumMgdl && glucoseNumMgdl >= 20 && glucoseNumMgdl <= 600
+        ? getGlucoseMessage(glucoseNumMgdl, user?.displayName || undefined)
         : null;
     const isInsulinType = watchedMedType?.startsWith('insulin');
 
@@ -222,8 +227,9 @@ export default function GlucosePage() {
         if (!user) return;
 
         const glucoseValue = parseFloat(data.value);
-        if (isNaN(glucoseValue) || glucoseValue < 20 || glucoseValue > 600) {
-            setError('Glucose value must be between 20 and 600');
+        const valueInMgdl = isMmol ? Math.round(glucoseValue * 18.0182) : glucoseValue;
+        if (isNaN(valueInMgdl) || valueInMgdl < 20 || valueInMgdl > 600) {
+            setError(`Glucose value must be between ${bounds.minDisplay} and ${bounds.maxDisplay} ${label}`);
             return;
         }
 
@@ -233,8 +239,8 @@ export default function GlucosePage() {
 
             await api.createGlucoseReading({
                 firebaseUid: user.uid,
-                value: glucoseValue,
-                unit: 'mg/dL',
+                value: valueInMgdl,
+                unit: 'mg/dL',  // always store as mg/dL
                 readingType: data.readingType,
                 mealContext: data.mealContext,
                 activityContext: data.activityContext,
@@ -294,23 +300,22 @@ export default function GlucosePage() {
         }
     };
 
-    const getGlucoseIndicator = (value: string) => {
-        const numValue = parseInt(value, 10);
-        if (isNaN(numValue)) return null;
+    const getGlucoseIndicator = (mgdlValue: number) => {
+        if (isNaN(mgdlValue)) return null;
 
-        if (numValue < 20 || numValue > 600) {
+        if (mgdlValue < 20 || mgdlValue > 600) {
             return { text: 'Out of Range', color: 'text-red-600', bg: 'bg-red-50', ring: 'ring-red-300' };
         }
-        if (numValue < 70) {
+        if (mgdlValue < 70) {
             return { text: 'Low', color: 'text-red-600', bg: 'bg-red-50', ring: 'ring-red-200' };
         }
-        if (numValue <= 180) {
+        if (mgdlValue <= 180) {
             return { text: 'In Range', color: 'text-green-600', bg: 'bg-green-50', ring: 'ring-green-200' };
         }
         return { text: 'High', color: 'text-orange-600', bg: 'bg-orange-50', ring: 'ring-orange-200' };
     };
 
-    const indicator = watchedValue ? getGlucoseIndicator(watchedValue) : null;
+    const indicator = glucoseNumMgdl !== null ? getGlucoseIndicator(glucoseNumMgdl) : null;
 
     return (
         <div className="max-w-2xl mx-auto space-y-5">
@@ -348,20 +353,21 @@ export default function GlucosePage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Blood Glucose Level
-                                <span className="ml-2 text-xs font-normal text-gray-400">Valid range: 20–600 mg/dL</span>
+                                <span className="ml-2 text-xs font-normal text-gray-400">Valid range: {bounds.minDisplay}–{bounds.maxDisplay} {label}</span>
                             </label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     placeholder="Enter value"
-                                    min="20"
-                                    max="600"
+                                    min={bounds.min}
+                                    max={bounds.max}
+                                    step={isMmol ? '0.1' : '1'}
                                     className={`text-3xl font-bold text-center py-5 ${indicator ? `${indicator.ring} ring-2` : ''}`}
                                     error={errors.value?.message || glucoseRangeError || undefined}
                                     {...register('value')}
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
-                                    mg/dL
+                                    {label}
                                 </span>
                                 {indicator && (
                                     <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-1 rounded-full ${indicator.bg} ${indicator.color}`}>

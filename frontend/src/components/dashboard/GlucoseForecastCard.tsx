@@ -10,6 +10,7 @@ import { TbPill } from 'react-icons/tb';
 import { IoArrowUp, IoArrowDown, IoArrowForward } from 'react-icons/io5';
 import { MdOutlineLocalFireDepartment } from 'react-icons/md';
 import Link from 'next/link';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface MissingDataAction {
     label: string;
@@ -102,6 +103,7 @@ export default function GlucoseForecastCard({
     aiInsight,
 }: GlucoseForecastCardProps) {
     const { user } = useAuth();
+    const { format, label, convert, isMmol } = useGlucoseUnit();
     const [showTooltip, setShowTooltip] = useState(false);
     const [showFactors, setShowFactors] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState<number>(30 * 60 * 1000);
@@ -119,8 +121,10 @@ export default function GlucoseForecastCard({
 
     // Count-up animation for the glucose number on mount
     useEffect(() => {
-        const target = Math.round(predictedGlucose);
-        const start = Math.max(0, target - 40);
+        const target = isMmol
+            ? parseFloat(format(predictedGlucose))
+            : Math.round(predictedGlucose);
+        const start = isMmol ? Math.max(0, target - 2) : Math.max(0, target - 40);
         const duration = 700;
         const steps = 28;
         const increment = (target - start) / steps;
@@ -129,13 +133,15 @@ export default function GlucoseForecastCard({
         if (animationRef.current) clearInterval(animationRef.current);
         animationRef.current = setInterval(() => {
             step++;
-            current = step >= steps ? target : Math.round(start + increment * step);
-            setDisplayedGlucose(current);
+            current = step >= steps ? target : start + increment * step;
+            setDisplayedGlucose(isMmol
+                ? parseFloat(current.toFixed(1))
+                : Math.round(current));
             if (step >= steps) clearInterval(animationRef.current!);
         }, duration / steps);
         return () => { if (animationRef.current) clearInterval(animationRef.current); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [predictedGlucose]);
+    }, [predictedGlucose, isMmol]);
 
     // Confidence bar animation on mount
     useEffect(() => {
@@ -148,7 +154,7 @@ export default function GlucoseForecastCard({
         setDiaBuddyLoading(true);
         setDiaBuddyError(false);
         try {
-            const prompt = `My 30-minute glucose forecast shows my glucose is ${direction} and expected to be ~${Math.round(predictedGlucose)} mg/dL (${confidencePercent}% model confidence). The system note says: "${recommendation}". In 2-3 sentences, explain what this means for me right now and give 1-2 specific, practical things I can do to manage this.`;
+            const prompt = `My 30-minute glucose forecast shows my glucose is ${direction} and expected to be ~${format(predictedGlucose)} ${label} (${confidencePercent}% model confidence). The system note says: "${recommendation}". In 2-3 sentences, explain what this means for me right now and give 1-2 specific, practical things I can do to manage this.`;
             const result = await api.chatWithDiaBuddy(user.uid, prompt, [], user.displayName ?? undefined);
             setDiaBuddyReply(result.reply);
         } catch {
@@ -297,9 +303,9 @@ export default function GlucoseForecastCard({
                                     </p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-bold text-gray-900 tabular-nums leading-none tracking-tighter">
-                                            {displayedGlucose}
+                                            {isMmol ? displayedGlucose.toFixed(1) : displayedGlucose}
                                         </span>
-                                        <span className="text-xl font-medium text-gray-300">mg/dL</span>
+                                        <span className="text-xl font-bold text-gray-300">{label}</span>
                                     </div>
                                 </div>
                                 {/* Direction button */}
@@ -349,10 +355,10 @@ export default function GlucoseForecastCard({
                                 <span className="text-[11px] font-semibold text-gray-500">Model Confidence</span>
                                 <div className="flex items-center gap-1.5">
                                     <span className={`text-[11px] font-medium ${confidencePercent >= 70 ? 'text-emerald-600' :
-                                            confidencePercent >= 50 ? 'text-amber-500' : 'text-red-500'
+                                        confidencePercent >= 50 ? 'text-amber-500' : 'text-red-500'
                                         }`}>{confidenceLabel}</span>
                                     <span className={`text-sm font-black tabular-nums ${confidencePercent >= 70 ? 'text-emerald-600' :
-                                            confidencePercent >= 50 ? 'text-amber-600' : 'text-red-500'
+                                        confidencePercent >= 50 ? 'text-amber-600' : 'text-red-500'
                                         }`}>{confidencePercent}%</span>
                                 </div>
                             </div>
@@ -368,7 +374,7 @@ export default function GlucoseForecastCard({
                                     style={{ left: `${confidenceAnimated}%` }}
                                 >
                                     <div className={`-ml-2 w-4 h-4 rounded-full bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] border-2 ${confidencePercent >= 70 ? 'border-emerald-500' :
-                                            confidencePercent >= 50 ? 'border-amber-500' : 'border-red-500'
+                                        confidencePercent >= 50 ? 'border-amber-500' : 'border-red-500'
                                         }`} />
                                 </div>
                             </div>

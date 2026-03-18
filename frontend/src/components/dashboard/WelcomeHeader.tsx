@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui';
 import { FiPlus, FiSun, FiMoon, FiCoffee, FiAward } from 'react-icons/fi';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface WelcomeHeaderProps {
     userName?: string;
@@ -22,6 +23,7 @@ export default function WelcomeHeader({
     averageGlucose,
     streak,
 }: WelcomeHeaderProps) {
+    const { format, label } = useGlucoseUnit();
     // Get greeting based on time of day
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -73,8 +75,8 @@ export default function WelcomeHeader({
                         </div>
                         <div>
                             <p className="text-white/60 text-xs uppercase tracking-wide">Average</p>
-                            <p className="text-2xl font-bold mt-1">{averageGlucose || '--'}</p>
-                            <p className="text-white/70 text-sm">mg/dL</p>
+                            <p className="text-2xl font-bold mt-1">{averageGlucose ? format(averageGlucose) : '--'}</p>
+                            <p className="text-white/70 text-sm">{label}</p>
                         </div>
                         <div>
                             <p className="text-white/60 text-xs uppercase tracking-wide">Streak</p>

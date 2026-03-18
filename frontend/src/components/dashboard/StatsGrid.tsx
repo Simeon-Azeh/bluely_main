@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui';
 import { FiActivity, FiTarget, FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
+import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface StatsGridProps {
     averageGlucose: number | null;
@@ -21,11 +22,12 @@ export default function StatsGrid({
     targetMin,
     targetMax,
 }: StatsGridProps) {
+    const { format, label, convert } = useGlucoseUnit();
     const stats = [
         {
             label: '7-Day Avg',
-            value: averageGlucose || '--',
-            unit: 'mg/dL',
+            value: averageGlucose ? format(averageGlucose) : '--',
+            unit: label,
             icon: FiActivity,
             iconColor: 'text-[#1F2F98]',
             bgGradient: 'from-blue-100 to-blue-50',
@@ -33,7 +35,7 @@ export default function StatsGrid({
         {
             label: 'In Range',
             value: inRangePercentage ?? '--',
-            unit: `${targetMin}-${targetMax} mg/dL`,
+            unit: `${convert(targetMin)}–${convert(targetMax)} ${label}`,
             suffix: '%',
             icon: FiTarget,
             iconColor: 'text-green-600',
@@ -42,16 +44,16 @@ export default function StatsGrid({
         },
         {
             label: 'Lowest',
-            value: minGlucose || '--',
-            unit: 'mg/dL',
+            value: minGlucose ? format(minGlucose) : '--',
+            unit: label,
             icon: FiTrendingDown,
             iconColor: 'text-red-500',
             bgGradient: 'from-red-100 to-red-50',
         },
         {
             label: 'Highest',
-            value: maxGlucose || '--',
-            unit: 'mg/dL',
+            value: maxGlucose ? format(maxGlucose) : '--',
+            unit: label,
             icon: FiTrendingUp,
             iconColor: 'text-orange-500',
             bgGradient: 'from-orange-100 to-orange-50',
