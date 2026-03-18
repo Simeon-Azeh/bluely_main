@@ -22,7 +22,10 @@ const readingTypes = [
 ];
 
 const glucoseSchema = z.object({
-    value: z.string().min(1, 'Value is required'),
+    value: z.string()
+        .min(1, 'Value is required')
+        .refine(v => !isNaN(parseFloat(v)), 'Please enter a valid number')
+        .refine(v => parseFloat(v) >= 20 && parseFloat(v) <= 600, 'Value must be between 20 and 600 mg/dL'),
     readingType: z.string().min(1, 'Please select a reading type'),
     mealContext: z.string().optional(),
     activityContext: z.string().optional(),
@@ -146,6 +149,9 @@ export default function GlucosePage() {
     const watchedMedType = watch('medicationType');
     const watchedReadingType = watch('readingType');
     const glucoseNum = watchedValue ? parseFloat(watchedValue) : null;
+    const glucoseRangeError = glucoseNum !== null && !isNaN(glucoseNum) && (glucoseNum < 20 || glucoseNum > 600)
+        ? (glucoseNum < 20 ? 'Value is too low — valid range is 20–600 mg/dL' : 'Value is too high — valid range is 20–600 mg/dL')
+        : null;
     const glucoseMessage = glucoseNum && !isNaN(glucoseNum) && glucoseNum >= 20 && glucoseNum <= 600
         ? getGlucoseMessage(glucoseNum, user?.displayName || undefined)
         : null;
@@ -261,6 +267,7 @@ export default function GlucosePage() {
             }
 
             setIsSuccess(true);
+            try { localStorage.setItem('bluely-data-logged', Date.now().toString()); } catch { /* non-critical */ }
             reset({
                 readingType: 'random',
                 recordedAt: new Date().toISOString().slice(0, 16),
@@ -291,6 +298,9 @@ export default function GlucosePage() {
         const numValue = parseInt(value, 10);
         if (isNaN(numValue)) return null;
 
+        if (numValue < 20 || numValue > 600) {
+            return { text: 'Out of Range', color: 'text-red-600', bg: 'bg-red-50', ring: 'ring-red-300' };
+        }
         if (numValue < 70) {
             return { text: 'Low', color: 'text-red-600', bg: 'bg-red-50', ring: 'ring-red-200' };
         }
@@ -338,13 +348,16 @@ export default function GlucosePage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Blood Glucose Level
+                                <span className="ml-2 text-xs font-normal text-gray-400">Valid range: 20–600 mg/dL</span>
                             </label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     placeholder="Enter value"
+                                    min="20"
+                                    max="600"
                                     className={`text-3xl font-bold text-center py-5 ${indicator ? `${indicator.ring} ring-2` : ''}`}
-                                    error={errors.value?.message}
+                                    error={errors.value?.message || glucoseRangeError || undefined}
                                     {...register('value')}
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
@@ -639,7 +652,7 @@ export default function GlucosePage() {
 
                         {/* Submit buttons */}
                         <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
-                            <Button type="submit" className="flex-1" isLoading={isLoading}>
+                            <Button type="submit" className="flex-1" isLoading={isLoading} disabled={isLoading || !!glucoseRangeError}>
                                 <FiCheck className="w-4 h-4 mr-2" />
                                 Save Reading
                             </Button>

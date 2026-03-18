@@ -163,8 +163,7 @@ export default function StaleContextCard({
     // ── Wellness ──────────────────────────────────────────────────────────
     type WellnessChoice = 'keep' | 'update';
     const [wellnessChoice, setWellnessChoice] = useState<WellnessChoice>(cachedContext?.wellness ? 'keep' : 'update');
-    const [mood, setMood] = useState<Mood>((cachedContext?.wellness?.mood as Mood) || 'Okay');
-
+    const [mood, setMood] = useState<Mood>((cachedContext?.wellness?.mood as Mood) || 'Okay'); const [sleepQuality, setSleepQuality] = useState<number>(cachedContext?.wellness?.sleepQuality ?? 3);
     // ── Submission ────────────────────────────────────────────────────────
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -189,10 +188,10 @@ export default function StaleContextCard({
         try {
             const lower = mealDescription.toLowerCase();
             if (lower.match(/haven't eaten|have not eaten|no meal|nothing|fasting|not eaten|skipped|empty stomach/)) {
-                const est = { carbs: 0, confidence: 'high', breakdown: [{ item: 'No meal', carbs: 0 }], questions: [] };
+                const est = { carbs: 0, confidence: 'high', breakdown: [{ item: "Haven't eaten", carbs: 0 }], questions: [] };
                 setMealEstimate(est);
                 setAdjustedBreakdown(est.breakdown.map(i => ({ ...i })));
-                setAcceptedCarbs(null);
+                setAcceptedCarbs(0);
                 setEstimatingMeal(false);
                 return;
             }
@@ -285,7 +284,7 @@ export default function StaleContextCard({
         }
 
         if (wellnessChoice === 'update') {
-            data.wellness = { mood };
+            data.wellness = { mood, sleepQuality };
         }
 
         setSubmitting(true);
@@ -735,7 +734,20 @@ export default function StaleContextCard({
                     label="Mood & Wellness"
                     summary={
                         cachedContext?.wellness
-                            ? <>{cachedContext.wellness.mood} &middot; Sleep {cachedContext.wellness.sleepQuality}/5 &middot; <span className="text-gray-400 font-normal">{formatTimeAgo(cachedContext.wellness.minutesAgo)}</span></>
+                            ? (
+                                <span className="flex items-center gap-1.5 flex-wrap">
+                                    <span>{cachedContext.wellness.mood}</span>
+                                    <span className="text-gray-300">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                        {[1, 2, 3, 4, 5].map(n => (
+                                            <span key={n} className={`text-[10px] ${n <= cachedContext.wellness!.sleepQuality ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                                        ))}
+                                        <span className="text-xs text-gray-500 ml-0.5">sleep</span>
+                                    </span>
+                                    <span className="text-gray-300">·</span>
+                                    <span className="text-gray-400 font-normal">{formatTimeAgo(cachedContext.wellness.minutesAgo)}</span>
+                                </span>
+                            )
                             : <span className="text-amber-600 font-normal text-xs">No wellness data logged</span>
                     }
                 >
@@ -743,27 +755,66 @@ export default function StaleContextCard({
                         <RadioGroup
                             options={[
                                 { value: 'keep' as WellnessChoice, label: '✓ Use this log' },
-                                { value: 'update' as WellnessChoice, label: 'Update mood' },
+                                { value: 'update' as WellnessChoice, label: 'Update mood & sleep' },
                             ]}
                             value={wellnessChoice}
                             onChange={setWellnessChoice}
                         />
                     )}
                     {(wellnessChoice === 'update' || !cachedContext?.wellness) && (
-                        <div className={`flex flex-wrap gap-2 ${cachedContext?.wellness ? 'mt-3 pt-3 border-t border-gray-100' : 'mt-1'}`}>
-                            {MOODS.map(m => (
-                                <button
-                                    key={m}
-                                    type="button"
-                                    onClick={() => setMood(m)}
-                                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${mood === m
-                                        ? 'bg-[#1F2F98] text-white border-[#1F2F98] shadow-sm'
-                                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#1F2F98]/40'
-                                        }`}
-                                >
-                                    {m}
-                                </button>
-                            ))}
+                        <div className={`space-y-3 ${cachedContext?.wellness ? 'mt-3 pt-3 border-t border-gray-100' : 'mt-1'}`}>
+                            {/* Mood selector with emojis */}
+                            <div>
+                                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">How are you feeling?</p>
+                                <div className="grid grid-cols-5 gap-1.5">
+                                    {([
+                                        { value: 'Great', emoji: '😄', color: 'text-green-600', activeBg: 'bg-green-500' },
+                                        { value: 'Good', emoji: '🙂', color: 'text-blue-600', activeBg: 'bg-blue-500' },
+                                        { value: 'Okay', emoji: '😐', color: 'text-yellow-600', activeBg: 'bg-yellow-500' },
+                                        { value: 'Low', emoji: '😔', color: 'text-orange-600', activeBg: 'bg-orange-500' },
+                                        { value: 'Rough', emoji: '😞', color: 'text-red-600', activeBg: 'bg-red-500' },
+                                    ] as const).map(m => (
+                                        <button
+                                            key={m.value}
+                                            type="button"
+                                            onClick={() => setMood(m.value)}
+                                            className={`flex flex-col items-center py-2 px-1 rounded-xl border-2 transition-all ${mood === m.value
+                                                    ? `${m.activeBg} border-transparent text-white shadow-sm scale-105`
+                                                    : 'bg-white border-gray-200 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            <span className="text-lg leading-none mb-0.5">{m.emoji}</span>
+                                            <span className={`text-[10px] font-semibold ${mood === m.value ? 'text-white' : m.color}`}>{m.value}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {/* Sleep quality selector */}
+                            <div>
+                                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Sleep quality last night</p>
+                                <div className="grid grid-cols-5 gap-1.5">
+                                    {([
+                                        { value: 1, label: 'Poor', emoji: '😴' },
+                                        { value: 2, label: 'Fair', emoji: '🥱' },
+                                        { value: 3, label: 'Okay', emoji: '😌' },
+                                        { value: 4, label: 'Good', emoji: '😊' },
+                                        { value: 5, label: 'Great', emoji: '🌟' },
+                                    ] as const).map(s => (
+                                        <button
+                                            key={s.value}
+                                            type="button"
+                                            onClick={() => setSleepQuality(s.value)}
+                                            className={`flex flex-col items-center py-2 px-1 rounded-xl border-2 transition-all ${sleepQuality === s.value
+                                                    ? 'bg-[#1F2F98] border-[#1F2F98] text-white shadow-sm scale-105'
+                                                    : 'bg-white border-gray-200 hover:border-[#1F2F98]/40'
+                                                }`}
+                                        >
+                                            <span className="text-base leading-none mb-0.5">{s.emoji}</span>
+                                            <span className={`text-[10px] font-semibold ${sleepQuality === s.value ? 'text-white' : 'text-gray-500'}`}>{s.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </ContextRow>

@@ -83,6 +83,7 @@ export default function MealsPage() {
     const [aiEstimating, setAiEstimating] = useState(false);
     const [aiResult, setAiResult] = useState<string | null>(null);
     const [aiParsed, setAiParsed] = useState<{ carbsEstimate: number; carbLevel: CarbLevel; description: string } | null>(null);
+    const [aiBreakdown, setAiBreakdown] = useState<Array<{ item: string; carbs: number }> | null>(null);
     const [aiLogging, setAiLogging] = useState(false);
     const [aiRefinement, setAiRefinement] = useState('');
     const [aiRefining, setAiRefining] = useState(false);
@@ -124,6 +125,25 @@ export default function MealsPage() {
         setCustomDish('');
     };
 
+    // Parse AI response to extract per-item breakdown
+    const parseAiBreakdown = (reply: string): Array<{ item: string; carbs: number }> => {
+        const lines = reply.split('\n');
+        const items: Array<{ item: string; carbs: number }> = [];
+        for (const line of lines) {
+            // Match patterns like "Rice: 45g", "• Bread: 28g carbs", "- Tea: ~5g"
+            const match = line.match(/^[-•*]?\s*([^:0-9\n]+?):\s*(?:~|about\s*)?(?:\d+\s*[-–]\s*)?(\d+)\s*g(?:rams?)?(?:\s*(?:of\s+)?carbs?)?/i);
+            if (match) {
+                const itemName = match[1].trim();
+                if (/^(total|note|overall|approx|summary)/i.test(itemName)) continue;
+                const carbs = parseInt(match[2], 10);
+                if (!isNaN(carbs) && carbs >= 0 && carbs <= 500) {
+                    items.push({ item: itemName, carbs });
+                }
+            }
+        }
+        return items;
+    };
+
     // Parse AI response to extract carbs and level
     const parseAiResponse = (reply: string, desc: string): { carbsEstimate: number; carbLevel: CarbLevel; description: string } | null => {
         const lower = reply.toLowerCase();
@@ -150,17 +170,26 @@ export default function MealsPage() {
         setAiEstimating(true);
         setAiResult(null);
         setAiParsed(null);
+        setAiBreakdown(null);
         setAiAdjustedCarbs(null);
         setAiRefinement('');
         try {
             const result = await api.chatWithDiaBuddy(
                 user.uid,
-                `I just ate: ${aiDescription.trim()}. Please estimate the total carbohydrate content in grams and the carb level (low/medium/high). Start your reply with the number of grams. Be brief — just give the estimate and a one-line note.`,
+                `I just ate: ${aiDescription.trim()}. List every food and drink item I mentioned, each on its own line in this exact format: "Item name: Xg". Then on a final line write "Total: Xg". No extra commentary, just the breakdown.`,
                 [],
                 user.displayName
             );
             setAiResult(result.reply);
-            setAiParsed(parseAiResponse(result.reply, aiDescription));
+            const breakdown = parseAiBreakdown(result.reply);
+            if (breakdown.length > 0) {
+                setAiBreakdown(breakdown);
+                const total = breakdown.reduce((s, i) => s + i.carbs, 0);
+                const parsed = parseAiResponse(result.reply, aiDescription);
+                setAiParsed(parsed ?? { carbsEstimate: total, carbLevel: total > 60 ? 'high' : total > 30 ? 'medium' : 'low', description: aiDescription });
+            } else {
+                setAiParsed(parseAiResponse(result.reply, aiDescription));
+            }
         } catch {
             setAiResult('Sorry, I couldn\'t estimate carbs right now. Please try again.');
         } finally {
@@ -174,16 +203,25 @@ export default function MealsPage() {
         try {
             const result = await api.chatWithDiaBuddy(
                 user.uid,
-                `About the meal I described: "${aiDescription.trim()}". I want to refine: ${aiRefinement.trim()}. Give an updated carbohydrate estimate in grams, starting with the number.`,
+                `About the meal I described: "${aiDescription.trim()}". I want to refine: ${aiRefinement.trim()}. List every food and drink item with its updated carb estimate, each on its own line as "Item name: Xg". Then add "Total: Xg".`,
                 [],
                 user.displayName
             );
-            const refined = parseAiResponse(result.reply, aiDescription);
-            if (refined) {
+            const breakdown = parseAiBreakdown(result.reply);
+            if (breakdown.length > 0) {
+                setAiBreakdown(breakdown);
+                const total = breakdown.reduce((s, i) => s + i.carbs, 0);
+                const refined = { carbsEstimate: total, carbLevel: (total > 60 ? 'high' : total > 30 ? 'medium' : 'low') as CarbLevel, description: aiDescription };
                 setAiParsed(refined);
-                setAiAdjustedCarbs(refined.carbsEstimate);
-                setAiResult(result.reply);
+                setAiAdjustedCarbs(total);
+            } else {
+                const refined = parseAiResponse(result.reply, aiDescription);
+                if (refined) {
+                    setAiParsed(refined);
+                    setAiAdjustedCarbs(refined.carbsEstimate);
+                }
             }
+            setAiResult(result.reply);
         } catch {
             /* ignore */
         } finally {
@@ -196,7 +234,9 @@ export default function MealsPage() {
         if (!user || !aiParsed || !selectedMealType) return;
         setAiLogging(true);
         try {
-            const carbsToLog = aiAdjustedCarbs ?? aiParsed.carbsEstimate;
+            // Use adjusted per-item total if breakdown exists, else fall back to adjusted/parsed
+            const breakdownTotal = aiBreakdown ? aiBreakdown.reduce((s, i) => s + i.carbs, 0) : null;
+            const carbsToLog = breakdownTotal ?? aiAdjustedCarbs ?? aiParsed.carbsEstimate;
             await api.createMeal({
                 firebaseUid: user.uid,
                 mealType: selectedMealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
@@ -209,6 +249,7 @@ export default function MealsPage() {
             setAiDescription('');
             setAiResult(null);
             setAiParsed(null);
+            setAiBreakdown(null);
             setAiAdjustedCarbs(null);
             setTimeout(() => {
                 setSelectedMealType('');
@@ -272,6 +313,7 @@ export default function MealsPage() {
 
             // Show success
             setIsSuccess(true);
+            try { localStorage.setItem('bluely-data-logged', Date.now().toString()); } catch { /* non-critical */ }
 
             // Reset form after short delay
             setTimeout(() => {
@@ -450,15 +492,68 @@ export default function MealsPage() {
                     {/* AI Result */}
                     {aiResult && !aiEstimating && (
                         <div className="mt-3 space-y-2.5">
-                            <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm text-gray-700">
-                                <div className="flex items-start gap-2">
-                                    <Image src="/diabuddy.png" alt="" width={18} height={18} className="rounded-full mt-0.5 shrink-0" />
-                                    <p className="leading-relaxed">{aiResult}</p>
+                            {/* Per-item breakdown (shown when DiaBuddy returns structured data) */}
+                            {aiBreakdown && aiBreakdown.length > 0 ? (
+                                <div className="rounded-xl border border-indigo-100 overflow-hidden shadow-[0_2px_8px_rgba(99,102,241,0.10)]">
+                                    {/* Breakdown header */}
+                                    <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}>
+                                        <Image src="/diabuddy.png" alt="" width={18} height={18} className="rounded-full opacity-90" />
+                                        <p className="text-xs font-semibold text-white tracking-wide">Food Breakdown by DiaBuddy</p>
+                                        <span className="ml-auto flex items-center gap-1 text-[10px] text-white/70">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            AI
+                                        </span>
+                                    </div>
+                                    <div className="px-4 py-3 bg-linear-to-br from-indigo-50/80 via-violet-50/50 to-white space-y-2">
+                                        {aiBreakdown.map((item, idx) => (
+                                            <div key={idx} className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-700 font-medium">{item.item}</span>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAiBreakdown(prev => {
+                                                            if (!prev) return prev;
+                                                            const updated = [...prev];
+                                                            updated[idx] = { ...updated[idx], carbs: Math.max(0, updated[idx].carbs - 5) };
+                                                            return updated;
+                                                        })}
+                                                        className="w-6 h-6 rounded-lg flex items-center justify-center bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold text-sm"
+                                                    >−</button>
+                                                    <span className="font-bold text-[#1F2F98] min-w-10 text-center text-sm">{item.carbs}g</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAiBreakdown(prev => {
+                                                            if (!prev) return prev;
+                                                            const updated = [...prev];
+                                                            updated[idx] = { ...updated[idx], carbs: updated[idx].carbs + 5 };
+                                                            return updated;
+                                                        })}
+                                                        className="w-6 h-6 rounded-lg flex items-center justify-center bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold text-sm"
+                                                    >+</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {/* Total row */}
+                                        <div className="border-t border-indigo-100 pt-2 mt-1 flex items-center justify-between">
+                                            <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Total</span>
+                                            <span className="text-base font-bold text-[#1F2F98]">
+                                                {aiBreakdown.reduce((s, i) => s + i.carbs, 0)}g carbs
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                /* Fallback: plain response text when no structured breakdown returned */
+                                <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm text-gray-700">
+                                    <div className="flex items-start gap-2">
+                                        <Image src="/diabuddy.png" alt="" width={18} height={18} className="rounded-full mt-0.5 shrink-0" />
+                                        <p className="leading-relaxed">{aiResult}</p>
+                                    </div>
+                                </div>
+                            )}
 
-                            {/* Live carb adjuster */}
-                            {aiParsed && (
+                            {/* Live carb adjuster (only when no per-item breakdown — fallback path) */}
+                            {aiParsed && !aiBreakdown && (
                                 <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl">
                                     <div className="flex items-center justify-between mb-2">
                                         <p className="text-[11px] font-semibold text-[#1F2F98] uppercase tracking-wide">Adjust estimate</p>
@@ -517,7 +612,7 @@ export default function MealsPage() {
                                     ) : (
                                         <FiCheck className="w-4 h-4" />
                                     )}
-                                    Accept {aiAdjustedCarbs ?? aiParsed?.carbsEstimate}g &amp; Log Meal
+                                    Accept {aiBreakdown ? aiBreakdown.reduce((s, i) => s + i.carbs, 0) : (aiAdjustedCarbs ?? aiParsed?.carbsEstimate)}g &amp; Log Meal
                                 </button>
                             )}
                             {aiParsed && !selectedMealType && (
