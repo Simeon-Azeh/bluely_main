@@ -251,6 +251,9 @@ coverage/
 storybook-static
 
 # Python
+venv/
+.venv/
+env/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -262,8 +265,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
