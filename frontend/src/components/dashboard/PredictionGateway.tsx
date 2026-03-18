@@ -2,12 +2,13 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { LoadingSpinner } from '@/components/ui';
-import { FiActivity, FiArrowRight, FiClock, FiTrendingUp, FiDroplet, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
+import { FiActivity, FiArrowRight, FiClock, FiTrendingUp, FiDroplet, FiAlertTriangle, FiRefreshCw, FiZap, FiX } from 'react-icons/fi';
 import MissingInputsCard, { MissingInput, QuickLogData } from './MissingInputsCard';
 import StaleContextCard, { CachedContextEntry } from './StaleContextCard';
 import GlucoseForecastCard from './GlucoseForecastCard';
 
 const FORECAST_CACHE_KEY = 'bluely-forecast-cache';
+const LAST_DATA_LOG_KEY = 'bluely-data-logged';
 const FORECAST_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -52,6 +53,7 @@ export default function PredictionGateway({
     const [cachedContext, setCachedContext] = useState<CachedContextEntry | null>(null);
     const [forecast, setForecast] = useState<ForecastPrediction | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [showRecalculateBanner, setShowRecalculateBanner] = useState(false);
 
     // Restore cached forecast on mount if still within the 30-min window
     useEffect(() => {
@@ -75,6 +77,29 @@ export default function PredictionGateway({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Listen for data-logged events (same-tab FloatingChat / ChatLogCard)
+    useEffect(() => {
+        const handler = () => setShowRecalculateBanner(true);
+        window.addEventListener('bluely:data-logged', handler);
+        return () => window.removeEventListener('bluely:data-logged', handler);
+    }, []);
+
+    // Check on window focus in case user logged data in another tab/page
+    useEffect(() => {
+        if (state !== 'complete' || !forecast?.predictionTimestamp) return;
+        const handler = () => {
+            try {
+                const raw = localStorage.getItem(LAST_DATA_LOG_KEY);
+                if (!raw) return;
+                const loggedAt = parseInt(raw, 10);
+                const forecastAt = new Date(forecast.predictionTimestamp!).getTime();
+                if (loggedAt > forecastAt) setShowRecalculateBanner(true);
+            } catch { /* non-critical */ }
+        };
+        window.addEventListener('focus', handler);
+        return () => window.removeEventListener('focus', handler);
+    }, [state, forecast]);
 
     /**
      * Check safety by calling the backend API.
@@ -128,6 +153,16 @@ export default function PredictionGateway({
             setState('error');
         }
     }, [onForecastReady]);
+
+    const handleRecalculate = useCallback(() => {
+        try {
+            localStorage.removeItem(FORECAST_CACHE_KEY);
+            localStorage.removeItem(LAST_DATA_LOG_KEY);
+        } catch { /* non-critical */ }
+        setShowRecalculateBanner(false);
+        setForecast(null);
+        checkSafety();
+    }, [checkSafety]);
 
     /**
      * Handle quick-log submission.
@@ -258,21 +293,46 @@ export default function PredictionGateway({
     // Complete: Show forecast
     if (state === 'complete' && forecast) {
         return (
-            <GlucoseForecastCard
-                predictedGlucose={forecast.predictedGlucose}
-                direction={forecast.direction}
-                directionArrow={forecast.directionArrow}
-                directionLabel={forecast.directionLabel}
-                confidence={forecast.confidence}
-                timeframe={forecast.timeframe}
-                recommendation={forecast.recommendation}
-                riskAlert={forecast.riskAlert}
-                factors={forecast.factors}
-                modelUsed={forecast.modelUsed}
-                predictionTimestamp={forecast.predictionTimestamp}
-                aiInsight={forecast.aiInsight}
-                onRefresh={checkSafety}
-            />
+            <div className="space-y-3">
+                {showRecalculateBanner && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 shadow-sm">
+                        <FiZap className="w-4 h-4 text-amber-500 shrink-0" />
+                        <p className="text-sm text-amber-800 flex-1 leading-snug">
+                            New data logged since last forecast — recalculate for an updated prediction?
+                        </p>
+                        <button
+                            type="button"
+                            onClick={handleRecalculate}
+                            className="shrink-0 px-3 py-1.5 text-xs font-semibold text-white bg-[#1F2F98] rounded-lg hover:bg-[#1F2F98]/90 transition-colors"
+                        >
+                            Recalculate
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowRecalculateBanner(false)}
+                            className="shrink-0 p-1 rounded-lg hover:bg-amber-100 text-amber-500 transition-colors"
+                            aria-label="Dismiss"
+                        >
+                            <FiX className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                )}
+                <GlucoseForecastCard
+                    predictedGlucose={forecast.predictedGlucose}
+                    direction={forecast.direction}
+                    directionArrow={forecast.directionArrow}
+                    directionLabel={forecast.directionLabel}
+                    confidence={forecast.confidence}
+                    timeframe={forecast.timeframe}
+                    recommendation={forecast.recommendation}
+                    riskAlert={forecast.riskAlert}
+                    factors={forecast.factors}
+                    modelUsed={forecast.modelUsed}
+                    predictionTimestamp={forecast.predictionTimestamp}
+                    aiInsight={forecast.aiInsight}
+                    onRefresh={checkSafety}
+                />
+            </div>
         );
     }
 

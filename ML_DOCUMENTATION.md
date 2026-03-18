@@ -13,7 +13,7 @@
 5. [Synthetic Data Generation](#synthetic-data-generation)
 6. [Model Training Pipeline](#model-training-pipeline)
 7. [Prediction Module](#prediction-module)
-8. [FastAPI Server (v4.0)](#fastapi-server-v40)
+8. [FastAPI Server (v4.1)](#fastapi-server-v41)
 9. [Input Completeness Enforcement](#input-completeness-enforcement)
 10. [Patient Personalization Layer](#patient-personalization-layer)
 11. [AI Insight Engine (DiaBuddy)](#ai-insight-engine-diabuddy)
@@ -272,6 +272,7 @@ This module bridges the API inputs (JSON from Express backend) and the trained m
 |----------|-------|--------|
 | `build_feature_vector(...)` | 16 raw parameters | numpy array (1, 21) |
 | `predict_glucose_30min(features)` | Feature vector | (predicted_glucose, confidence) |
+| `apply_pk_correction(...)` | 14 parameters | (corrected_glucose, confidence_penalty) |
 | `predict_risk(features)` | Feature vector | {risk_level, risk_code, confidence, recommendation} |
 | `estimate_hba1c(glucose_values)` | List of glucose readings | {estimated_hba1c, interpretation, ...} |
 | `load_forecast_model()` | - | (model, scaler) tuple |
@@ -287,11 +288,110 @@ This module bridges the API inputs (JSON from Express backend) and the trained m
 - **Trend**: Linear regression slope over recent history
 - **Variability**: Standard deviation of recent history
 
+### Pharmacokinetic (PK) Correction Layer — `apply_pk_correction()`
+
+Added in **v4.1** to correct for systematic prediction errors caused by gaps in the training data distribution. This is **not a model override** — it is a post-prediction physiological correction that blends the ML output with physics-based expected outcomes, using conservative blend weights so the ML model always contributes at least 40% (except for the highest-risk stacked-bolus scenario).
+
+All formulas use the same gamma-curve and exercise-effect constants as `generate_synthetic_data.py`, ensuring internal physiological consistency.
+
+#### Why It's Needed
+
+The training data simulates insulin as being given **before meals** (pre-bolus pattern). When users take rapid insulin 2+ hours after a meal as a correction bolus, the model sees `minutes_since_insulin=0` but interprets it as meal+insulin starting simultaneously → predicts "stable" incorrectly. The PK correction detects the correction-bolus context and blends in the physiologically expected glucose drop.
+
+#### The 8 Scenarios Handled
+
+| # | Scenario | Trigger Condition | Correction Applied | PK Weight | Confidence Penalty |
+|---|----------|-------------------|-------------------|-----------|-------------------|
+| **S1** | Correction bolus (high glucose) | `insulin_rapid/mixed`, dose > 0, < 60 min, glucose > 150 | Gamma-curve insulin drop projected 30 min forward | **0.45** | 0.135 |
+| **S1b** | Fresh insulin (normal glucose) | `insulin_rapid/mixed`, dose > 0, < 60 min, glucose ≤ 150 | Same gamma-curve, lower weight | **0.25** | 0.075 |
+| **S1c** | Insulin 60–120 min ago | `insulin_rapid/mixed`, 60–120 min | Model well-calibrated here; small nudge only | **0.10** | 0.030 |
+| **S2** | High-dose stacked bolus | Rapid insulin ≥ 25U (type2) / ≥ 20U (type1) + < 90 min | Amplified correction with over-correction risk flag | **0.60** | **0.35** |
+| **S3** | Stress dampening | `stress_level ≥ 4` | Reduces expected insulin drop by 20% (cortisol counteraction) | Modifies drop | — |
+| **S4** | Gastroparesis / slow absorption | `carbs > 60g` + 120–200 min post-meal | Reduces insulin drop by 30%; reduces PK weight × 0.70 | × 0.70 | × 0.70 |
+| **S5** | Long-acting basal insulin | `insulin_long`, dose > 0, < 240 min | Gentle nudge −3–6 mg/dL | **0.08** | 0.00 |
+| **S6** | Oral medication (metformin/sulfonylurea) | Taken < 120 min | Tiny nudge −2–4 mg/dL | **0.06** | 0.00 |
+| **S7** | Delayed post-exercise hypoglycemia | `high` intensity, 120–360 min after activity end | +15% on activity drop in the delayed window | × 1.15 activity | 0.05 |
+| **S8** | Dawn phenomenon resistance | Hour 04:00–07:00 + predicted dropping | +8 mg/dL counteracting bias | Adjusts output | +0.05 |
+
+#### Insulin Sensitivity Factor (ISF) by Diabetes Type
+
+| Type | ISF (mg/dL per unit) | Notes |
+|------|---------------------|-------|
+| Type 1 | 30 | Wider swings, faster response |
+| Type 2 | 18 | Lower sensitivity |
+| Prediabetes | 22 | Intermediate |
+| Gestational | 20 | Pregnancy-adjusted |
+| Other | 20 | Conservative default |
+
+All values are the **lower bound** of the training data ISF ranges to avoid over-correcting.
+
+#### Blending Philosophy
+
+The final corrected output is always a weighted blend:
+```
+corrected = (1 - pk_weight) * ml_prediction + pk_weight * physiology_prediction
+```
+
+The ML model retains the majority weight in all scenarios. Higher PK weights only apply when the training data under-representation is most severe (fresh correction bolus, high-dose insulin).
+
+#### Verified Test Case
+
+Input scenario: 229 mg/dL current, 20U Actrapid just taken (0 min), medium activity (30 min, 0 min ago), type2:
+```
+Before PK correction: 234.0 mg/dL | Stable | 95% confidence
+After PK correction:  200.1 mg/dL | Dropping | 82% confidence
+```
+This correctly reflects that 20U of Actrapid will begin lowering an elevated glucose within the 30-minute window.
+
 ---
 
-## FastAPI Server (v3.0)
+## FastAPI Server (v4.1)
 
 **File**: `ml/server.py`
+
+### Four-Layer Prediction Architecture
+
+The `/predict-glucose-30` endpoint runs four sequential layers:
+
+```
+Layer 1 — Global ML Model            (Gradient Boosting, 21 features)
+    ↓
+Layer 2 — Patient Personalization    (EWMA calibration, ≥21 readings)
+    ↓
+Layer 2b — PK Physiological Correction (8 scenarios, gamma-curve formulas)
+    ↓
+Layer 3 — AI Insight Engine          (LLM → DiaBuddy explanation)
+```
+
+### Recommendation Branches (v4.1)
+
+The server now generates specific recommendations for **11 clinical scenarios**, ordered by priority:
+
+| Priority | Condition | Recommendation |
+|----------|-----------|----------------|
+| 1 | Dropping + forecast < 70 | Act now: fast-acting carbs, recheck in 15 min |
+| 2 | Dropping + forecast 70–80 | Small snack, monitor every 10–15 min |
+| 3 | Dropping + nocturnal (22:00–04:00) + < 100 | Nocturnal hypo risk; bedtime snack + set alarm |
+| 4 | Dropping + high-dose insulin + current > 180 | Over-correction risk; hold additional insulin |
+| 5 | Dropping + insulin_rapid + current > 180 | Monitor 60–90 min; insulin reaching peak |
+| 6 | Dropping + no insulin + current > 180 | Avoid second correction until trend confirmed |
+| 7 | Rising + forecast > 250 | Significantly elevated; review with provider |
+| 8 | Rising + stress ≥ 4 + forecast > 180 | Cortisol contribution; try walk/breathing |
+| 9 | Rising + basal insulin + forecast > 180 | Basal doesn't cover meal spikes; log meal |
+| 10 | Rising + forecast > 180 | Upward trend above range; discuss with provider |
+| 11 | Stable + high carbs + < 60 min since meal | Post-meal rise may arrive in 20–40 min |
+| 12 | Stable + dawn window + current > 140 | Dawn phenomenon; discuss timing with provider |
+
+### Additional Factor Text (v4.1)
+
+Factor descriptions are now contextual and physiologically specific:
+
+- **Stress ≥ 4**: Cortisol / gluconeogenesis mechanism named explicitly
+- **Poor sleep**: "insulin resistance may be elevated by 20–30%"
+- **Dawn window**: Cortisol + growth hormone mechanism, hours 4–8 AM
+- **High-dose insulin**: Over-correction risk and monitoring window stated
+- **Gastroparesis flag**: High-carb meal + 120–200 min window flagged
+- **Delayed exercise**: Exact post-activity window stated (120–360 min)
 
 ### Endpoints
 
@@ -793,6 +893,10 @@ ml/
 | **Patient Personalization** | EWMA-based per-user calibration | High | Done |
 | **AI Insight Engine** | LLM-powered DiaBuddy summaries | High | Done |
 | **DiaBuddy Frontend** | AI summary card with typing animation | High | Done |
+| **PK Correction Layer (v4.1)** | 8-scenario physiological post-prediction correction | High | Done |
+| **Extended Recommendations (v4.1)** | 12 clinical scenario branches in server.py | High | Done |
+| **Contextual Factor Text (v4.1)** | Mechanism-specific factor descriptions | High | Done |
+| **Forecast Card Redesign (v4.1)** | Count-up animation, confidence color coding, animated direction arrow, DiaBuddy polish | High | Done |
 | **Alcohol Tracking** | Delayed hypoglycemia prediction | Medium | Planned |
 | **Menstrual Cycle** | Luteal-phase insulin resistance | Medium | Planned |
 | **Illness Tracking** | Infection-related glucose rises | Medium | Planned |

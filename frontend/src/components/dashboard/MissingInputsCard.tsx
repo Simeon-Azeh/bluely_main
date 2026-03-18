@@ -30,7 +30,7 @@ export interface QuickLogData {
     meal?: { carbsEstimate: number; mealType: string };
     medication?: { dose: number; medicationType: string; takenAt?: string };
     activity?: { activityLevel: 'low' | 'medium' | 'high' };
-    wellness?: { mood?: string; sleepHours?: number };
+    wellness?: { mood?: string; sleepHours?: number; sleepQuality?: number };
 }
 
 const iconMap: Record<string, React.ReactNode> = {

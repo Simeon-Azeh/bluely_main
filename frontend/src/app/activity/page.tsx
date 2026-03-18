@@ -167,6 +167,7 @@ export default function ActivityPage() {
             });
             // Also trigger a glucose-30 forecast refresh
             try { await api.getGlucose30(user.uid, 'activity_log'); } catch { /* non-critical */ }
+            try { localStorage.setItem('bluely-data-logged', Date.now().toString()); } catch { /* non-critical */ }
             setIsSuccess(true);
             await loadRecentLogs();
         } catch {

@@ -45,6 +45,7 @@ from predict_bluely import (
     estimate_hba1c,
     load_forecast_model,
     load_risk_model,
+    apply_pk_correction,
 )
 
 from personalization import (
@@ -462,33 +463,91 @@ async def predict_glucose_30(input_data: Glucose30Input):
                 f"Recent meal ({input_data.meal.carbsEstimate}g carbs, "
                 f"{int(input_data.meal.minutesSinceMeal)}min ago) — glucose likely still rising"
             )
-        elif input_data.meal and input_data.meal.minutesSinceMeal < 180:
+        elif input_data.meal and input_data.meal.minutesSinceMeal < 120:
             factors.append(
-                f"Post-meal period ({int(input_data.meal.minutesSinceMeal)}min since meal)"
+                f"Post-meal period ({int(input_data.meal.minutesSinceMeal)}min since meal) — "
+                f"absorption may still be active"
+            )
+        elif input_data.meal and input_data.meal.minutesSinceMeal < 300:
+            factors.append(
+                f"Meal from {int(input_data.meal.minutesSinceMeal)}min ago — "
+                f"absorption window largely complete"
             )
 
         if input_data.medication and input_data.medication.dose > 0:
-            factors.append(
-                f"Medication: {input_data.medication.medicationType} "
-                f"({input_data.medication.dose} dose, "
-                f"{int(input_data.medication.minutesSinceTaken)}min ago)"
-            )
+            med_type = input_data.medication.medicationType
+            mins_med = int(input_data.medication.minutesSinceTaken)
+            dose = input_data.medication.dose
+            if med_type in ('insulin_rapid', 'insulin_mixed') and mins_med < 30:
+                factors.append(
+                    f"Rapid insulin ({dose}U taken {mins_med}min ago) — "
+                    f"onset beginning (~15min), peak glucose-lowering at 60–90min"
+                )
+            elif med_type in ('insulin_rapid', 'insulin_mixed') and mins_med < 90:
+                factors.append(
+                    f"Rapid insulin ({dose}U, {mins_med}min ago) — "
+                    f"actively lowering glucose (peak at 60–90min)"
+                )
+            elif med_type == 'insulin_long':
+                factors.append(
+                    f"Long-acting insulin ({dose}U, {mins_med}min ago) — steady basal coverage"
+                )
+            else:
+                factors.append(
+                    f"Medication: {med_type} ({dose} dose, {mins_med}min ago)"
+                )
 
         if input_data.activity and input_data.activity.intensity != "none" and input_data.activity.minutesSinceActivity < 180:
             factors.append(
                 f"Recent {input_data.activity.intensity} activity "
                 f"({int(input_data.activity.durationMinutes)}min, "
-                f"{int(input_data.activity.minutesSinceActivity)}min ago)"
+                f"{int(input_data.activity.minutesSinceActivity)}min ago) — "
+                f"exercise lowers glucose during and for 2–4h after"
             )
 
         if wellness.stressLevel >= 4:
-            factors.append("Elevated stress — may contribute to higher glucose")
+            factors.append(
+                "Elevated stress (level {}) — cortisol may counteract insulin and raise glucose".format(wellness.stressLevel)
+            )
 
         if wellness.sleepQuality <= 2:
-            factors.append("Poor sleep quality — may increase insulin resistance")
+            factors.append(
+                "Poor sleep quality — insulin resistance may be elevated by 20–30%"
+            )
 
         if 4 <= hour <= 7:
-            factors.append("Early morning — dawn phenomenon may affect levels")
+            factors.append(
+                "Early morning (dawn phenomenon window) — cortisol + growth hormone surges "
+                "may resist insulin and raise glucose 4–8 AM"
+            )
+
+        # High-dose insulin flag
+        high_dose_threshold = 20.0 if input_data.diabetesType == 'type1' else 25.0
+        if (
+            medication.medicationType in ('insulin_rapid', 'insulin_mixed')
+            and medication.dose >= high_dose_threshold
+            and medication.minutesSinceTaken < 60
+        ):
+            factors.append(
+                f"High insulin dose ({medication.dose}U) — over-correction risk elevated; "
+                f"monitor closely for hypoglycemia over next 90 min"
+            )
+
+        # Gastroparesis / slow absorption flag
+        if meal.carbsEstimate > 60 and 120 <= meal.minutesSinceMeal <= 200:
+            factors.append(
+                f"High-carb meal ({int(meal.carbsEstimate)}g, {int(meal.minutesSinceMeal)}min ago) — "
+                f"absorption may still be active; insulin correction effect may be partially offset"
+            )
+
+        # Delayed post-exercise hypoglycemia flag
+        if activity.intensity == 'high' and activity.durationMinutes > 0:
+            t_post_activity = max(0.0, activity.minutesSinceActivity - activity.durationMinutes)
+            if 120 <= t_post_activity <= 360:
+                factors.append(
+                    f"High-intensity activity ended ~{int(t_post_activity)}min ago — "
+                    f"delayed glucose-lowering effect (increased insulin sensitivity) still active"
+                )
 
         # ── Personalization (Layer 2) ──
         personalized = False
@@ -519,7 +578,35 @@ async def predict_glucose_30(input_data: Glucose30Input):
             except Exception as pe:
                 print(f"  Personalization skipped: {pe}")
 
-        # Recalculate direction with (potentially personalized) prediction
+        # ── Pharmacokinetic (PK) & Physiological correction (Layer 2b) ─────────
+        # Corrects for 8 physiological scenarios where the ML model has systematic
+        # prediction errors due to training data distribution gaps.
+        # See apply_pk_correction() in predict_bluely.py for full scenario docs.
+        pk_corrected, confidence_penalty = apply_pk_correction(
+            predicted_glucose=final_predicted,
+            current_glucose=input_data.currentGlucose,
+            insulin_dose=medication.dose,
+            minutes_since_insulin=medication.minutesSinceTaken,
+            medication_type=medication.medicationType,
+            activity_intensity=activity.intensity,
+            activity_duration=activity.durationMinutes,
+            minutes_since_activity=activity.minutesSinceActivity,
+            diabetes_type=input_data.diabetesType,
+            stress_level=wellness.stressLevel,
+            sleep_quality=wellness.sleepQuality,
+            carbs_last_meal=meal.carbsEstimate,
+            minutes_since_meal=meal.minutesSinceMeal,
+            hour=hour,
+        )
+        if confidence_penalty > 0:
+            final_predicted = pk_corrected
+            confidence = max(0.30, confidence - confidence_penalty)
+            factors.append(
+                "Pharmacokinetic adjustment applied — active insulin/activity "
+                "effect projected forward 30 min"
+            )
+
+        # Recalculate direction with (potentially personalized + PK-corrected) prediction
         current = input_data.currentGlucose
         delta = final_predicted - current
         if delta > 8:
@@ -545,22 +632,84 @@ async def predict_glucose_30(input_data: Glucose30Input):
             risk_alert = "Glucose may stay above target range."
 
         # ── Recommendation ──
-        if direction == "rising" and final_predicted > 180:
+        # Ordered from highest clinical priority to lowest.
+        high_dose_threshold_rec = 20.0 if input_data.diabetesType == 'type1' else 25.0
+        is_nocturnal = 22.0 <= hour or hour <= 4.0
+        is_dawn_window = 4.0 <= hour <= 7.0
+        is_high_dose_rapid = (
+            medication.medicationType in ('insulin_rapid', 'insulin_mixed')
+            and medication.dose >= high_dose_threshold_rec
+            and medication.minutesSinceTaken < 90
+        )
+
+        if direction == "dropping" and final_predicted < 70:
+            recommendation = (
+                "Glucose is forecast to drop below safe levels. "
+                "Act now: have 15g fast-acting carbs (glucose tablet, juice) and recheck in 15 minutes."
+            )
+        elif direction == "dropping" and final_predicted < 80:
+            recommendation = (
+                "A downward trend is approaching the lower boundary. "
+                "Consider a small snack and monitor closely every 10–15 minutes."
+            )
+        elif direction == "dropping" and is_nocturnal and final_predicted < 100:
+            recommendation = (
+                "Glucose is trending down during overnight hours — nocturnal hypoglycemia risk. "
+                "Consider a small bedtime snack and set an alarm to check in 2 hours."
+            )
+        elif direction == "dropping" and current > 180 and is_high_dose_rapid:
+            recommendation = (
+                "High-dose insulin is actively lowering elevated glucose. "
+                "Monitor closely every 15–20 min — there is a risk of over-correction. "
+                "Do not take additional insulin until the trend stabilises."
+            )
+        elif direction == "dropping" and current > 180 and medication.medicationType in ('insulin_rapid', 'insulin_mixed'):
+            recommendation = (
+                "Glucose is expected to drop from the elevated range — insulin is beginning to act. "
+                "Monitor closely over the next 60–90 min as insulin reaches peak effect."
+            )
+        elif direction == "dropping" and current > 180:
+            recommendation = (
+                "Glucose is trending down from an elevated level. "
+                "Continue monitoring and avoid additional correction until trend is confirmed."
+            )
+        elif direction == "rising" and final_predicted > 250:
+            recommendation = (
+                "Glucose is forecast to reach significantly elevated levels. "
+                "Review recent meals and medication timing; contact your provider if this is unusual."
+            )
+        elif direction == "rising" and final_predicted > 180 and wellness.stressLevel >= 4:
+            recommendation = (
+                "Rising glucose with elevated stress detected — cortisol may be contributing. "
+                "Try a short walk or breathing exercise; stress reduction can help restore sensitivity."
+            )
+        elif direction == "rising" and final_predicted > 180 and medication.medicationType == 'insulin_long':
+            recommendation = (
+                "Glucose is rising despite active basal insulin coverage. "
+                "This may indicate a post-meal spike that basal insulin is not designed to cover. "
+                "Log your meal for a better picture."
+            )
+        elif direction == "rising" and final_predicted > 180:
             recommendation = (
                 "An upward trend is detected with levels above target range. "
                 "Consider discussing this pattern with your healthcare provider."
             )
-        elif direction == "dropping" and final_predicted < 80:
+        elif direction == "stable" and meal.carbsEstimate > 60 and meal.minutesSinceMeal < 60:
             recommendation = (
-                "A downward trend is detected approaching lower range. "
-                "More frequent monitoring may be helpful."
+                "Levels appear stable now, but a post-meal rise from your high-carb meal "
+                "may arrive in the next 20–40 minutes. Stay hydrated and log your next reading."
+            )
+        elif direction == "stable" and is_dawn_window and current > 140:
+            recommendation = (
+                "Early morning glucose is elevated — the dawn phenomenon may be a contributing factor. "
+                "This is common and manageable; discuss timing adjustments with your provider if it persists."
             )
         elif direction == "stable" and 70 <= final_predicted <= 140:
             recommendation = "Levels appear stable and within target. Keep up your routine!"
         elif direction == "rising":
-            recommendation = "A mild upward trend is expected. Staying hydrated and active may help."
+            recommendation = "A mild upward trend is expected. Staying hydrated and light activity may help."
         elif direction == "dropping":
-            recommendation = "A mild downward trend is noted. This may reflect normal variation."
+            recommendation = "A mild downward trend is noted. This may reflect normal variation — continue monitoring."
         else:
             recommendation = "Levels appear stable. Continue logging to track patterns."
 

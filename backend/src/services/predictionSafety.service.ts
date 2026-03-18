@@ -190,7 +190,7 @@ export class PredictionSafetyService {
                     (now - new Date(recentMeal.timestamp).getTime()) / 60000
                 );
 
-                if (!recentMeal.carbsEstimate) {
+                if (recentMeal.carbsEstimate === null || recentMeal.carbsEstimate === undefined) {
                     missingInputs.push({
                         field: 'mealCarbs',
                         label: 'Carbohydrates from Last Meal',
@@ -202,6 +202,7 @@ export class PredictionSafetyService {
                         importance: 'critical',
                     });
                 } else {
+                    // carbsEstimate: 0 is valid — user logged that they have not eaten (fasting)
                     mealContext = {
                         carbsEstimate: recentMeal.carbsEstimate,
                         mealType: recentMeal.mealType || 'snack',

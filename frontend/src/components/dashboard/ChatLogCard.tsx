@@ -133,6 +133,11 @@ export default function ChatLogCard({ action, firebaseUid, compact = false, mess
                 });
             }
             setStatus('saved');
+            // Notify the forecast gateway that new data was logged
+            try {
+                localStorage.setItem('bluely-data-logged', Date.now().toString());
+                window.dispatchEvent(new Event('bluely:data-logged'));
+            } catch { /* non-critical */ }
             onLogged?.(isGlucose ? 'glucose' : 'meal');
         } catch {
             setStatus('pending');
