@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Card, CardContent, Button, Input, Select, LoadingSpinner } from '@/components/ui';
 import {
     FiUser,
@@ -77,7 +79,6 @@ interface ProfileFormData {
     insightNotifications: boolean;
     medicationReminders: boolean;
     weeklySummary: boolean;
-    darkMode: boolean;
     shareDataWithDiaBuddy: boolean;
 }
 
@@ -88,6 +89,7 @@ function toMgdl(mmol: number) { return Math.round(mmol * MMOL_FACTOR); }
 export default function SettingsPage() {
     const { user, signOut, refreshUserProfile } = useAuth();
     const router = useRouter();
+    const { isDark, toggleDark } = useTheme();
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -268,7 +270,6 @@ export default function SettingsPage() {
                     insightNotifications: true,
                     medicationReminders: true,
                     weeklySummary: false,
-                    darkMode: false,
                     shareDataWithDiaBuddy: data.shareDataWithDiaBuddy ?? true,
                 });
             } catch (err) {
@@ -833,7 +834,7 @@ export default function SettingsPage() {
                                                 <div><p className="font-medium text-gray-900">Dark Mode</p><p className="text-sm text-gray-500">Reduce eye strain at night</p></div>
                                             </div>
                                             <label className="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" className="sr-only peer" {...register('darkMode')} />
+                                                <input type="checkbox" className="sr-only peer" checked={isDark} onChange={() => toggleDark()} />
                                                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
                                             </label>
                                         </div>
@@ -869,7 +870,7 @@ export default function SettingsPage() {
                                                 <p className="text-gray-500 text-sm">Control how your health data is used</p>
                                             </div>
                                         </div>
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl gap-4">
                                                 <div className="flex items-start gap-3">
                                                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
@@ -887,108 +888,30 @@ export default function SettingsPage() {
                                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1F2F98]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1F2F98]"></div>
                                                 </label>
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Privacy Policy */}
-                                <Card className="border-0 shadow-lg shadow-gray-100">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                                                <FiShield className="w-5 h-5 text-gray-600" />
-                                            </div>
-                                            <h3 className="text-base font-bold text-gray-900">Privacy Policy</h3>
-                                        </div>
-                                        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
-                                            <p className="font-semibold text-gray-800">Last updated: March 2026</p>
-                                            <p>Bluely (&quot;we&quot;, &quot;our&quot;, or &quot;the app&quot;) is committed to protecting your personal and health information. This policy explains what data we collect, how we use it, and your rights.</p>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">Data we collect</p>
-                                                <ul className="list-disc ml-5 space-y-0.5">
-                                                    <li>Account information: email address, display name</li>
-                                                    <li>Health data you log: glucose readings, meals, medications, activity, and mood entries</li>
-                                                    <li>Health profile: diabetes type, target glucose ranges, diagnosis year</li>
-                                                    <li>App usage data: feature interactions and session information used to improve the app</li>
-                                                </ul>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">How we use your data</p>
-                                                <ul className="list-disc ml-5 space-y-0.5">
-                                                    <li>To provide and operate the Bluely service, including glucose forecasting, trend analysis, and DiaBuddy AI responses</li>
-                                                    <li>To generate personalised health insights when you opt in to data sharing</li>
-                                                    <li>To improve app features and model accuracy using anonymised, aggregated data</li>
-                                                    <li>To send you optional reminders and notification alerts that you configure</li>
-                                                </ul>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">Data sharing and third parties</p>
-                                                <p>We do not sell, rent, or trade your personal or health data to any third party. We do not share your identifiable data with advertisers. Machine learning models used for predictions run on our own servers. Any third-party infrastructure providers (e.g. database hosting) operate under strict data processing agreements.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">Data retention and deletion</p>
-                                                <p>Your data is retained for as long as you have an active account. You may delete your account and all associated data at any time from the Account section of Settings. Deletion is permanent and irreversible.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">Security</p>
-                                                <p>All data is encrypted in transit (TLS) and at rest. Authentication is handled via Firebase Auth. We follow industry-standard security practices and conduct regular reviews.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">Your rights</p>
-                                                <p>You have the right to access, correct, or delete your data. You may also request a full export of your data from the Data &amp; Export section. For privacy-related enquiries, contact us at privacy@bluely.app.</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Terms of Service */}
-                                <Card className="border-0 shadow-lg shadow-gray-100">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                                                <FiFileText className="w-5 h-5 text-gray-600" />
-                                            </div>
-                                            <h3 className="text-base font-bold text-gray-900">Terms of Service</h3>
-                                        </div>
-                                        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
-                                            <p className="font-semibold text-gray-800">Last updated: March 2026</p>
-                                            <p>By using Bluely you agree to these Terms of Service. Please read them carefully.</p>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">1. Medical disclaimer</p>
-                                                <p>Bluely is a self-management support tool and is <strong>not a medical device</strong>. All information, predictions, and AI responses provided by Bluely — including DiaBuddy — are for informational purposes only and do not constitute medical advice, diagnosis, or treatment. Always consult your qualified healthcare provider before making any changes to your diabetes management plan, medications, or diet.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">2. Eligibility</p>
-                                                <p>Bluely is intended for use by individuals aged 16 and over. If you are under 18, you should use the app with the knowledge and consent of a parent or guardian.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">3. Your account</p>
-                                                <p>You are responsible for keeping your login credentials secure. You must provide accurate information when creating your account. We reserve the right to suspend or terminate accounts that violate these terms.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">4. Acceptable use</p>
-                                                <p>You agree to use Bluely only for its intended personal health management purposes. Scraping, reverse engineering, or automated access of the service is prohibited. You may not use Bluely to harass, defraud, or harm others.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">5. DiaBuddy AI</p>
-                                                <p>DiaBuddy is an AI assistant that may produce inaccurate or incomplete information. It is trained to support self-management, not to replace clinical judgment. Never rely solely on DiaBuddy in an emergency — call emergency services or contact your healthcare provider immediately if you are in a medical emergency.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">6. Intellectual property</p>
-                                                <p>All app content, branding, and technology is the property of Bluely. Your health data belongs to you. We do not claim ownership of any content you enter into the app.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">7. Limitation of liability</p>
-                                                <p>To the maximum extent permitted by law, Bluely shall not be liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability to you shall not exceed the amount you paid (if any) in the 12 months preceding the claim.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">8. Changes to these terms</p>
-                                                <p>We may update these terms from time to time. Continued use of the app after changes are posted constitutes your acceptance. We will notify you of material changes via the app or email.</p>
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-800 mb-1">9. Contact</p>
-                                                <p>Questions about these terms? Contact us at support@bluely.app.</p>
-                                            </div>
+                                            <Link href="/privacy" className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                                                        <FiShield className="w-5 h-5 text-gray-500" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Privacy Policy</p>
+                                                        <p className="text-sm text-gray-500">How we collect, use, and protect your data</p>
+                                                    </div>
+                                                </div>
+                                                <FiChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                                            </Link>
+                                            <Link href="/terms" className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                                                        <FiFileText className="w-5 h-5 text-gray-500" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">Terms of Service</p>
+                                                        <p className="text-sm text-gray-500">Your rights, responsibilities, and medical disclaimer</p>
+                                                    </div>
+                                                </div>
+                                                <FiChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                                            </Link>
                                         </div>
                                     </CardContent>
                                 </Card>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f9fafb;
   --foreground: #111827;
@@ -20,6 +22,70 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-plus-jakarta), var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/* ── Dark mode: simple, warm-free palette ─────────────────────── */
+/* bg-black / bg-[#121212]  → true dark surface                    */
+/* bg-[#1e1e1e]             → medium-dark card surface             */
+/* bg-[#2a2a2a]             → dark gray (elevated surface)         */
+/* bg-[#3a3a3a]             → soft gray (borders / inputs)         */
+/* text / icons naturally become white / light-gray                */
+.dark {
+  --background: #121212;
+  --foreground: #f0f0f0;
+  color-scheme: dark;
+}
+
+/* Cards & panels */
+.dark .bg-white {
+  background-color: #1e1e1e !important;
+}
+
+/* Softer surfaces (bg-gray-50) */
+.dark .bg-gray-50 {
+  background-color: #242424 !important;
+}
+
+/* Slightly elevated (bg-gray-100) */
+.dark .bg-gray-100 {
+  background-color: #2a2a2a !important;
+}
+
+/* Mid-tone (bg-gray-200) */
+.dark .bg-gray-200 {
+  background-color: #3a3a3a !important;
+}
+
+/* Borders (border-gray-200, border-gray-100) */
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: #3a3a3a !important;
+}
+
+/* Text */
+.dark .text-gray-900 {
+  color: #f0f0f0 !important;
+}
+
+.dark .text-gray-800 {
+  color: #e0e0e0 !important;
+}
+
+.dark .text-gray-700 {
+  color: #d0d0d0 !important;
+}
+
+.dark .text-gray-600 {
+  color: #b0b0b0 !important;
+}
+
+.dark .text-gray-500 {
+  color: #888888 !important;
+}
+
+/* Shadow override — dark surfaces don't need heavy shadows */
+.dark .shadow-gray-100 {
+  --tw-shadow-color: transparent;
 }
 
 /* Custom scrollbar */
@@ -61,4 +127,233 @@ body {
 
 .glucose-very-high {
   @apply text-red-600 bg-red-50;
+}
+
+/* ── Dark mode: inputs & form controls ───────────────────── */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark select,
+.dark textarea {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+  color: #f0f0f0 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #666 !important;
+}
+
+/* ── Semi-transparent white panels (bg-white/60, bg-white/80) ── */
+.dark .bg-white\/60 {
+  background-color: #2a2a2a !important;
+}
+
+.dark .bg-white\/80 {
+  background-color: #1a1a1a !important;
+}
+
+.dark .border-white\/80 {
+  border-color: #3a3a3a !important;
+}
+
+/* ── Light gradient card backgrounds (forecast card, DiaBuddy bubble) ── */
+.dark [class*="bg-linear-to-br"] {
+  background-image: none !important;
+  background-color: #1e1e1e !important;
+}
+
+/* ── Colored light backgrounds ───────────────────────────── */
+.dark .bg-orange-50 {
+  background-color: rgba(251, 146, 60, 0.12) !important;
+}
+
+.dark .bg-orange-100 {
+  background-color: rgba(251, 146, 60, 0.2) !important;
+}
+
+.dark .border-orange-100 {
+  border-color: rgba(251, 146, 60, 0.2) !important;
+}
+
+.dark .border-orange-200 {
+  border-color: rgba(251, 146, 60, 0.3) !important;
+}
+
+.dark .text-orange-700 {
+  color: #fb923c !important;
+}
+
+.dark .text-orange-600 {
+  color: #fb923c !important;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.dark .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.dark .border-red-100 {
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.dark .border-red-200 {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark .text-red-700 {
+  color: #f87171 !important;
+}
+
+.dark .text-red-600 {
+  color: #f87171 !important;
+}
+
+.dark .bg-green-50 {
+  background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+.dark .bg-green-100 {
+  background-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.dark .border-green-100 {
+  border-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.dark .border-green-200 {
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+.dark .text-green-700 {
+  color: #34d399 !important;
+}
+
+.dark .text-green-600 {
+  color: #34d399 !important;
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+.dark .bg-emerald-100 {
+  background-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.dark .border-emerald-100 {
+  border-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.dark .border-emerald-200 {
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+.dark .text-emerald-600 {
+  color: #34d399 !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: rgba(96, 165, 250, 0.12) !important;
+}
+
+.dark .bg-blue-100 {
+  background-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.dark .border-blue-100 {
+  border-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.dark .border-blue-200 {
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+
+.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+.dark .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.dark .border-amber-100 {
+  border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.dark .border-amber-200 {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+.dark .text-amber-600 {
+  color: #fbbf24 !important;
+}
+
+.dark .bg-indigo-100 {
+  background-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+.dark .border-indigo-100 {
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+.dark .border-indigo-200 {
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+.dark .text-indigo-900 {
+  color: #c7d2fe !important;
+}
+
+.dark .text-indigo-600 {
+  color: #818cf8 !important;
+}
+
+.dark .text-indigo-400 {
+  color: #818cf8 !important;
+}
+
+.dark .bg-purple-50 {
+  background-color: rgba(139, 92, 246, 0.12) !important;
+}
+
+/* ── Misc borders ─────────────────────────────────────────── */
+.dark .border-gray-300 {
+  border-color: #3a3a3a !important;
+}
+
+/* ── Confidence bar knob (forecast card) ─────────────────── */
+.dark .bg-gray-300 {
+  background-color: #4a4a4a !important;
+}
+
+/* ── Dark scrollbar ──────────────────────────────────────── */
+.dark ::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
 }

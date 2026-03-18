@@ -43,6 +43,7 @@ interface UserData {
     targetGlucoseMax?: number;
     activityLevel?: string;
     reminderEnabled?: boolean;
+    shareDataWithDiaBuddy?: boolean;
     createdAt: string;
     updatedAt: string;
 }
