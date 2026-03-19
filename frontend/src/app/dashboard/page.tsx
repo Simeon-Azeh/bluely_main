@@ -295,6 +295,11 @@ export default function DashboardPage() {
         fullDate: format(new Date(day.date), 'MMM d'),
         average: Math.round(day.average),
         readings: day.readings.length,
+        rawReadings: day.readings.map((r: { value: number; recordedAt: string; readingType?: string }) => ({
+            value: r.value,
+            recordedAt: r.recordedAt,
+            readingType: r.readingType ?? 'random',
+        })),
     })) || [];
 
     return (
