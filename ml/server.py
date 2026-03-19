@@ -1274,8 +1274,9 @@ async def diabuddy_summarize(input_data: DiaBuddySummaryInput):
     try:
         readings_data = [{"value": r.value, "readingType": r.readingType} for r in input_data.readings]
         profile_data = input_data.profile or {}
+        preferred_unit = input_data.preferredUnit or 'mg/dL'
 
-        result = await generate_summary_insight(readings_data, profile_data)
+        result = await generate_summary_insight(readings_data, profile_data, preferred_unit)
         return DiaBuddySummaryOutput(
             summary=result["summary"],
             source=result["source"],

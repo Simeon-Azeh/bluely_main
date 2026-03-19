@@ -87,31 +87,47 @@ In 2-3 sentences, explain this prediction in plain language. Mention which facto
     return prompt
 
 
-def _build_summary_prompt(readings_data: List[Dict], profile_data: Dict) -> str:
+def _build_summary_prompt(readings_data: List[Dict], profile_data: Dict, preferred_unit: str = 'mg/dL') -> str:
     """
     Build a prompt for DiaBuddy health summary generation.
 
     Args:
         readings_data: List of recent glucose readings with metadata.
         profile_data: User health profile info.
+        preferred_unit: The user's preferred display unit ('mg/dL' or 'mmol/L').
     """
     if not readings_data:
         return "The patient has no recent glucose readings. Provide an encouraging message about starting to track their glucose levels."
 
-    # Compute summary stats
+    # Compute summary stats (values stored as mg/dL)
     values = [r.get("value", 0) for r in readings_data if r.get("value")]
     if not values:
         return "The patient has limited glucose data. Provide encouragement about building a tracking habit."
 
+    MMOL = 18.0182
+    is_mmol = preferred_unit == 'mmol/L'
+
+    def to_display(mgdl: float) -> str:
+        if is_mmol:
+            return f"{round(mgdl / MMOL, 1):.1f} {preferred_unit}"
+        return f"{round(mgdl):.0f} {preferred_unit}"
+
     avg = sum(values) / len(values)
     min_val = min(values)
     max_val = max(values)
-    in_range = sum(1 for v in values if 70 <= v <= 180)
+
+    # Target range in native unit
+    target_min = profile_data.get('targetMin', 70)
+    target_max = profile_data.get('targetMax', 180)
+    in_range = sum(1 for v in values if target_min <= v <= target_max)
     time_in_range = (in_range / len(values)) * 100 if values else 0
 
-    # Count highs and lows
-    highs = sum(1 for v in values if v > 180)
-    lows = sum(1 for v in values if v < 70)
+    # Count highs and lows (use numeric targets for flexibility)
+    highs = sum(1 for v in values if v > target_max)
+    lows = sum(1 for v in values if v < target_min)
+
+    target_min_display = to_display(target_min)
+    target_max_display = to_display(target_max)
 
     diabetes_type = profile_data.get("diabetes_type", "unknown")
     name = profile_data.get("name", "there")
@@ -119,12 +135,13 @@ def _build_summary_prompt(readings_data: List[Dict], profile_data: Dict) -> str:
     prompt = f"""Generate a friendly DiaBuddy health summary for {name}. Here's their recent data:
 
 - Readings count: {len(values)} over recent period
-- Average glucose: {avg:.0f} mg/dL
-- Range: {min_val} - {max_val} mg/dL
-- Time in range (70-180): {time_in_range:.0f}%
-- High readings (>180): {highs}
-- Low readings (<70): {lows}
+- Average glucose: {to_display(avg)}
+- Range: {to_display(min_val)} - {to_display(max_val)}
+- Time in range ({target_min_display} - {target_max_display}): {time_in_range:.0f}%
+- High readings (>{target_max_display}): {highs}
+- Low readings (<{target_min_display}): {lows}
 - Diabetes type: {diabetes_type}
+- Preferred unit: {preferred_unit}
 
 Provide a warm, supportive summary in 4-6 sentences:
 1. Greet them and give an overview of their glucose control
@@ -132,6 +149,7 @@ Provide a warm, supportive summary in 4-6 sentences:
 3. If there are patterns worth noting (too many highs/lows), mention gently
 4. End with one encouraging, actionable suggestion
 
+ALWAYS use {preferred_unit} when mentioning glucose values. Never use mg/dL if preferred unit is mmol/L.
 Remember to be supportive and never alarming. Use "around" for numbers."""
 
     return prompt
@@ -167,7 +185,7 @@ async def generate_ai_insight(prediction_data: Dict) -> Dict:
 
 
 async def generate_summary_insight(
-    readings_data: List[Dict], profile_data: Dict
+    readings_data: List[Dict], profile_data: Dict, preferred_unit: str = 'mg/dL'
 ) -> Dict:
     """
     Generate a DiaBuddy health summary from recent readings.
@@ -175,7 +193,7 @@ async def generate_summary_insight(
     Returns:
         Dict with keys: summary (str), source ("ai"|"rule-based"), provider (str|None)
     """
-    prompt = _build_summary_prompt(readings_data, profile_data)
+    prompt = _build_summary_prompt(readings_data, profile_data, preferred_unit)
 
     # Try LLM first
     llm_response = await _llm.generate(prompt, max_tokens=400, temperature=0.7)
@@ -189,16 +207,24 @@ async def generate_summary_insight(
         }
 
     # Fallback to rule-based summary
+    MMOL = 18.0182
+    is_mmol = preferred_unit == 'mmol/L'
     values = [r.get("value", 0) for r in readings_data if r.get("value")]
     avg_val = sum(values) / len(values) if values else 0
-    in_range = sum(1 for v in values if 70 <= v <= 180)
+    target_min = profile_data.get('targetMin', 70)
+    target_max = profile_data.get('targetMax', 180)
+    in_range = sum(1 for v in values if target_min <= v <= target_max)
     tir = (in_range / len(values)) * 100 if values else 0
+
+    # Convert avg for display
+    display_avg = round(avg_val / MMOL, 1) if is_mmol else round(avg_val)
 
     rule_summary = get_summary_template(
         reading_count=len(values),
-        avg_glucose=avg_val,
+        avg_glucose=display_avg,
         time_in_range=tir,
         name=profile_data.get("name", "there"),
+        preferred_unit=preferred_unit,
     )
     return {
         "summary": rule_summary,

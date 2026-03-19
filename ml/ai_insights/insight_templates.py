@@ -157,8 +157,10 @@ def get_summary_template(
     readings_count: int,
     avg_glucose: float,
     time_in_range: float,
-    recent_trend: str,
+    recent_trend: str = 'stable',
     risk_distribution: Optional[Dict] = None,
+    name: str = 'there',
+    preferred_unit: str = 'mg/dL',
 ) -> str:
     """
     Generate a rule-based summary of the user's recent glucose data.
@@ -166,27 +168,32 @@ def get_summary_template(
 
     Args:
         readings_count: Number of readings in the analysis period.
-        avg_glucose: Average glucose in mg/dL.
-        time_in_range: Percentage of readings in target range (70-180).
+        avg_glucose: Average glucose already converted to the preferred unit.
+        time_in_range: Percentage of readings in target range.
         recent_trend: 'improving', 'stable', or 'worsening'.
         risk_distribution: Optional dict with 'low', 'normal', 'high' percentages.
+        name: User's first name.
+        preferred_unit: Display unit ('mg/dL' or 'mmol/L').
 
     Returns:
         Summary text string.
     """
+    is_mmol = preferred_unit == 'mmol/L'
+    avg_display = f"{avg_glucose:.1f} {preferred_unit}" if is_mmol else f"{int(avg_glucose)} {preferred_unit}"
+
     parts = []
 
     # Overview
     parts.append(
-        f"Based on your {readings_count} recent glucose readings, "
-        f"your average glucose is {avg_glucose:.0f} mg/dL."
+        f"Hey {name}! Based on your {readings_count} recent glucose readings, "
+        f"your average glucose is around {avg_display}."
     )
 
     # Time in range
     if time_in_range >= 70:
         parts.append(
             f"Great news — {time_in_range:.0f}% of your readings are within "
-            f"the target range (70-180 mg/dL). That's excellent management!"
+            f"your target range. That's excellent management!"
         )
     elif time_in_range >= 50:
         parts.append(
