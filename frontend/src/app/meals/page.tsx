@@ -130,8 +130,8 @@ export default function MealsPage() {
         const lines = reply.split('\n');
         const items: Array<{ item: string; carbs: number }> = [];
         for (const line of lines) {
-            // Match patterns like "Rice: 45g", "• Bread: 28g carbs", "- Tea: ~5g"
-            const match = line.match(/^[-•*]?\s*([^:0-9\n]+?):\s*(?:~|about\s*)?(?:\d+\s*[-–]\s*)?(\d+)\s*g(?:rams?)?(?:\s*(?:of\s+)?carbs?)?/i);
+            // Match patterns like "Rice: 45g", "• Bread: 28g carbs", "- Tea: ~5g", "4 slices of bread: 60g", "1. Eggs (2): 1g"
+            const match = line.match(/^(?:[-•*]|\d+[.)\s])?\ *([^:\n]+?):\s*(?:~|about\s*)?(?:\d+\s*[-–]\s*)?(\d+)\s*g(?:rams?)?(?:\s*(?:of\s+)?carbs?)?/i);
             if (match) {
                 const itemName = match[1].trim();
                 if (/^(total|note|overall|approx|summary)/i.test(itemName)) continue;
@@ -221,7 +221,9 @@ export default function MealsPage() {
                     setAiAdjustedCarbs(refined.carbsEstimate);
                 }
             }
-            setAiResult(result.reply);
+            // Only update displayed text if reply is non-empty — an empty reply would make
+            // aiResult falsy and collapse the entire AI result section (including the carb input).
+            if (result.reply) setAiResult(result.reply);
         } catch {
             /* ignore */
         } finally {
