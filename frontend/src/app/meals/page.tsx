@@ -88,6 +88,7 @@ export default function MealsPage() {
     const [aiRefinement, setAiRefinement] = useState('');
     const [aiRefining, setAiRefining] = useState(false);
     const [aiAdjustedCarbs, setAiAdjustedCarbs] = useState<number | null>(null);
+    const [aiHistory, setAiHistory] = useState<Array<{ role: string; content: string }>>([]);
 
     const handleDishSelect = (dish: CamerooniaDish) => {
         if (selectedDishes.includes(dish.id)) {
@@ -166,21 +167,28 @@ export default function MealsPage() {
     };
 
     const handleAiEstimate = async () => {
-        if (!user || !aiDescription.trim()) return;
+        if (!user || !aiDescription.trim() || aiEstimating) return;
         setAiEstimating(true);
         setAiResult(null);
         setAiParsed(null);
         setAiBreakdown(null);
         setAiAdjustedCarbs(null);
         setAiRefinement('');
+        setAiHistory([]);
+        const userMsg = `I just ate: ${aiDescription.trim()}. List every food and drink item I mentioned, each on its own line in this exact format: "Item name: Xg". Then on a final line write "Total: Xg". No extra commentary, just the breakdown.`;
         try {
             const result = await api.chatWithDiaBuddy(
                 user.uid,
-                `I just ate: ${aiDescription.trim()}. List every food and drink item I mentioned, each on its own line in this exact format: "Item name: Xg". Then on a final line write "Total: Xg". No extra commentary, just the breakdown.`,
+                userMsg,
                 [],
                 user.displayName
             );
             setAiResult(result.reply);
+            // Store exchange so refine calls can send full context
+            setAiHistory([
+                { role: 'user', content: userMsg },
+                { role: 'assistant', content: result.reply },
+            ]);
             const breakdown = parseAiBreakdown(result.reply);
             if (breakdown.length > 0) {
                 setAiBreakdown(breakdown);
@@ -188,7 +196,9 @@ export default function MealsPage() {
                 const parsed = parseAiResponse(result.reply, aiDescription);
                 setAiParsed(parsed ?? { carbsEstimate: total, carbLevel: total > 60 ? 'high' : total > 30 ? 'medium' : 'low', description: aiDescription });
             } else {
-                setAiParsed(parseAiResponse(result.reply, aiDescription));
+                // Always set aiParsed so refine + accept sections stay visible
+                const parsed = parseAiResponse(result.reply, aiDescription);
+                setAiParsed(parsed ?? { carbsEstimate: 0, carbLevel: 'low', description: aiDescription });
             }
         } catch {
             setAiResult('Sorry, I couldn\'t estimate carbs right now. Please try again.');
@@ -198,13 +208,14 @@ export default function MealsPage() {
     };
 
     const handleAiRefine = async () => {
-        if (!user || !aiRefinement.trim()) return;
+        if (!user || !aiRefinement.trim() || aiRefining) return;
         setAiRefining(true);
+        const refineMsg = `Update the carb estimate for my meal: "${aiDescription.trim()}". Correction: ${aiRefinement.trim()}. Show every food item on its own line as "Item name: Xg". Then write "Total: Xg". No extra commentary.`;
         try {
             const result = await api.chatWithDiaBuddy(
                 user.uid,
-                `About the meal I described: "${aiDescription.trim()}". I want to refine: ${aiRefinement.trim()}. List every food and drink item with its updated carb estimate, each on its own line as "Item name: Xg". Then add "Total: Xg".`,
-                [],
+                refineMsg,
+                aiHistory,  // pass full conversation so AI knows the existing breakdown
                 user.displayName
             );
             const breakdown = parseAiBreakdown(result.reply);
@@ -221,9 +232,15 @@ export default function MealsPage() {
                     setAiAdjustedCarbs(refined.carbsEstimate);
                 }
             }
-            // Only update displayed text if reply is non-empty — an empty reply would make
-            // aiResult falsy and collapse the entire AI result section (including the carb input).
-            if (result.reply) setAiResult(result.reply);
+            if (result.reply) {
+                setAiResult(result.reply);
+                // Keep history growing so subsequent refines also have full context
+                setAiHistory(prev => [
+                    ...prev,
+                    { role: 'user', content: refineMsg },
+                    { role: 'assistant', content: result.reply },
+                ]);
+            }
         } catch {
             /* ignore */
         } finally {
@@ -253,6 +270,7 @@ export default function MealsPage() {
             setAiParsed(null);
             setAiBreakdown(null);
             setAiAdjustedCarbs(null);
+            setAiHistory([]);
             setTimeout(() => {
                 setSelectedMealType('');
                 setSelectedDishes([]);
