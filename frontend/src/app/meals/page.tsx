@@ -510,7 +510,7 @@ export default function MealsPage() {
                     )}
 
                     {/* AI Result */}
-                    {aiResult && !aiEstimating && (
+                    {aiParsed !== null && !aiEstimating && (
                         <div className="mt-3 space-y-2.5">
                             {/* Per-item breakdown (shown when DiaBuddy returns structured data) */}
                             {aiBreakdown && aiBreakdown.length > 0 ? (
@@ -567,7 +567,7 @@ export default function MealsPage() {
                                 <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm text-gray-700">
                                     <div className="flex items-start gap-2">
                                         <Image src="/diabuddy.png" alt="" width={18} height={18} className="rounded-full mt-0.5 shrink-0" />
-                                        <p className="leading-relaxed">{aiResult}</p>
+                                        <p className="leading-relaxed">{aiResult || 'Estimate ready — adjust the carbs below if needed.'}</p>
                                     </div>
                                 </div>
                             )}
