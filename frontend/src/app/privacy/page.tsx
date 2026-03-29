@@ -403,6 +403,31 @@ export default function PrivacyPage() {
                             </p>
                         </section>
 
+                        {/* 16. Disclaimer and Terms of Use */}
+                        <section>
+                            <h2 className="text-xl font-semibold text-gray-900 mb-3">16. Disclaimer and Terms of Use</h2>
+                            <p className="text-gray-600 leading-relaxed mb-4">
+                                Bluely is designed as a decision-support system to assist users in understanding
+                                their health data. The system provides analytical insights and predictive information
+                                based on user inputs.
+                            </p>
+                            <p className="text-gray-600 leading-relaxed mb-4">
+                                However, <strong className="text-gray-800">Bluely does not provide medical advice,
+                                    diagnosis, or treatment.</strong> The information presented should not be used as a
+                                substitute for professional healthcare consultation.
+                            </p>
+                            <p className="text-gray-600 leading-relaxed mb-4">
+                                Users are responsible for interpreting the insights provided and should consult
+                                qualified healthcare professionals before making any medical decisions.
+                            </p>
+                            <p className="text-gray-600 leading-relaxed mb-3">By using Bluely, you acknowledge that:</p>
+                            <ul className="list-disc pl-6 space-y-1.5 text-gray-600">
+                                <li>The system provides supportive, not definitive, insights</li>
+                                <li>Predictions may not always be accurate</li>
+                                <li>You use the system at your own discretion</li>
+                            </ul>
+                        </section>
+
                         {/* 15. Contact */}
                         <section>
                             <h2 className="text-xl font-semibold text-gray-900 mb-3">15. Contact Us</h2>
