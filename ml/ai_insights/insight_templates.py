@@ -43,17 +43,17 @@ def get_rule_based_insight(
     if direction == "rising":
         parts.append(
             f"Your glucose is expected to rise from {current_glucose:.0f} to "
-            f"approximately {predicted_glucose:.0f} mg/dL over the next 30 minutes."
+            f"approximately {predicted_glucose:.0f} mg/dL over the next 30 minutes. 📊"
         )
     elif direction == "dropping":
         parts.append(
             f"Your glucose is expected to decrease from {current_glucose:.0f} to "
-            f"approximately {predicted_glucose:.0f} mg/dL over the next 30 minutes."
+            f"approximately {predicted_glucose:.0f} mg/dL over the next 30 minutes. 📊"
         )
     else:
         parts.append(
             f"Your glucose appears stable around {current_glucose:.0f} mg/dL "
-            f"and is expected to remain near {predicted_glucose:.0f} mg/dL."
+            f"and is expected to remain near {predicted_glucose:.0f} mg/dL. ✨"
         )
 
     # Explain contributing factors
@@ -65,18 +65,18 @@ def get_rule_based_insight(
     if risk_level == "high":
         parts.append(
             "This pattern suggests glucose may stay above the typical target range. "
-            "Staying hydrated and light activity after meals may help. "
+            "Staying hydrated and light activity after meals may help. 🏃 "
             "Consider discussing persistent patterns with your healthcare provider."
         )
     elif risk_level == "low":
         parts.append(
             "This trend suggests glucose could approach the lower range. "
-            "If you haven't eaten recently, a small snack might be helpful. "
+            "If you haven't eaten recently, a small snack might be helpful. 🍌 "
             "Monitoring again in 15-30 minutes could provide useful information."
         )
     else:
         parts.append(
-            "This pattern looks stable and within a typical range. "
+            "This pattern looks stable and within a typical range — keep it up! 💪 "
             "Maintaining your current routine appears to be working well."
         )
 
@@ -84,7 +84,7 @@ def get_rule_based_insight(
     if prediction_source == "personalized_model":
         parts.append(
             "This prediction has been calibrated using your personal glucose history "
-            "for improved accuracy."
+            "for improved accuracy. 🌟"
         )
 
     return " ".join(parts)
@@ -185,43 +185,43 @@ def get_summary_template(
 
     # Overview
     parts.append(
-        f"Hey {name}! Based on your {readings_count} recent glucose readings, "
+        f"Hey {name}! 👋 Based on your {readings_count} recent glucose readings, "
         f"your average glucose is around {avg_display}."
     )
 
     # Time in range
     if time_in_range >= 70:
         parts.append(
-            f"Great news — {time_in_range:.0f}% of your readings are within "
-            f"your target range. That's excellent management!"
+            f"Amazing work — {time_in_range:.0f}% of your readings are within "
+            f"your target range! 🎉 That's genuinely excellent management, {name}!"
         )
     elif time_in_range >= 50:
         parts.append(
             f"About {time_in_range:.0f}% of your readings are within target range. "
-            f"There's room for improvement, and consistent logging can help identify patterns."
+            f"You're making real progress, and consistent logging will help you spot patterns even faster. 📊"
         )
     else:
         parts.append(
             f"Currently {time_in_range:.0f}% of readings are within target range. "
-            f"Identifying patterns in meals, activity, and medication timing "
-            f"may help improve this over time."
+            f"Every reading you log is valuable data — identifying patterns in meals, activity, and timing "
+            f"will help improve this. You've got this! 💪"
         )
 
     # Trend
     if recent_trend == "improving":
-        parts.append("Your glucose trend appears to be improving — keep up the good work!")
+        parts.append("Your glucose trend is improving — that's something to genuinely celebrate! ✨ Keep up the fantastic work!")
     elif recent_trend == "worsening":
         parts.append(
-            "Recent trends suggest some variability. Reviewing meal timing "
-            "and activity patterns with your care team could be helpful."
+            "Recent trends show some variability — and that's okay, it happens. 💙 "
+            "Reviewing meal timing and activity patterns with your care team could be a helpful next step."
         )
     else:
-        parts.append("Your glucose levels have been relatively stable recently.")
+        parts.append("Your glucose levels have been relatively stable recently — consistency like this is a real achievement! 🌟")
 
     # Encouragement
     parts.append(
-        "Remember, consistent logging helps DiaBuddy learn your patterns "
-        "and provide more personalized insights over time."
+        "Keep logging, {name} — every entry helps DiaBuddy learn your unique patterns "
+        "and give you even more personalized support. You're doing great! 💙".format(name=name)
     )
 
     return " ".join(parts)
