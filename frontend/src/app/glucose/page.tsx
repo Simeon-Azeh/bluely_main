@@ -13,6 +13,26 @@ import { FiDroplet, FiCheck, FiClock, FiAlertTriangle, FiTrendingUp, FiTrendingD
 import { TbPill, TbVaccine, TbTargetArrow } from 'react-icons/tb';
 import api from '@/lib/api';
 
+// Format a Date as YYYY-MM-DDTHH:MM in the user's preferred timezone (saved in
+// localStorage by settings), falling back to the browser's own local clock.
+// datetime-local inputs expect local-time format, not UTC (toISOString gives UTC).
+function toLocalDatetimeValue(date: Date = new Date()): string {
+    const tz = (() => { try { return localStorage.getItem('bluely-timezone') || undefined; } catch { return undefined; } })();
+    try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false,
+        }).formatToParts(date);
+        const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00';
+        return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+    } catch {
+        // Fallback: use local wall-clock time
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+}
+
 const readingTypes = [
     { value: 'fasting', label: 'Fasting (before eating)' },
     { value: 'before_meal', label: 'Before meal' },
@@ -139,7 +159,7 @@ export default function GlucosePage() {
         resolver: zodResolver(glucoseSchema),
         defaultValues: {
             readingType: 'random',
-            recordedAt: new Date().toISOString().slice(0, 16),
+            recordedAt: toLocalDatetimeValue(),
             medicationTaken: false,
             medicationDoseUnit: 'units',
         },
@@ -276,7 +296,7 @@ export default function GlucosePage() {
             try { localStorage.setItem('bluely-data-logged', Date.now().toString()); } catch { /* non-critical */ }
             reset({
                 readingType: 'random',
-                recordedAt: new Date().toISOString().slice(0, 16),
+                recordedAt: toLocalDatetimeValue(),
                 medicationTaken: false,
                 medicationDoseUnit: 'units',
             });

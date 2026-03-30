@@ -10,6 +10,7 @@ export interface IUser extends Document {
     targetGlucoseMin: number;
     targetGlucoseMax: number;
     preferredUnit: 'mg/dL' | 'mmol/L';
+    timezone?: string;
     shareDataWithDiaBuddy: boolean;
     onboardingCompleted: boolean;
     createdAt: Date;
@@ -64,6 +65,10 @@ const UserSchema = new Schema<IUser>(
             type: String,
             enum: ['mg/dL', 'mmol/L'],
             default: 'mg/dL',
+        },
+        timezone: {
+            type: String,
+            trim: true,
         },
         shareDataWithDiaBuddy: {
             type: Boolean,
