@@ -80,6 +80,7 @@ interface ProfileFormData {
     medicationReminders: boolean;
     weeklySummary: boolean;
     shareDataWithDiaBuddy: boolean;
+    timezone: string;
 }
 
 const MMOL_FACTOR = 18.0182;
@@ -271,6 +272,7 @@ export default function SettingsPage() {
                     medicationReminders: true,
                     weeklySummary: false,
                     shareDataWithDiaBuddy: data.shareDataWithDiaBuddy ?? true,
+                    timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
                 });
             } catch (err) {
                 console.error('Error fetching profile:', err);
@@ -324,7 +326,12 @@ export default function SettingsPage() {
                 activityLevel: data.activityLevel,
                 reminderEnabled: data.reminderEnabled,
                 shareDataWithDiaBuddy: data.shareDataWithDiaBuddy,
+                timezone: data.timezone || undefined,
             });
+            // Persist timezone locally so date inputs pick it up without a profile fetch
+            if (data.timezone) {
+                try { localStorage.setItem('bluely-timezone', data.timezone); } catch { /* ignore */ }
+            }
 
             // Refresh the auth context so every hook-dependent component re-renders with the new unit immediately
             await refreshUserProfile();
@@ -850,6 +857,31 @@ export default function SettingsPage() {
                                                 <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center"><FiGlobe className="w-5 h-5 text-indigo-600" /></div>
                                                 <div><p className="font-medium text-gray-900">Language</p><p className="text-sm text-gray-500">English (Coming Soon)</p></div>
                                             </div>
+                                        </div>
+                                        {/* Timezone selector */}
+                                        <div className="p-4 bg-gray-50 rounded-xl">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center"><FiClock className="w-5 h-5 text-teal-600" /></div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900">Timezone</p>
+                                                    <p className="text-sm text-gray-500">Used for date &amp; time inputs</p>
+                                                </div>
+                                            </div>
+                                            <select
+                                                {...register('timezone')}
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/20 focus:border-[#1F2F98]/40"
+                                            >
+                                                {(() => {
+                                                    try {
+                                                        return (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.('timeZone')
+                                                            ?.map((tz: string) => (
+                                                                <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+                                                            ));
+                                                    } catch {
+                                                        return null;
+                                                    }
+                                                })()}
+                                            </select>
                                         </div>
                                     </div>
                                 </CardContent>

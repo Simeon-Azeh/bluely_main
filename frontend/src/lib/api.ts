@@ -44,6 +44,7 @@ interface UserData {
     activityLevel?: string;
     reminderEnabled?: boolean;
     shareDataWithDiaBuddy?: boolean;
+    timezone?: string;
     createdAt: string;
     updatedAt: string;
 }
