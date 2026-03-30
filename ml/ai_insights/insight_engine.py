@@ -132,7 +132,7 @@ def _build_summary_prompt(readings_data: List[Dict], profile_data: Dict, preferr
     diabetes_type = profile_data.get("diabetes_type", "unknown")
     name = profile_data.get("name", "there")
 
-    prompt = f"""Generate a friendly DiaBuddy health summary for {name}. Here's their recent data:
+    prompt = f"""Generate a warm, emoji-friendly DiaBuddy health summary for {name}. Here's their recent data:
 
 - Readings count: {len(values)} over recent period
 - Average glucose: {to_display(avg)}
@@ -143,14 +143,16 @@ def _build_summary_prompt(readings_data: List[Dict], profile_data: Dict, preferr
 - Diabetes type: {diabetes_type}
 - Preferred unit: {preferred_unit}
 
-Provide a warm, supportive summary in 4-6 sentences:
-1. Greet them and give an overview of their glucose control
-2. Highlight what's going well (positive reinforcement)
-3. If there are patterns worth noting (too many highs/lows), mention gently
-4. End with one encouraging, actionable suggestion
+Provide a warm, caring, personalized summary in 4-6 sentences:
+1. Greet {name} by name with genuine warmth and give an overview of their glucose control
+2. Celebrate what's going well — use enthusiastic, specific praise (e.g. "That's genuinely impressive!", "You should be proud of that!")
+3. If there are patterns worth noting (too many highs/lows), mention them gently and encouragingly, framing them as opportunities rather than failures
+4. End with one encouraging, actionable suggestion and a motivating sign-off
 
+Use emojis naturally (2-5 total) — e.g. 💙 🌟 ✨ 💪 📊 🎉 🏃 🥗 — to add warmth.
+Use kind, affirming language. Call {name} by name at least once.
 ALWAYS use {preferred_unit} when mentioning glucose values. Never use mg/dL if preferred unit is mmol/L.
-Remember to be supportive and never alarming. Use "around" for numbers."""
+Remember: be supportive, celebratory, and never alarming. Use "around" for numbers."""
 
     return prompt
 
