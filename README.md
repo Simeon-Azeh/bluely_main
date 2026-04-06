@@ -20,7 +20,34 @@
 - [Demo Video](https://youtu.be/g1m0TP3f2tU)
 - [Figma Designs](https://www.figma.com/design/sALKrCy9sCOgeXcA0q99X8/Bluely?node-id=0-1&t=PITyw83mKhcfwPlQ-1)
 
+
+
 A web-based diabetes self-management system designed for users in low- and middle-income settings, with initial deployment targeting Cameroon. Features ML-powered glucose predictions, risk classification, HbA1c estimation, and weekly time-in-range analysis.
+
+## Quick Start
+
+1. Start ML Service → `cd ml && uvicorn server:app`
+2. Start Backend → `cd backend && npm run dev`
+3. Start Frontend → `cd frontend && npm run dev`
+4. Open → http://localhost:3000
+
+## Mobile App (Android APK)
+
+You can download the Bluely mobile app here:
+https://expo.dev/artifacts/eas/8S8mE6fXpJGwg6xeP8LkSH.apk
+
+Installation:
+1. Download APK
+2. Enable "Install from unknown sources"
+3. Install on Android device
+
+## Mobile App Source Code
+
+The mobile application (React Native / Expo) source code is available here:
+
+https://github.com/Simeon-Azeh/bluely_mobile.git
+
+This version demonstrates the transition from web-based access to native mobile interaction, enabling future integration with device sensors such as glucometers.
 
 ## Overview
 
@@ -37,6 +64,7 @@ Bluely is a digital health MVP that enables individuals living with diabetes to:
 ## Supervisor
 
 **Bernard Lamptey** - Project Supervisor
+
 
 ## Tech Stack
 
@@ -446,6 +474,13 @@ Although the platform successfully implements its core MVP functionality, there 
 - **Native mobile apps** — React Native ports of the frontend for iOS and Android app store distribution
 
 ---
+## Known Issues
+
+- Backend service may experience cold-start delays on Render free tier
+- ML service may take a few seconds to initialize on first request
+- Performance depends on network stability
+
+These limitations are related to deployment infrastructure and not system design. 
 
 ## License
 
