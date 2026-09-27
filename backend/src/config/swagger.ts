@@ -32,7 +32,7 @@ const options: swaggerJsdoc.Options = {
                 User: {
                     type: 'object',
                     properties: {
-                        _id: { type: 'string', description: 'MongoDB ObjectId' },
+                        _id: { type: 'string', description: 'Firestore document ID' },
                         firebaseUid: { type: 'string', description: 'Firebase User ID' },
                         email: { type: 'string', format: 'email', description: 'User email' },
                         displayName: { type: 'string', description: 'User display name' },
@@ -57,7 +57,7 @@ const options: swaggerJsdoc.Options = {
                 GlucoseReading: {
                     type: 'object',
                     properties: {
-                        _id: { type: 'string', description: 'MongoDB ObjectId' },
+                        _id: { type: 'string', description: 'Firestore document ID' },
                         userId: { type: 'string', description: 'Reference to User' },
                         firebaseUid: { type: 'string', description: 'Firebase User ID' },
                         value: { type: 'number', description: 'Glucose reading value' },

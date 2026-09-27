@@ -1,4 +1,5 @@
 import { GiAfrica } from 'react-icons/gi';
+import RevealWords from './RevealWords';
 
 const aspirations = [
     { title: 'Education', description: 'Clear diabetes information.' },
@@ -13,7 +14,7 @@ export default function ImpactSection() {
             <div className="pointer-events-none absolute -right-16 top-24 hidden text-[min(62vw,800px)] leading-none text-[#aebeff]/[0.09] lg:block" aria-hidden="true"><GiAfrica /></div>
             <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-10">
                 <p className="text-xs font-bold tracking-[0.17em] text-[#aebeff] sm:text-sm">THE FUTURE WE&apos;RE WORKING TOWARD</p>
-                <h2 id="future-heading" className="mt-6 max-w-[1040px] text-[clamp(2.55rem,5.3vw,6rem)] font-semibold leading-[1.08] tracking-[-0.058em]">A future where every young person living with diabetes in Africa has access to <span className="text-[#aebeff]">understanding, support and a community that listens.</span></h2>
+                <h2 id="future-heading" className="mt-6 max-w-[1040px] text-[clamp(2.55rem,5.3vw,6rem)] font-semibold leading-[1.08] tracking-[-0.058em]"><RevealWords text="A future where every young person living with diabetes in Africa has access to" /> <span className="text-[#aebeff]"><RevealWords text="understanding, support and a community that listens." delay={200} /></span></h2>
                 <div className="mt-16 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:mt-24 lg:grid-cols-4">
                     {aspirations.map(({ title, description }, index) => (
                         <div key={title} className="border-t border-white/30 pt-5">

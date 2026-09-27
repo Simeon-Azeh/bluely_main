@@ -342,6 +342,29 @@ class ApiClient {
         }
     }
 
+    async submitStory(data: {
+        name: string;
+        email: string;
+        phone?: string;
+        location: string;
+        diabetesType: string;
+        diagnosisYear?: number;
+        story: string;
+        permissionToContact: boolean;
+    }): Promise<{ success: boolean; storySubmission: { id: string } }> {
+        return this.request<{ success: boolean; storySubmission: { id: string } }>('/stories', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async subscribeToNewsletter(email: string): Promise<{ success: boolean; alreadySubscribed: boolean }> {
+        return this.request<{ success: boolean; alreadySubscribed: boolean }>('/newsletter', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        });
+    }
+
     // User endpoints
     async createUser(data: { firebaseUid: string; email: string; displayName?: string }): Promise<UserData> {
         return this.request<UserData>('/users', {

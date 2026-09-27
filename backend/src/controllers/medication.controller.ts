@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Medication, MedicationLog, User } from '../models';
-import type { IMedicationLog } from '../models/MedicationLog';
+import type { IMedicationLog } from '../models';
 
 // Create a medication
 export const createMedication = async (req: Request, res: Response): Promise<void> => {

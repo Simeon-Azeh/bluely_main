@@ -570,19 +570,19 @@ When inputs are missing, the API returns a 422 with:
 
 ## Node.js Backend Integration
 
-The Express backend proxies requests to the ML FastAPI server, gathering context from MongoDB automatically.
+The Express backend proxies requests to the ML FastAPI server, gathering context from Firestore automatically.
 
 ### Architecture
 
 ```
 Frontend -> Express Backend -> FastAPI ML Server
                 |
-           MongoDB (context gathering)
+           Firestore (context gathering)
 ```
 
 ### Context Gathering
 
-The `gatherPredictionContext()` function in `predict.controller.ts` queries 7 MongoDB collections in parallel:
+The `gatherPredictionContext()` function in `predict.controller.ts` queries 7 Firestore collections in parallel:
 
 | Collection | Query | Used For |
 |-----------|-------|----------|
@@ -739,7 +739,7 @@ The endpoint generates human-readable insights, e.g.:
                                   |
                          +--------v---------+
                          |                  |
-                         |   MongoDB Atlas  |
+                         |    Firestore    |
                          |                  |
                          |  - Users         |
                          |  - GlucoseReadings|
@@ -774,13 +774,15 @@ See `render.yaml` for the full blueprint. Key settings:
 |----------|-------|
 | `PYTHON_VERSION` | `3.12.7` |
 | `PORT` | `8000` |
+| `FIREBASE_PROJECT_ID` | Firebase project ID |
+| `FIREBASE_CLIENT_EMAIL` | Firebase Admin client email |
+| `FIREBASE_PRIVATE_KEY` | Firebase Admin private key |
 
 **Backend:**
 
 | Variable | Value |
 |----------|-------|
 | `ML_API_URL` | `https://bluely-ml.onrender.com` |
-| `MONGODB_URI` | MongoDB Atlas connection string |
 | `FIREBASE_*` | Firebase credentials |
 
 ### Deployment Order

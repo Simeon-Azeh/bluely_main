@@ -11,16 +11,19 @@ Stores:
   - ewma_residual: Exponentially weighted moving average of recent prediction errors
   - training_samples: Number of readings used to compute these parameters
 
-Persistence: JSON files in ml/patient_profiles/{user_id}.json
+Persistence: Firestore documents in patientModelProfiles/{user_id}
 """
 
 import os
-import json
+import re
+import firebase_admin
+from firebase_admin import credentials, firestore
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List
 from datetime import datetime
 
-PROFILES_DIR = os.path.join(os.path.dirname(__file__), "..", "patient_profiles")
+COLLECTION_NAME = "patientModelProfiles"
+_firestore_client = None
 
 
 @dataclass
@@ -46,11 +49,33 @@ class PatientProfile:
         return asdict(self)
 
 
-def _profile_path(user_id: str) -> str:
-    """Get the file path for a patient profile."""
-    os.makedirs(PROFILES_DIR, exist_ok=True)
-    safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in user_id)
-    return os.path.join(PROFILES_DIR, f"{safe_id}.json")
+def _get_firestore_client():
+    """Initialize Firebase Admin once and return the shared Firestore client."""
+    global _firestore_client
+    if _firestore_client is not None:
+        return _firestore_client
+
+    if not firebase_admin._apps:
+        project_id = os.getenv("FIREBASE_PROJECT_ID")
+        client_email = os.getenv("FIREBASE_CLIENT_EMAIL")
+        private_key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n")
+        if project_id and client_email and private_key:
+            firebase_admin.initialize_app(credentials.Certificate({
+                "project_id": project_id,
+                "client_email": client_email,
+                "private_key": private_key,
+                "token_uri": "https://oauth2.googleapis.com/token",
+            }))
+        else:
+            firebase_admin.initialize_app(options={"projectId": project_id or "bluely-development"})
+
+    _firestore_client = firestore.client()
+    return _firestore_client
+
+
+def _document_id(user_id: str) -> str:
+    """Create a Firestore-safe deterministic document ID for a Firebase UID."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", user_id)
 
 
 def load_patient_profile(user_id: str) -> PatientProfile:
@@ -63,12 +88,21 @@ def load_patient_profile(user_id: str) -> PatientProfile:
     Returns:
         PatientProfile with stored parameters or defaults.
     """
-    path = _profile_path(user_id)
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            data = json.load(f)
-        return PatientProfile(**data)
-    return PatientProfile(user_id=user_id)
+    snapshot = _get_firestore_client().collection(COLLECTION_NAME).document(_document_id(user_id)).get()
+    if not snapshot.exists:
+        return PatientProfile(user_id=user_id)
+    data = snapshot.to_dict() or {}
+    return PatientProfile(
+        user_id=data.get("user_id", user_id),
+        baseline_glucose_bias=float(data.get("baseline_glucose_bias", 0.0)),
+        insulin_sensitivity_factor=float(data.get("insulin_sensitivity_factor", 1.0)),
+        carb_response_factor=float(data.get("carb_response_factor", 1.0)),
+        activity_response_factor=float(data.get("activity_response_factor", 1.0)),
+        ewma_residual=float(data.get("ewma_residual", 0.0)),
+        training_samples=int(data.get("training_samples", 0)),
+        recent_residuals=list(data.get("recent_residuals", [])),
+        last_updated=data.get("last_updated"),
+    )
 
 
 def save_patient_profile(profile: PatientProfile) -> None:
@@ -78,7 +112,8 @@ def save_patient_profile(profile: PatientProfile) -> None:
     Args:
         profile: PatientProfile instance to save.
     """
-    path = _profile_path(profile.user_id)
     profile.last_updated = datetime.utcnow().isoformat()
-    with open(path, "w") as f:
-        json.dump(profile.to_dict(), f, indent=2)
+    _get_firestore_client().collection(COLLECTION_NAME).document(_document_id(profile.user_id)).set({
+        **profile.to_dict(),
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }, merge=True)

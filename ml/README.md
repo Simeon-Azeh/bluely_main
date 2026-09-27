@@ -53,6 +53,8 @@ Output files:
 uvicorn server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+The ML service reads and writes patient personalization profiles in the Firestore `patientModelProfiles` collection. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` in the ML environment. Prediction context is gathered by the Node backend and sent to this service over HTTP.
+
 ### 6. Test the endpoints
 
 **Risk prediction:**

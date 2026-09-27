@@ -1,0 +1,36 @@
+.reveal {
+    display: inline;
+}
+
+.word {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+}
+
+.inner {
+    display: inline-block;
+    opacity: 0;
+    transform: translate3d(0, 105%, 0);
+    transition: transform 760ms cubic-bezier(0.22, 1, 0.36, 1), opacity 760ms ease;
+}
+
+.reveal[data-visible='true'] .inner {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .inner {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+}
+
+@media (scripting: none) {
+    .inner {
+        opacity: 1;
+        transform: none;
+    }
+}

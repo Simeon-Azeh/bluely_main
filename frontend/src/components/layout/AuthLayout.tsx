@@ -17,7 +17,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
     const router = useRouter();
     const pathname = usePathname();
 
-    const publicRoutes = ['/', '/channels', '/resources', '/login', '/signup', '/forgot-password', '/terms', '/privacy', '/medical-disclaimer'];
+    const publicRoutes = ['/', '/channels', '/resources', '/share-your-story', '/login', '/signup', '/forgot-password', '/terms', '/privacy', '/medical-disclaimer'];
     const fullScreenRoutes = ['/onboarding']; // Routes that need full screen (no sidebar)
     // Pages that require email verification to access
     const emailVerificationRequired = ['/glucose', '/meals', '/medications', '/insights', '/history', '/notifications'];

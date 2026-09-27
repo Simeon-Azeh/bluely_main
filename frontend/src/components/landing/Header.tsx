@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { FiArrowRight, FiChevronDown, FiExternalLink, FiHeart, FiLogIn, FiMenu, FiMonitor, FiX } from 'react-icons/fi';
+import { FiArrowRight, FiChevronDown, FiExternalLink, FiHeart, FiLogIn, FiMonitor } from 'react-icons/fi';
 import { FaApple, FaGooglePlay, FaTelegramPlane, FaWhatsapp } from 'react-icons/fa';
 import ArrowCircle from './ArrowCircle';
 
@@ -29,6 +29,16 @@ const botLinks = [
     { href: '/channels#telegram', label: 'Telegram bot', description: 'Bluely in apps you use · soon', icon: FaTelegramPlane },
     { href: '/channels#whatsapp', label: 'WhatsApp bot', description: 'Bluely in apps you use · soon', icon: FaWhatsapp },
 ];
+
+function MenuGlyph({ open }: { open: boolean }) {
+    return (
+        <span className="relative block h-6 w-7" aria-hidden="true">
+            <span className={`absolute left-1/2 top-1/2 block h-0.5 rounded-full bg-current transition-[width,transform] duration-300 ${open ? 'w-7 -translate-x-1/2 -translate-y-1/2 rotate-45' : 'w-7 -translate-x-1/2 -translate-y-2.25'}`} />
+            <span className={`absolute left-1/2 top-1/2 block h-0.5 rounded-full bg-current transition-[opacity,transform,width] duration-200 ${open ? 'w-5 -translate-x-1/2 opacity-0' : 'w-5 -translate-x-1/2'}`} />
+            <span className={`absolute left-1/2 top-1/2 block h-0.5 rounded-full bg-current transition-[width,transform] duration-300 ${open ? 'w-7 -translate-x-1/2 -translate-y-1/2 -rotate-45' : 'w-6 -translate-x-1/2 translate-y-1.75'}`} />
+        </span>
+    );
+}
 
 export default function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -148,14 +158,16 @@ export default function Header() {
                     <Link href="/#support" className="inline-flex items-center gap-1.5 rounded-full border border-[#1F2F98] px-3.5 py-2.5 text-sm font-bold text-[#1F2F98] transition-colors hover:bg-[#e9edfc] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F2F98]"><FiHeart aria-hidden="true" className="h-4 w-4" /> Donate</Link>
                     <Link href="/signup" className="group inline-flex items-center gap-2 rounded-full bg-[#1F2F98] py-1.5 pl-4 pr-1.5 text-sm font-bold text-white transition-colors hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F2F98]">Get Started <ArrowCircle tone="blue" className="h-7 w-7" /></Link>
                 </div>
-                <button ref={menuTriggerRef} type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Open menu" aria-expanded={isMobileMenuOpen} aria-controls="mobile-navigation" className="rounded-xl border border-[#dce4f5] bg-white/70 p-2.5 text-[#1F2F98] focus-visible:outline-2 focus-visible:outline-[#1F2F98] xl:hidden"><FiMenu className="h-5 w-5" /></button>
+                <button ref={menuTriggerRef} type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Open menu" aria-expanded={isMobileMenuOpen} aria-controls="mobile-navigation" className="relative h-11 w-11 rounded-xl p-2 text-[#1F2F98] focus-visible:outline-2 focus-visible:outline-[#1F2F98] xl:hidden">
+                    <MenuGlyph open={isMobileMenuOpen} />
+                </button>
             </div>
 
-            <div className={`fixed inset-0 z-[110] bg-[#0d1b44]/35 transition-[opacity,visibility] duration-300 motion-reduce:transition-none xl:hidden ${isMobileMenuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`} onClick={closeMenus} aria-hidden="true" />
-            <div ref={drawerRef} id="mobile-navigation" role="dialog" aria-label="Mobile navigation" aria-modal={isMobileMenuOpen} aria-hidden={!isMobileMenuOpen} className={`fixed inset-y-0 right-0 z-[120] flex h-dvh w-[min(92vw,420px)] flex-col border-l border-[#dce4f5] bg-[#f8faff] shadow-[-25px_0_65px_rgba(13,27,68,0.18)] transition-[transform,visibility] duration-300 ease-out motion-reduce:transition-none xl:hidden ${isMobileMenuOpen ? 'visible translate-x-0' : 'invisible translate-x-full'}`}>
+            <div className={`fixed inset-0 z-[110] bg-[#0d1b44]/35 transition-[opacity,visibility] delay-75 duration-500 ease-out motion-reduce:transition-none xl:hidden ${isMobileMenuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`} onClick={closeMenus} aria-hidden="true" />
+            <div ref={drawerRef} id="mobile-navigation" role="dialog" aria-label="Mobile navigation" aria-modal={isMobileMenuOpen} aria-hidden={!isMobileMenuOpen} className={`fixed inset-y-0 left-0 z-[120] flex h-dvh w-full flex-col border-r border-[#dce4f5] bg-[#f8faff] shadow-[25px_0_65px_rgba(13,27,68,0.18)] transition-[transform,visibility] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none xl:hidden ${isMobileMenuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'}`}>
                 <div className="flex shrink-0 items-center justify-between border-b border-[#e2e8f6] px-5 py-5">
                     <Image src="/icons/full_logotext.png" alt="Bluely" width={130} height={40} />
-                    <button ref={drawerCloseRef} type="button" onClick={closeMenus} aria-label="Close menu" className="rounded-xl border border-[#dce4f5] p-2.5 text-[#1F2F98] focus-visible:outline-2 focus-visible:outline-[#1F2F98]"><FiX className="h-5 w-5" /></button>
+                    <button ref={drawerCloseRef} type="button" onClick={closeMenus} aria-label="Close menu" className="rounded-xl p-2 text-[#1F2F98] focus-visible:outline-2 focus-visible:outline-[#1F2F98]"><MenuGlyph open /></button>
                 </div>
                 <nav aria-label="Mobile navigation" className={`min-h-0 flex-1 overflow-y-auto px-5 py-6 transition-[opacity,transform] delay-75 duration-300 motion-reduce:transition-none ${isMobileMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
                     <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[#7481a1]">Explore Bluely</p>

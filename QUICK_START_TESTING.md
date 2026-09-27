@@ -9,7 +9,7 @@
 cd backend
 npm run dev
 ```
-Expected: "Server running on port 5000" + "MongoDB connected"
+Expected: "Server running on port 5000" + "Firestore initialized"
 
 **Terminal 2 - Frontend:**
 ```bash

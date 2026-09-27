@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import ArrowCircle from './ArrowCircle';
+import RevealWords from './RevealWords';
 
 export default function ShareStorySection() {
     return (
@@ -14,10 +15,10 @@ export default function ShareStorySection() {
                 </div>
                 <div className="lg:py-8">
                     <p className="text-xs font-bold tracking-[0.17em] text-[#1F2F98] sm:text-sm">YOUR EXPERIENCE MATTERS</p>
-                    <h2 id="share-story-heading" className="mt-5 max-w-[700px] text-[clamp(2.75rem,5vw,5.5rem)] font-semibold leading-[1.08] tracking-[-0.055em]">Your story might be exactly what someone else needs to hear.</h2>
+                    <h2 id="share-story-heading" className="mt-5 max-w-[700px] text-[clamp(2.75rem,5vw,5.5rem)] font-semibold leading-[1.08] tracking-[-0.055em]"><RevealWords text="Your story might be exactly what someone else needs to hear." /></h2>
                     <p className="mt-7 max-w-[570px] text-base leading-[1.8] text-[#52617d] sm:text-lg">Living with diabetes comes with moments people don&apos;t always see. Share your experience with Bluely and help another young person feel a little less alone.</p>
                     <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-5">
-                        <a href="mailto:support@bluely.health?subject=Share%20my%20Bluely%20story" className="group inline-flex min-h-13 items-center gap-4 rounded-full bg-[#1F2F98] py-2 pl-6 pr-2 text-sm font-bold text-white transition-colors hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Share Your Story <ArrowCircle tone="blue" /></a>
+                        <Link href="/share-your-story" className="group inline-flex min-h-13 items-center gap-4 rounded-full bg-[#1F2F98] py-2 pl-6 pr-2 text-sm font-bold text-white transition-colors hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Share Your Story <ArrowCircle tone="blue" /></Link>
                         <Link href="/#stories" className="group inline-flex min-h-12 items-center gap-3 border-b border-[#1F2F98] text-sm font-bold text-[#1F2F98] transition-colors hover:text-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Watch Stories <ArrowCircle tone="text" /></Link>
                     </div>
                     <p className="mt-8 border-l-2 border-[#8293da] pl-4 text-sm leading-[1.6] text-[#52617d]">You choose what you&apos;re comfortable sharing.</p>

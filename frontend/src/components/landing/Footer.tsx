@@ -25,7 +25,7 @@ const footerGroups = [
         links: [
             { label: 'Donate', href: '/#support' },
             { label: 'Partner With Us', href: '/#mission' },
-            { label: 'Share Your Story', href: '/#share-your-story' },
+            { label: 'Share Your Story', href: '/share-your-story' },
             { label: 'Volunteer', href: 'mailto:support@bluely.health?subject=Volunteer%20with%20Bluely' },
         ],
     },

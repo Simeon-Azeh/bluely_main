@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiPause, FiPlay } from 'react-icons/fi';
 import ArrowCircle from './ArrowCircle';
+import RevealWords from './RevealWords';
 import StoryVideoCard from './StoryVideoCard';
 import { stories } from './storyData';
 import styles from './StoryCarousel.module.css';
@@ -25,7 +26,7 @@ export default function MissionSection() {
             <div className="mx-auto grid max-w-[1440px] gap-6 px-5 pb-10 pt-20 sm:px-8 sm:pt-24 lg:grid-cols-[minmax(0,59fr)_minmax(0,41fr)] lg:items-end lg:gap-16 lg:px-10 lg:pb-12 lg:pt-28">
                 <div>
                     <p className="text-xs font-bold tracking-[0.17em] text-[#b9cbff] sm:text-sm">BEYOND THE NUMBERS</p>
-                    <h2 id="stories-heading" className="mt-5 max-w-[760px] text-[clamp(2.65rem,4.9vw,5.25rem)] font-semibold leading-[1.08] tracking-[-0.055em]">Every diagnosis has<br />a story behind it.</h2>
+                    <h2 id="stories-heading" className="mt-5 max-w-[760px] text-[clamp(2.65rem,4.9vw,5.25rem)] font-semibold leading-[1.08] tracking-[-0.055em]"><RevealWords text="Every diagnosis has" /><br /><RevealWords text="a story behind it." delay={180} /></h2>
                 </div>
                 <div className="lg:pb-2">
                     <p className="max-w-[460px] text-base leading-[1.8] text-[#d6def2] sm:text-lg">Bluely is creating a space for young people living with diabetes to share their experiences, feel heard and remind others that they are not alone.</p>
@@ -66,7 +67,7 @@ export default function MissionSection() {
                         <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
                             {/* Temporary partnership contact until a dedicated partner enquiry route exists. */}
                             <a href="mailto:support@bluely.health?subject=Partner%20with%20Bluely" className="group inline-flex min-h-13 items-center gap-4 rounded-full bg-[#1F2F98] py-2 pl-6 pr-2 text-sm font-bold text-white hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Become a Partner <ArrowCircle tone="blue" /></a>
-                            <Link href="#vision" className="inline-flex min-h-12 items-center border-b border-[#1F2F98] text-sm font-semibold text-[#1F2F98] hover:text-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Learn More</Link>
+                            <Link href="#future" className="inline-flex min-h-12 items-center border-b border-[#1F2F98] text-sm font-semibold text-[#1F2F98] hover:text-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Learn More</Link>
                         </div>
                         <div className="mt-11 border-t border-[#cbd5ed] pt-5">
                             <p className="text-xs font-bold tracking-[0.16em] text-[#1F2F98]">PARTNER WITH US</p>

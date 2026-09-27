@@ -105,7 +105,7 @@ export default function PrivacyPage() {
                             </ul>
                             <h3 className="text-lg font-medium text-gray-800 mb-2 mt-4">2.5 Community Updates Requests</h3>
                             <p className="text-gray-600 leading-relaxed">
-                                If you use the homepage form to request community updates, your email app sends us your email address and message. The form itself does not automatically subscribe you.
+                                If you use the homepage form to join community updates, we store your email address so we can send the updates you requested. You can ask us to stop sending updates at any time by emailing support@bluely.health.
                             </p>
                         </section>
 

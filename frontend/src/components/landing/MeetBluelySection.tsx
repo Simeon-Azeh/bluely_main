@@ -1,5 +1,6 @@
 ﻿import Link from 'next/link';
 import ArrowCircle from './ArrowCircle';
+import RevealWords from './RevealWords';
 
 function ProductPreview() {
     return (
@@ -43,7 +44,7 @@ export default function MeetBluelySection() {
             <div className="mx-auto grid max-w-[1440px] items-center gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,43fr)_minmax(0,57fr)] lg:gap-10 lg:px-10">
                 <div className="max-w-[590px]">
                     <p className="text-xs font-bold tracking-[0.17em] text-[#1F2F98] sm:text-sm">BUILT FOR EVERYDAY LIFE</p>
-                    <h2 id="meet-bluely-heading" className="mt-6 text-[clamp(2.75rem,4.6vw,5rem)] font-semibold leading-[1.1] tracking-[-0.055em]">Understand your diabetes. <span className="block text-[#1F2F98]">Not just your numbers.</span></h2>
+                    <h2 id="meet-bluely-heading" className="mt-6 text-[clamp(2.75rem,4.6vw,5rem)] font-semibold leading-[1.1] tracking-[-0.055em]"><RevealWords text="Understand your diabetes." /> <span className="block text-[#1F2F98]"><RevealWords text="Not just your numbers." delay={180} /></span></h2>
                     <p className="mt-7 max-w-[530px] text-base leading-[1.8] text-[#4c5c78] sm:text-lg">Bluely brings glucose, meals, activity and everyday habits together, helping you recognise patterns and better understand what affects your health.</p>
                     <div className="mt-9 flex flex-wrap items-center gap-6">
                         <Link href="/signup" className="group inline-flex min-h-13 items-center gap-4 rounded-full bg-[#1F2F98] py-2 pl-6 pr-2 text-sm font-bold text-white transition-colors hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">Explore the Platform <ArrowCircle tone="blue" /></Link>
