@@ -33,7 +33,7 @@ export default function PrivacyPage() {
             <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-10">
                     <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Privacy & Data Protection</h1>
-                    <p className="text-gray-500 mb-8">Last updated: March 7, 2026</p>
+                    <p className="text-gray-500 mb-8">Last updated: September 27, 2026</p>
 
                     <div className="prose prose-gray max-w-none space-y-8">
                         {/* Introduction */}
@@ -103,6 +103,10 @@ export default function PrivacyPage() {
                                 <li>Firebase authentication tokens (for secure API access)</li>
                                 <li>App usage patterns (features accessed, interaction timestamps)</li>
                             </ul>
+                            <h3 className="text-lg font-medium text-gray-800 mb-2 mt-4">2.5 Community Updates Requests</h3>
+                            <p className="text-gray-600 leading-relaxed">
+                                If you use the homepage form to request community updates, your email app sends us your email address and message. The form itself does not automatically subscribe you.
+                            </p>
                         </section>
 
                         {/* 3. How We Use Your Data */}
@@ -146,6 +150,10 @@ export default function PrivacyPage() {
                                 <li>Sending email verification and password reset emails</li>
                                 <li>Delivering optional medication and glucose logging reminders</li>
                             </ul>
+                            <h3 className="text-lg font-medium text-gray-800 mb-2 mt-4">3.4 Community Updates</h3>
+                            <p className="text-gray-600 leading-relaxed">
+                                We use an email address you send us to respond to your request for community updates and, if we add you to our list, to send the updates you requested. You can ask us to stop by emailing support@bluely.health.
+                            </p>
                         </section>
 
                         {/* 4. Legal Basis */}

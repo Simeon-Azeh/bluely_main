@@ -1,132 +1,39 @@
-'use client';
-
 import Link from 'next/link';
-import { FiArrowRight, FiDroplet, FiPieChart, FiTrendingUp, FiCheck } from 'react-icons/fi';
+import Image from 'next/image';
+import ArrowCircle from './ArrowCircle';
 
 export default function HeroSection() {
     return (
-        <section className="relative overflow-hidden bg-gradient-to-b from-[#1F2F98]/5 via-white to-white py-16 lg:py-24">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-                    {/* Left: Text Content */}
-                    <div className="text-center lg:text-left">
-                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight">
-                            Diabetes management shouldn&apos;t feel{' '}
-                            <span className="text-[#1F2F98]">confusing.</span>
-                        </h1>
-
-                        <p className="mt-6 text-xl text-gray-600 leading-relaxed">
-                            Bluely helps people living with diabetes understand their daily habits — meals, glucose, and lifestyle — and turn them into simple, actionable insights.
-                        </p>
-
-                        <p className="mt-4 text-lg text-[#1F2F98] font-medium">
-                            Built for African realities. Designed for everyday life.
-                        </p>
-
-                        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                            <Link
-                                href="/signup"
-                                className="inline-flex items-center justify-center bg-[#1F2F98] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#1F2F98]/90 transition-all shadow-lg shadow-[#1F2F98]/20 hover:-translate-y-0.5"
-                            >
-                                Get Started
-                                <FiArrowRight className="ml-2 w-5 h-5" />
-                            </Link>
-                            <Link
-                                href="/login"
-                                className="inline-flex items-center justify-center bg-white text-gray-700 px-8 py-4 rounded-xl font-semibold text-lg border border-gray-200 hover:border-[#1F2F98] hover:text-[#1F2F98] transition-all"
-                            >
-                                Log In
-                            </Link>
-                        </div>
+        <section className="relative overflow-hidden bg-[#f6f8ff] text-[#12204a] dark:bg-[#f6f8ff] dark:text-[#12204a]" aria-labelledby="hero-heading">
+            <div className="mx-auto grid max-w-[1440px] items-center gap-10 px-5 pb-9 pt-10 sm:px-8 sm:pt-14 lg:min-h-[700px] lg:grid-cols-[minmax(0,49fr)_minmax(0,51fr)] lg:gap-6 lg:px-10 lg:pb-12 lg:pt-16 xl:min-h-[760px]">
+                <div className="relative z-10 max-w-[690px] lg:pb-12">
+                    <h1 id="hero-heading" className="max-w-[680px] text-[clamp(2.75rem,4.9vw,5.4rem)] font-semibold leading-[1.08] tracking-[-0.06em]">
+                        Diabetes is part of their story.
+                        <span className="mt-2 block font-medium text-[#1F2F98]">It doesn&apos;t have to define it.</span>
+                    </h1>
+                    <p className="mt-7 max-w-[570px] text-[1.03rem] leading-[1.8] text-[#42516e] sm:text-lg">
+                        Bluely brings technology, education and community together to help young people living with diabetes understand their health, share their experiences and feel heard.
+                    </p>
+                    <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
+                        <Link href="#meet-bluely" className="group inline-flex min-h-13 items-center gap-4 rounded-full bg-[#1F2F98] py-2 pl-6 pr-2 text-sm font-bold text-white shadow-[0_10px_25px_rgba(31,47,152,0.16)] transition-transform hover:-translate-y-0.5 hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] motion-reduce:transform-none sm:text-base">
+                            Explore Bluely <ArrowCircle tone="blue" />
+                        </Link>
+                        <Link href="#share-your-story" className="inline-flex min-h-12 items-center border-b-2 border-[#1F2F98] text-sm font-bold text-[#1F2F98] transition-colors hover:border-[#7485df] hover:text-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">
+                            Share Your Story
+                        </Link>
                     </div>
+                </div>
 
-                    {/* Right: Dashboard Mockup */}
-                    <div className="relative">
-                        <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 p-6 border border-gray-100">
-                            {/* Dashboard Header */}
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <p className="text-sm text-gray-500">Good morning</p>
-                                    <h3 className="text-xl font-bold text-gray-900">Your Dashboard</h3>
-                                </div>
-                                <div className="w-10 h-10 bg-[#1F2F98]/10 rounded-full flex items-center justify-center">
-                                    <FiDroplet className="w-5 h-5 text-[#1F2F98]" />
-                                </div>
-                            </div>
-
-                            {/* Stats Cards */}
-                            <div className="grid grid-cols-3 gap-3 mb-6">
-                                <div className="bg-[#1F2F98]/5 rounded-xl p-4">
-                                    <FiDroplet className="w-5 h-5 text-[#1F2F98] mb-2" />
-                                    <p className="text-2xl font-bold text-gray-900">112</p>
-                                    <p className="text-xs text-gray-500">mg/dL avg</p>
-                                </div>
-                                <div className="bg-green-50 rounded-xl p-4">
-                                    <FiPieChart className="w-5 h-5 text-green-600 mb-2" />
-                                    <p className="text-2xl font-bold text-gray-900">78%</p>
-                                    <p className="text-xs text-gray-500">In range</p>
-                                </div>
-                                <div className="bg-orange-50 rounded-xl p-4">
-                                    <FiTrendingUp className="w-5 h-5 text-orange-500 mb-2" />
-                                    <p className="text-2xl font-bold text-gray-900">5</p>
-                                    <p className="text-xs text-gray-500">Day streak</p>
-                                </div>
-                            </div>
-
-                            {/* Glucose Trend */}
-                            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-sm font-medium text-gray-700">Weekly Trend</p>
-                                    <span className="text-xs text-green-600 font-medium">↓ 8% from last week</span>
-                                </div>
-                                <div className="flex items-end justify-between h-16 gap-2">
-                                    {[65, 80, 55, 70, 85, 60, 75].map((height, i) => (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                            <div
-                                                className="w-full bg-[#1F2F98]/20 rounded-t-sm transition-all hover:bg-[#1F2F98]/40"
-                                                style={{ height: `${height}%` }}
-                                            />
-                                            <span className="text-[10px] text-gray-400">
-                                                {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Insight Card */}
-                            <div className="bg-gradient-to-r from-[#1F2F98] to-[#3B4CC0] rounded-xl p-4 text-white">
-                                <p className="text-xs font-medium opacity-80 mb-1"> Insight</p>
-                                <p className="text-sm">
-                                    Your morning readings are usually higher. Consider checking before breakfast.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Floating Elements */}
-                        <div className="absolute -top-4 -right-4 bg-white rounded-2xl shadow-lg p-3 border border-gray-100 hidden lg:block">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                    <FiCheck className="w-4 h-4 text-green-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-gray-900">Reading logged</p>
-                                    <p className="text-[10px] text-gray-500">Just now</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-lg p-3 border border-gray-100 hidden lg:block">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-[#1F2F98]/10 rounded-full flex items-center justify-center">
-
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-gray-900">Meal logged</p>
-                                    <p className="text-[10px] text-gray-500">Lunch • 450 kcal</p>
-                                </div>
-                            </div>
-                        </div>
+                <div className="relative min-w-0 pb-12 sm:pb-16 lg:pb-20">
+                    <div className="absolute -right-8 -top-7 h-[85%] w-[88%] rounded-[44%_56%_42%_58%] bg-[#dfe7ff]" aria-hidden="true" />
+                    <div className="relative h-[390px] overflow-hidden rounded-t-[43%] rounded-b-[18px] bg-[#c5d0e9] sm:h-[490px] lg:h-[585px] xl:h-[640px]">
+                        {/* Generated placeholder portrait; replace with approved Bluely photography when available. */}
+                        <Image src="/images/bluely-teen-hero.png" alt="Young African person checking a glucose meter before a meal at home" fill priority sizes="(max-width: 1024px) 100vw, 51vw" className="object-cover object-[68%_center]" />
+                    </div>
+                    <div id="story" className="absolute -bottom-1 left-3 right-3 max-w-[380px] scroll-mt-28 border-l-[3px] border-[#9bb2f9] bg-[#15295b] px-5 py-4 text-white shadow-[0_15px_35px_rgba(12,28,70,0.22)] sm:left-[-24px] sm:px-7 sm:py-5 lg:bottom-5 lg:left-[-48px]">
+                        <p className="text-[11px] font-bold tracking-[0.19em] text-[#bdcbff]">STORY SPACE</p>
+                        <p className="mt-2 text-base leading-snug sm:text-lg">A space for young people to share more than their numbers.</p>
+                        <p className="mt-2 text-xs text-[#cbd6f1]">Bluely&apos;s community vision</p>
                     </div>
                 </div>
             </div>

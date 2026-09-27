@@ -24,7 +24,7 @@ import {
     FiLock
 } from 'react-icons/fi';
 import { TbPill } from 'react-icons/tb';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import PageSkeleton from '../ui/PageSkeleton';
 import FloatingChat from '../dashboard/FloatingChat';
 import api from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -101,25 +101,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         return () => clearInterval(interval);
     }, [user]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 dark:bg-[#121212] dark:bg-none">
-                <div className="text-center">
-                    <div className="w-20 h-20 bg-[#1F2F98] rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <Image
-                            src="/icons/logo_white.png"
-                            alt="Bluely"
-                            width={48}
-                            height={48}
-                            className="w-48 h-12"
-                        />
-                    </div>
-                    <LoadingSpinner size="lg" />
-                    <p className="mt-4 text-gray-600 font-medium">Loading your dashboard...</p>
-                </div>
-            </div>
-        );
-    }
+    if (loading) return <PageSkeleton variant="app" />;
 
     if (!user) {
         return null;

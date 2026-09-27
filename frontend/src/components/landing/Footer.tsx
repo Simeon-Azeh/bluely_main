@@ -1,125 +1,72 @@
-'use client';
-
 import Link from 'next/link';
-import Image from 'next/image';
 import { FiHeart } from 'react-icons/fi';
 
+const footerGroups = [
+    {
+        title: 'EXPLORE',
+        links: [
+            { label: 'About', href: '/#more-than-an-app' },
+            { label: 'What We Do', href: '/#future' },
+            { label: 'Platform', href: '/#meet-bluely' },
+            { label: 'Our Mission', href: '/#mission' },
+        ],
+    },
+    {
+        title: 'COMMUNITY',
+        links: [
+            { label: 'Stories', href: '/#stories' },
+            { label: 'Resources', href: '/resources' },
+            { label: 'Diabetes 101', href: '/resources/understanding-type-1-diabetes' },
+            { label: 'For Families', href: '/resources/supporting-someone-with-t1d' },
+        ],
+    },
+    {
+        title: 'GET INVOLVED',
+        links: [
+            { label: 'Donate', href: '/#support' },
+            { label: 'Partner With Us', href: '/#mission' },
+            { label: 'Share Your Story', href: '/#share-your-story' },
+            { label: 'Volunteer', href: 'mailto:support@bluely.health?subject=Volunteer%20with%20Bluely' },
+        ],
+    },
+];
+
 export default function Footer() {
-    const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-        e.preventDefault();
-        const element = document.querySelector(href);
-        if (element) {
-            const offset = 80;
-            const elementPosition = element.getBoundingClientRect().top;
-            const offsetPosition = elementPosition + window.pageYOffset - offset;
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            });
-        }
-    };
-
     return (
-        <footer className="bg-gray-900 text-gray-400">
-            {/* Main Footer */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-                    {/* Brand Column */}
-                    <div className="lg:col-span-2">
-                        <Image
-                            src="/icons/full_logotext_white.png"
-                            alt="Bluely"
-                            width={140}
-                            height={42}
-                            className="h-26 w-auto mb-4"
-                        />
-                        <p className="text-gray-400 leading-relaxed max-w-md">
-                            Bluely helps people living with diabetes understand their daily habits and turn them into simple, actionable insights. Built for African realities.
-                        </p>
-                        <div className="mt-6 flex items-center gap-2">
-
-                            <span className="text-sm text-gray-500">Diabetes self-management for Africa</span>
-                        </div>
-                    </div>
-
-                    {/* Quick Links */}
+        <footer className="bg-[#101d40] text-white">
+            <div className="mx-auto max-w-[1440px] px-5 pt-20 sm:px-8 sm:pt-24 lg:px-10 lg:pt-28">
+                <div className="grid gap-16 lg:grid-cols-[minmax(0,44fr)_minmax(0,56fr)] lg:gap-14">
                     <div>
-                        <h4 className="font-semibold text-white mb-4">Quick Links</h4>
-                        <ul className="space-y-3">
-                            <li>
-                                <a
-                                    href="#about"
-                                    onClick={(e) => scrollToSection(e, '#about')}
-                                    className="hover:text-white transition-colors"
-                                >
-                                    About Bluely
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#how-it-works"
-                                    onClick={(e) => scrollToSection(e, '#how-it-works')}
-                                    className="hover:text-white transition-colors"
-                                >
-                                    How It Works
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#features"
-                                    onClick={(e) => scrollToSection(e, '#features')}
-                                    className="hover:text-white transition-colors"
-                                >
-                                    Features
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#vision"
-                                    onClick={(e) => scrollToSection(e, '#vision')}
-                                    className="hover:text-white transition-colors"
-                                >
-                                    Our Vision
-                                </a>
-                            </li>
-                        </ul>
+                        <Link href="/" className="inline-block text-[clamp(3.7rem,7vw,7.5rem)] font-semibold leading-none tracking-[-0.08em] text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">BLUELY</Link>
+                        <p className="mt-8 max-w-[490px] text-[clamp(1.65rem,2.4vw,2.6rem)] font-medium leading-[1.26] tracking-[-0.04em]">Living with diabetes is more than managing numbers.</p>
+                        <p className="mt-5 max-w-[440px] text-base leading-[1.8] text-[#b7c4e1] sm:text-lg">We&apos;re building technology, community and understanding around the people behind them.</p>
                     </div>
+                    <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 sm:gap-x-9 lg:pt-6">
+                        {footerGroups.map((group) => (
+                            <div key={group.title}>
+                                <h2 className="text-xs font-bold tracking-[0.17em] text-[#9eb1e8]">{group.title}</h2>
+                                <ul className="mt-6 space-y-4">
+                                    {group.links.map((link) => <li key={link.label}><Link href={link.href} className="text-sm font-medium text-[#e2e8f7] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:text-base">{link.label}</Link></li>)}
+                                </ul>
+                            </div>
+                        ))}
+                    </nav>
+                </div>
 
-                    {/* Legal & Support */}
-                    <div>
-                        <h4 className="font-semibold text-white mb-4">Support</h4>
-                        <ul className="space-y-3">
-                            <li>
-                                <Link href="/privacy" className="hover:text-white transition-colors">
-                                    Privacy & Data Protection
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/terms" className="hover:text-white transition-colors">
-                                    Terms of Service
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="#" className="hover:text-white transition-colors">
-                                    Contact / Support
-                                </Link>
-                            </li>
-                        </ul>
-                    </div>
+                <div className="mt-20 grid gap-4 border-t border-white/20 py-7 text-sm text-[#b7c4e1] sm:mt-24 lg:grid-cols-[minmax(0,44fr)_minmax(0,56fr)] lg:gap-14">
+                    <p>Bluely offers education and information. It does not replace advice from your healthcare professional. <Link href="/medical-disclaimer" className="font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Read the medical disclaimer</Link>.</p>
+                    <a href="mailto:support@bluely.health" className="font-semibold text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white lg:justify-self-end">Contact Bluely ↗</a>
                 </div>
             </div>
-
-            {/* Bottom Bar */}
-            <div className="border-t border-gray-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                        <p className="text-sm text-gray-500">
-                            © {new Date().getFullYear()} Bluely — Diabetes self-management for Africa
-                        </p>
-                        <div className="flex items-center gap-6 text-sm">
-                            <span className="text-gray-600 flex items-center gap-1">Made with <FiHeart className="w-3.5 h-3.5 text-blue-500 fill-blue-500" /> in Cameroon</span>
-                        </div>
+            <div className="border-t border-white/20">
+                <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 py-7 text-xs text-[#a9b9dc] sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
+                    <p>© {new Date().getFullYear()} Bluely</p>
+                    <div className="flex flex-wrap gap-x-6 gap-y-3">
+                        <Link href="/privacy" className="hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Privacy</Link>
+                        <Link href="/terms" className="hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Terms</Link>
+                        <Link href="/medical-disclaimer" className="hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Medical Disclaimer</Link>
                     </div>
+                    <p className="inline-flex items-center gap-1.5">Built for real life in Africa. <FiHeart aria-label="With care" className="h-3.5 w-3.5 text-[#b8c8ff]" /></p>
                 </div>
             </div>
         </footer>

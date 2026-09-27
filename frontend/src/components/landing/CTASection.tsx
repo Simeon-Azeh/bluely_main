@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FiArrowRight } from 'react-icons/fi';
+import ArrowCircle from './ArrowCircle';
 
 export default function CTASection() {
     return (
@@ -17,10 +17,10 @@ export default function CTASection() {
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link
                             href="/signup"
-                            className="inline-flex items-center justify-center bg-white text-[#1F2F98] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-100 transition-all shadow-lg hover:-translate-y-0.5"
+                            className="group inline-flex items-center justify-center gap-4 bg-white text-[#1F2F98] py-2 pl-7 pr-2 rounded-xl font-semibold text-lg hover:bg-gray-100 transition-all shadow-lg hover:-translate-y-0.5"
                         >
                             Create an Account
-                            <FiArrowRight className="ml-2 w-5 h-5" />
+                            <ArrowCircle tone="white" />
                         </Link>
                         <Link
                             href="/login"
