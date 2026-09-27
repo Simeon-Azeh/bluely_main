@@ -4,22 +4,24 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import DashboardLayout from './DashboardLayout';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import PageSkeleton from '../ui/PageSkeleton';
 
 interface AuthLayoutProps {
     children: React.ReactNode;
 }
+
+const authEntryRoutes = ['/login', '/signup', '/forgot-password'];
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
     const { user, userProfile, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
 
-    const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/terms', '/privacy'];
+    const publicRoutes = ['/', '/channels', '/resources', '/login', '/signup', '/forgot-password', '/terms', '/privacy', '/medical-disclaimer'];
     const fullScreenRoutes = ['/onboarding']; // Routes that need full screen (no sidebar)
     // Pages that require email verification to access
     const emailVerificationRequired = ['/glucose', '/meals', '/medications', '/insights', '/history', '/notifications'];
-    const isPublicRoute = publicRoutes.includes(pathname);
+    const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/stories/') || pathname.startsWith('/resources/');
     const isFullScreenRoute = fullScreenRoutes.includes(pathname);
     const requiresEmailVerification = emailVerificationRequired.includes(pathname);
 
@@ -28,8 +30,8 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
             if (!user && !isPublicRoute) {
                 // Not logged in, redirect to login
                 router.push('/login');
-            } else if (user && isPublicRoute && pathname !== '/') {
-                // User is logged in and on a public route (login/signup)
+            } else if (user && authEntryRoutes.includes(pathname)) {
+                // Signed-in users should leave authentication screens; other public pages remain available.
                 // Check if they've completed onboarding - wait for profile to load
                 if (userProfile !== null) {
                     if (userProfile?.onboardingCompleted === true) {
@@ -47,18 +49,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
                 router.push('/dashboard');
             }
         }
-    }, [user, userProfile, loading, isPublicRoute, isFullScreenRoute, pathname, router]);
+    }, [user, userProfile, loading, isPublicRoute, isFullScreenRoute, requiresEmailVerification, pathname, router]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="mt-4 text-gray-600">Loading...</p>
-                </div>
-            </div>
-        );
-    }
+    if (loading) return <PageSkeleton variant={isPublicRoute ? 'website' : 'app'} />;
 
     // For public routes or full-screen routes (like onboarding), don't show dashboard layout
     if (isPublicRoute || isFullScreenRoute) {

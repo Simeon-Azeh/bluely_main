@@ -1,5 +1,13 @@
 export { default as Header } from './Header';
 export { default as HeroSection } from './HeroSection';
+export { default as MissionSection } from './MissionSection';
+export { default as MeetBluelySection } from './MeetBluelySection';
+export { default as MoreThanAppSection } from './MoreThanAppSection';
+export { default as ResourcesSection } from './ResourcesSection';
+export { default as ImpactSection } from './ImpactSection';
+export { default as ShareStorySection } from './ShareStorySection';
+export { default as SupportSection } from './SupportSection';
+export { default as NewsletterSection } from './NewsletterSection';
 export { default as WhatIsBluelySection } from './WhatIsBluelySection';
 export { default as HowItWorksSection } from './HowItWorksSection';
 export { default as FeaturesSection } from './FeaturesSection';

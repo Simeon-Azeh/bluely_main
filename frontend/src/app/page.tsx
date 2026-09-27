@@ -1,12 +1,14 @@
-import {
+﻿import {
     Header,
     HeroSection,
-    WhatIsBluelySection,
-    HowItWorksSection,
-    FeaturesSection,
-    DifferenceSection,
-    VisionSection,
-    CTASection,
+    MissionSection,
+    MeetBluelySection,
+    MoreThanAppSection,
+    ResourcesSection,
+    ImpactSection,
+    ShareStorySection,
+    SupportSection,
+    NewsletterSection,
     Footer,
 } from '@/components/landing';
 
@@ -15,12 +17,14 @@ export default function Home() {
         <div className="min-h-screen bg-white">
             <Header />
             <HeroSection />
-            <WhatIsBluelySection />
-            <HowItWorksSection />
-            <FeaturesSection />
-            <DifferenceSection />
-            <VisionSection />
-            <CTASection />
+            <MissionSection />
+            <MeetBluelySection />
+            <MoreThanAppSection />
+            <ResourcesSection />
+            <ImpactSection />
+            <ShareStorySection />
+            <SupportSection />
+            <NewsletterSection />
             <Footer />
         </div>
     );

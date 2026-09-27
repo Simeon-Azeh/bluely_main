@@ -1,0 +1,30 @@
+﻿.viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(185, 203, 255, .45) transparent;
+  touch-action: pan-x;
+}
+
+.track {
+  display: flex;
+  width: max-content;
+  height: 100%;
+  animation: stories-drift 80s linear infinite;
+  will-change: transform;
+}
+
+.viewport:hover .track,
+.viewport:focus-within .track,
+.viewport:active .track,
+.paused .track {
+  animation-play-state: paused;
+}
+
+@keyframes stories-drift {
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track { animation: none; will-change: auto; }
+}
