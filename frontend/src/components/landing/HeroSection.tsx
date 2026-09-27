@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import ArrowCircle from './ArrowCircle';
+import RevealWords from './RevealWords';
 
 export default function HeroSection() {
     return (
@@ -8,8 +9,8 @@ export default function HeroSection() {
             <div className="mx-auto grid max-w-[1440px] items-center gap-10 px-5 pb-9 pt-10 sm:px-8 sm:pt-14 lg:min-h-[700px] lg:grid-cols-[minmax(0,49fr)_minmax(0,51fr)] lg:gap-6 lg:px-10 lg:pb-12 lg:pt-16 xl:min-h-[760px]">
                 <div className="relative z-10 max-w-[690px] lg:pb-12">
                     <h1 id="hero-heading" className="max-w-[680px] text-[clamp(2.75rem,4.9vw,5.4rem)] font-semibold leading-[1.08] tracking-[-0.06em]">
-                        Diabetes is part of their story.
-                        <span className="mt-2 block font-medium text-[#1F2F98]">It doesn&apos;t have to define it.</span>
+                        <RevealWords text="Diabetes is part of their story." trigger="load" />
+                        <span className="mt-2 block font-medium text-[#1F2F98]"><RevealWords text="It doesn't have to define it." trigger="load" delay={220} /></span>
                     </h1>
                     <p className="mt-7 max-w-[570px] text-[1.03rem] leading-[1.8] text-[#42516e] sm:text-lg">
                         Bluely brings technology, education and community together to help young people living with diabetes understand their health, share their experiences and feel heard.
@@ -18,7 +19,7 @@ export default function HeroSection() {
                         <Link href="#meet-bluely" className="group inline-flex min-h-13 items-center gap-4 rounded-full bg-[#1F2F98] py-2 pl-6 pr-2 text-sm font-bold text-white shadow-[0_10px_25px_rgba(31,47,152,0.16)] transition-transform hover:-translate-y-0.5 hover:bg-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] motion-reduce:transform-none sm:text-base">
                             Explore Bluely <ArrowCircle tone="blue" />
                         </Link>
-                        <Link href="#share-your-story" className="inline-flex min-h-12 items-center border-b-2 border-[#1F2F98] text-sm font-bold text-[#1F2F98] transition-colors hover:border-[#7485df] hover:text-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">
+                        <Link href="/share-your-story" className="inline-flex min-h-12 items-center border-b-2 border-[#1F2F98] text-sm font-bold text-[#1F2F98] transition-colors hover:border-[#7485df] hover:text-[#17257d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] sm:text-base">
                             Share Your Story
                         </Link>
                     </div>

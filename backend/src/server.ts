@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
-import { connectDB } from './config/database';
+import { connectFirestore } from './config/firestore';
 import { swaggerSpec } from './config/swagger';
 import userRoutes from './routes/user.routes';
 import glucoseRoutes from './routes/glucose.routes';
@@ -14,6 +14,8 @@ import predictRoutes from './routes/predict.routes';
 import medicationRoutes from './routes/medication.routes';
 import notificationRoutes from './routes/notification.routes';
 import wellnessRoutes from './routes/wellness.routes';
+import storyRoutes from './routes/story.routes';
+import newsletterRoutes from './routes/newsletter.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -98,6 +100,8 @@ app.use('/api/predict', predictRoutes);
 app.use('/api/medications', medicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wellness', wellnessRoutes);
+app.use('/api/stories', storyRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
@@ -110,7 +114,7 @@ app.use((req: Request, res: Response) => {
 // Connect to database and start server
 const startServer = async () => {
     try {
-        await connectDB();
+        await connectFirestore();
         app.listen(PORT, () => {
             console.log(` Server running on port ${PORT}`);
             console.log(` API Docs: http://localhost:${PORT}/api/docs`);

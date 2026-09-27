@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import {
     PredictionAnalysis, User, GlucoseReading,
-    Notification, ForecastLog, MedicationLog, Meal, Activity, MoodLog, LifestyleLog,
+    Notification, ForecastLog, MedicationLog, Meal, Activity, MoodLog, LifestyleLog, PatientModelProfile,
 } from '../models';
 import PredictionSafetyService, { MissingInputField } from '../services/predictionSafety.service';
 
@@ -1012,11 +1012,10 @@ export const updatePersonalization = async (req: Request, res: Response): Promis
 
         const result = await response.json() as { updated: boolean; trainingSamples: number; isPersonalized: boolean; message: string };
 
-        // Sync to MongoDB
+        // Sync the personalization profile to Firestore.
         try {
             const user = await User.findOne({ firebaseUid });
             if (user) {
-                const { PatientModelProfile } = await import('../models/PatientModelProfile');
                 await PatientModelProfile.findOneAndUpdate(
                     { firebaseUid },
                     {
@@ -1030,7 +1029,7 @@ export const updatePersonalization = async (req: Request, res: Response): Promis
                 );
             }
         } catch (syncErr) {
-            console.warn('Failed to sync personalization to MongoDB (non-critical):', syncErr);
+            console.warn('Failed to sync personalization to Firestore (non-critical):', syncErr);
         }
 
         res.status(200).json(result);
@@ -1089,7 +1088,7 @@ export const chatWithDiaBuddy = async (req: Request, res: Response): Promise<voi
         }
 
         // Get user name for personalization
-        // Prefer the MongoDB displayName (set during onboarding), fall back to Firebase
+        // Prefer the Firestore displayName (set during onboarding), fall back to Firebase
         const user = await User.findOne({ firebaseUid: firebaseUid as string });
         const candidateName = user?.displayName || clientDisplayName || null;
         // Only use names that look like real names (not email-derived like "ksazeh29")

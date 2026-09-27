@@ -567,10 +567,10 @@ async def predict_glucose_30(input_data: Glucose30Input):
                     global_prediction=predicted,
                     feature_context=feature_context,
                 )
-                if p_result["personalized"]:
+                if p_result["prediction_source"] == "personalized_model":
                     personalized = True
-                    personalized_glucose = round(p_result["calibrated_prediction"], 1)
-                    training_samples = p_result["training_samples"]
+                    personalized_glucose = round(p_result["predicted_glucose"], 1)
+                    training_samples = p_result["patient_profile"]["training_samples"]
                     final_predicted = personalized_glucose
                     factors.append(
                         f"Personalized calibration applied ({training_samples} readings)"
@@ -1146,8 +1146,8 @@ def personalization_update(input_data: PersonalizationUpdateInput):
         context = input_data.context or {}
         profile = update_patient_parameters(
             user_id=input_data.userId,
-            predicted=input_data.predictedGlucose,
-            actual=input_data.actualGlucose,
+            predicted_glucose=input_data.predictedGlucose,
+            actual_glucose=input_data.actualGlucose,
             context=context,
         )
         return PersonalizationUpdateOutput(
