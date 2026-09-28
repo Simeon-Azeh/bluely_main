@@ -8,6 +8,7 @@ export interface IUser extends FirestoreDocument {
     firebaseUid: string;
     email: string;
     displayName: string;
+    role: 'user' | 'admin';
     dateOfBirth?: Date;
     diabetesType?: 'type1' | 'type2' | 'gestational' | 'prediabetes' | 'other';
     diagnosisYear?: number;
@@ -215,6 +216,26 @@ export interface INewsletterSubscription extends FirestoreDocument {
     source: 'homepage';
     status: 'active' | 'unsubscribed';
     subscribedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface IContactMessage extends FirestoreDocument {
+    name: string;
+    email: string;
+    topic: 'general' | 'partnership' | 'press' | 'privacy' | 'support';
+    message: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface IVolunteerApplication extends FirestoreDocument {
+    name: string;
+    email: string;
+    location: string;
+    interests: string;
+    availability?: string;
+    experience?: string;
     createdAt: Date;
     updatedAt: Date;
 }

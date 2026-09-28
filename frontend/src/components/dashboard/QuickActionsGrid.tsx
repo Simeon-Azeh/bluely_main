@@ -1,104 +1,41 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui';
-import { FiDroplet, FiActivity, FiHeart, FiSmile, FiLock } from 'react-icons/fi';
+import { FiActivity, FiArrowUpRight, FiDroplet, FiLock, FiSmile } from 'react-icons/fi';
 import { IoFastFoodOutline } from 'react-icons/io5';
 
-interface QuickAction {
-    id: string;
-    label: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-    href: string;
-    gradient: string;
-    shadowColor: string;
-}
-
-const quickActions: QuickAction[] = [
-    {
-        id: 'glucose',
-        label: 'Log Glucose',
-        description: 'Track your blood sugar',
-        icon: FiDroplet,
-        href: '/glucose',
-        gradient: 'from-[#1F2F98] to-[#3B4CC0]',
-        shadowColor: 'shadow-[#1F2F98]/20',
-    },
-    {
-        id: 'mood',
-        label: 'Log Mood',
-        description: 'How are you feeling?',
-        icon: FiSmile,
-        href: '/mood',
-        gradient: 'from-pink-500 to-rose-500',
-        shadowColor: 'shadow-pink-500/20',
-    },
-    {
-        id: 'meal',
-        label: 'Log Meal',
-        description: 'What did you eat?',
-        icon: IoFastFoodOutline,
-        href: '/meals',
-        gradient: 'from-orange-500 to-amber-500',
-        shadowColor: 'shadow-orange-500/20',
-    },
-    {
-        id: 'activity',
-        label: 'Log Activity',
-        description: 'Track your exercise',
-        icon: FiActivity,
-        href: '/activity',
-        gradient: 'from-green-500 to-emerald-500',
-        shadowColor: 'shadow-green-500/20',
-    },
+const actions = [
+    { label: 'Glucose', detail: 'Add a reading', href: '/glucose', icon: FiDroplet },
+    { label: 'Mood', detail: 'Note how you feel', href: '/mood', icon: FiSmile },
+    { label: 'Meals', detail: 'Remember what you ate', href: '/meals', icon: IoFastFoodOutline },
+    { label: 'Activity', detail: 'Record movement', href: '/activity', icon: FiActivity },
 ];
 
-interface QuickActionsGridProps {
-    emailVerified?: boolean;
-}
-
-export default function QuickActionsGrid({ emailVerified = true }: QuickActionsGridProps) {
+export default function QuickActionsGrid({ emailVerified = true }: { emailVerified?: boolean }) {
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickActions.map((action) => {
-                const Icon = action.icon;
+        <section aria-labelledby="daily-actions-title" className="overflow-hidden rounded-[24px] border border-[#e3e7f0] bg-white shadow-[0_8px_30px_rgba(16,27,75,0.035)] dark:border-white/10 dark:bg-[#1a1a1a]">
+            <div className="flex flex-col gap-2 border-b border-[#e3e7f0] px-5 py-5 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between sm:px-7">
+                <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5365b2] dark:text-[#aebdff]">Your day</p>
+                    <h2 id="daily-actions-title" className="mt-1 text-xl font-semibold tracking-tight text-[#101b4b] dark:text-white sm:text-2xl">Add to your day</h2>
+                </div>
+                <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">The details around your readings help you see the fuller picture.</p>
+            </div>
 
-                if (!emailVerified) {
-                    return (
-                        <div key={action.id} title="Verify your email to unlock">
-                            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.04)] opacity-50 cursor-not-allowed h-full">
-                                <CardContent className="p-4">
-                                    <div className="flex flex-col items-center text-center">
-                                        <div className="w-14 h-14 bg-gray-200 rounded-2xl flex items-center justify-center mb-3">
-                                            <FiLock className="w-6 h-6 text-gray-400" />
-                                        </div>
-                                        <h3 className="font-semibold text-gray-400 mb-1">{action.label}</h3>
-                                        <p className="text-xs text-gray-300">{action.description}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    );
-                }
-
-                return (
-                    <Link key={action.id} href={action.href}>
-                        <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full">
-                            <CardContent className="p-4">
-                                <div className="flex flex-col items-center text-center">
-                                    <div className={`w-14 h-14 bg-gradient-to-br ${action.gradient} dark:bg-none dark:bg-[#2a2a2a] rounded-2xl flex items-center justify-center shadow-lg ${action.shadowColor} dark:shadow-none mb-3`}>
-                                        <Icon className="w-6 h-6 text-white" />
-                                    </div>
-                                    <h3 className="font-semibold text-gray-900 mb-1">{action.label}</h3>
-                                    <p className="text-xs text-gray-500">{action.description}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                );
-            })}
-        </div>
+            <div className="grid sm:grid-cols-2">
+                {actions.map((action, index) => {
+                    const Icon = action.icon;
+                    const itemClass = `group flex min-h-24 items-center gap-4 px-5 py-5 transition-colors sm:px-7 ${index > 0 ? 'border-t border-[#e3e7f0] dark:border-white/10' : ''} ${index === 1 ? 'sm:border-t-0' : ''} ${index % 2 === 1 ? 'sm:border-l sm:border-[#e3e7f0] dark:sm:border-white/10' : ''} ${emailVerified ? 'hover:bg-[#f6f8ff] dark:hover:bg-white/5' : 'cursor-not-allowed opacity-50'}`;
+                    const content = <>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dfe4f3] bg-[#f4f6fd] text-[#1F2F98] dark:border-white/10 dark:bg-white/5 dark:text-[#aebdff]"><Icon className="h-5 w-5" /></span>
+                        <span className="min-w-0 flex-1"><span className="block text-base font-semibold text-[#17214e] dark:text-white">{action.label}</span><span className="mt-0.5 block text-sm text-slate-500 dark:text-slate-400">{action.detail}</span></span>
+                        {emailVerified ? <FiArrowUpRight className="h-5 w-5 shrink-0 text-[#7380ae] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-[#aebdff]" /> : <FiLock className="h-4 w-4 shrink-0 text-slate-400" />}
+                    </>;
+                    return emailVerified
+                        ? <Link key={action.href} href={action.href} className={itemClass} aria-label={`Log ${action.label.toLowerCase()}: ${action.detail}`}>{content}</Link>
+                        : <div key={action.href} className={itemClass} title="Verify your email to unlock">{content}</div>;
+                })}
+            </div>
+        </section>
     );
 }

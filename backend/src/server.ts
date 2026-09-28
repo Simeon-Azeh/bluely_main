@@ -16,6 +16,7 @@ import notificationRoutes from './routes/notification.routes';
 import wellnessRoutes from './routes/wellness.routes';
 import storyRoutes from './routes/story.routes';
 import newsletterRoutes from './routes/newsletter.routes';
+import communityRoutes from './routes/community.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -102,6 +103,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/wellness', wellnessRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/community', communityRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

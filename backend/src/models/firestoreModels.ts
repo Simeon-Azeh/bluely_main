@@ -15,6 +15,8 @@ import type {
     IPatientModelProfile,
     IStorySubmission,
     INewsletterSubscription,
+    IContactMessage,
+    IVolunteerApplication,
 } from './types';
 
 export type {
@@ -33,6 +35,8 @@ export type {
     IPatientModelProfile,
     IStorySubmission,
     INewsletterSubscription,
+    IContactMessage,
+    IVolunteerApplication,
 } from './types';
 
 export const User = new FirestoreModel<IUser>('users');
@@ -50,3 +54,5 @@ export const ForecastLog = new FirestoreModel<IForecastLog>('forecastLogs');
 export const PatientModelProfile = new FirestoreModel<IPatientModelProfile>('patientModelProfiles');
 export const StorySubmission = new FirestoreModel<IStorySubmission>('storySubmissions');
 export const NewsletterSubscription = new FirestoreModel<INewsletterSubscription>('newsletterSubscriptions');
+export const ContactMessage = new FirestoreModel<IContactMessage>('contactMessages');
+export const VolunteerApplication = new FirestoreModel<IVolunteerApplication>('volunteerApplications');

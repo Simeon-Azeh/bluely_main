@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { LoadingSpinner } from '@/components/ui';
-import { FiActivity, FiArrowRight, FiClock, FiTrendingUp, FiDroplet, FiAlertTriangle, FiRefreshCw, FiZap, FiX } from 'react-icons/fi';
+import { FiActivity, FiArrowRight, FiAlertTriangle, FiRefreshCw, FiZap, FiX } from 'react-icons/fi';
 import MissingInputsCard, { MissingInput, QuickLogData } from './MissingInputsCard';
 import StaleContextCard, { CachedContextEntry } from './StaleContextCard';
 import GlucoseForecastCard from './GlucoseForecastCard';
@@ -200,49 +200,15 @@ export default function PredictionGateway({
     // Idle: Show button to check forecast
     if (state === 'idle') {
         return (
-            <div className="relative overflow-hidden rounded-2xl border border-[#1F2F98]/15 bg-gradient-to-br from-[#1F2F98]/5 via-blue-50/50 to-indigo-50/30 shadow-sm">
-                {/* Subtle animated ring */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full border border-[#1F2F98]/8 pointer-events-none" style={{ animation: 'ping 4s cubic-bezier(0,0,0.2,1) infinite' }} />
-
-                <div className="relative p-6">
-                    {/* Icon with live indicator */}
-                    <div className="flex justify-center mb-4">
-                        <div className="relative">
-                            <div className="w-16 h-16 bg-[#1F2F98]/10 rounded-2xl flex items-center justify-center">
-                                <FiActivity className="w-8 h-8 text-[#1F2F98]" />
-                            </div>
-                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#1F2F98] rounded-full border-2 border-white animate-pulse" />
-                        </div>
+            <div className="rounded-[20px] border border-[#e3e7f0] bg-white p-5 dark:border-white/10 dark:bg-[#1a1a1a] sm:p-6">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="max-w-xl">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5365b2] dark:text-[#aebdff]">Glucose outlook</p>
+                        <h3 className="mt-1 text-lg font-semibold text-[#101b4b] dark:text-white">30-minute forecast</h3>
+                        <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">Explore a short-term estimate using the readings and context you have logged.</p>
+                        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">For reflection only. Check your glucose directly before making care decisions.</p>
                     </div>
-
-                    <h3 className="text-center font-bold text-gray-900 text-base mb-2">
-                        30-Minute Glucose Forecast
-                    </h3>
-                    <p className="text-center text-sm text-gray-500 mb-5 leading-relaxed">
-                        See where your glucose is headed based on recent readings, meals, and activity.
-                    </p>
-
-                    {/* Feature pills */}
-                    <div className="grid grid-cols-3 gap-2 mb-5">
-                        {[
-                            { icon: FiClock, label: 'Personalised' },
-                            { icon: FiTrendingUp, label: 'ML-Powered' },
-                            { icon: FiDroplet, label: 'Real-time' },
-                        ].map(({ icon: Icon, label }) => (
-                            <div key={label} className="flex flex-col items-center gap-1.5 bg-white/70 rounded-xl p-2.5 border border-white/80">
-                                <Icon className="w-4 h-4 text-[#1F2F98]" />
-                                <span className="text-[10px] font-semibold text-gray-600">{label}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={checkSafety}
-                        className="w-full py-3 bg-[#1F2F98] text-white rounded-xl hover:bg-[#1F2F98]/90 font-semibold text-sm transition-all hover:shadow-lg hover:shadow-[#1F2F98]/20 flex items-center justify-center gap-2 group"
-                    >
-                        Generate My Forecast
-                        <FiArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-150" />
-                    </button>
+                    <button onClick={checkSafety} className="group inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#1F2F98] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#17257d]">View forecast <FiArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" /></button>
                 </div>
             </div>
         );

@@ -5,10 +5,10 @@ const footerGroups = [
     {
         title: 'EXPLORE',
         links: [
-            { label: 'About', href: '/#more-than-an-app' },
+            { label: 'About', href: '/about' },
             { label: 'What We Do', href: '/#future' },
             { label: 'Platform', href: '/#meet-bluely' },
-            { label: 'Our Mission', href: '/#mission' },
+            { label: 'Our Mission', href: '/mission' },
         ],
     },
     {
@@ -24,9 +24,9 @@ const footerGroups = [
         title: 'GET INVOLVED',
         links: [
             { label: 'Donate', href: '/#support' },
-            { label: 'Partner With Us', href: '/#mission' },
+            { label: 'Partner With Us', href: '/mission' },
             { label: 'Share Your Story', href: '/share-your-story' },
-            { label: 'Volunteer', href: 'mailto:support@bluely.health?subject=Volunteer%20with%20Bluely' },
+            { label: 'Volunteer', href: '/volunteer' },
         ],
     },
 ];
@@ -55,7 +55,7 @@ export default function Footer() {
 
                 <div className="mt-20 grid gap-4 border-t border-white/20 py-7 text-sm text-[#b7c4e1] sm:mt-24 lg:grid-cols-[minmax(0,44fr)_minmax(0,56fr)] lg:gap-14">
                     <p>Bluely offers education and information. It does not replace advice from your healthcare professional. <Link href="/medical-disclaimer" className="font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Read the medical disclaimer</Link>.</p>
-                    <a href="mailto:support@bluely.health" className="font-semibold text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white lg:justify-self-end">Contact Bluely ↗</a>
+                    <Link href="/contact" className="font-semibold text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white lg:justify-self-end">Contact Bluely ↗</Link>
                 </div>
             </div>
             <div className="border-t border-white/20">

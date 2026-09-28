@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
-import { FiBarChart2, FiArrowRight, FiPlus } from 'react-icons/fi';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
+import { FiArrowRight, FiPlus } from 'react-icons/fi';
 import { format } from 'date-fns';
 import {
     AreaChart,
@@ -154,19 +154,16 @@ export default function WeeklyChart({ chartData, targetMin, targetMax }: WeeklyC
     const hasIndividual = allIndividual.length > 0;
 
     return (
-        <Card className="border-0 shadow-lg shadow-gray-100 dark:shadow-none">
+        <Card className="rounded-[20px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                            <FiBarChart2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                        </div>
                         <div>
-                            <CardTitle>Weekly Trend</CardTitle>
-                            <p className="text-sm text-gray-500">Last 7 days</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5365b2] dark:text-[#aebdff]">Last 7 days</p>
+                            <CardTitle>Glucose trend</CardTitle>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    {hasData && <div className="flex items-center gap-2">
                         <div className="flex rounded-lg border border-gray-200 dark:border-[#3a3a3a] overflow-hidden text-xs">
                             <button
                                 onClick={() => setViewMode('daily')}
@@ -190,7 +187,7 @@ export default function WeeklyChart({ chartData, targetMin, targetMax }: WeeklyC
                         <Link href="/insights" className="text-sm text-[#1F2F98] dark:text-blue-300 hover:underline font-medium flex items-center gap-1">
                             <FiArrowRight className="w-4 h-4" />
                         </Link>
-                    </div>
+                    </div>}
                 </div>
 
                 {viewMode === 'readings' && hasIndividual && (
@@ -286,20 +283,9 @@ export default function WeeklyChart({ chartData, targetMin, targetMax }: WeeklyC
                         )}
                     </div>
                 ) : (
-                    <div className="h-72 flex items-center justify-center">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <FiBarChart2 className="w-8 h-8 text-gray-400" />
-                            </div>
-                            <p className="text-gray-600 font-medium mb-2">No data yet</p>
-                            <p className="text-sm text-gray-500 mb-4">Start logging to see your trends</p>
-                            <Link href="/glucose">
-                                <Button size="sm" className="bg-[#1F2F98]">
-                                    <FiPlus className="w-4 h-4 mr-1" />
-                                    Log First Reading
-                                </Button>
-                            </Link>
-                        </div>
+                    <div className="flex min-h-36 flex-col items-start justify-between gap-5 rounded-xl bg-[#f7f8fc] p-5 dark:bg-white/5 sm:flex-row sm:items-center sm:p-6">
+                        <div><p className="font-semibold text-[#101b4b] dark:text-white">Your trend starts with a reading</p><p className="mt-1 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">As you log readings, this chart will show how they change across the week.</p></div>
+                        <Link href="/glucose" className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#1F2F98] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#17257d]"><FiPlus className="h-4 w-4" /> Log a reading</Link>
                     </div>
                 )}
             </CardContent>

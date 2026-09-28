@@ -1,8 +1,5 @@
 'use client';
 
-import React from 'react';
-import { Card, CardContent } from '@/components/ui';
-import { FiActivity, FiTarget, FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
 import { useGlucoseUnit } from '@/hooks/useGlucoseUnit';
 
 interface StatsGridProps {
@@ -14,75 +11,23 @@ interface StatsGridProps {
     targetMax: number;
 }
 
-export default function StatsGrid({
-    averageGlucose,
-    inRangePercentage,
-    minGlucose,
-    maxGlucose,
-    targetMin,
-    targetMax,
-}: StatsGridProps) {
+export default function StatsGrid({ averageGlucose, inRangePercentage, minGlucose, maxGlucose, targetMin, targetMax }: StatsGridProps) {
     const { format, label, convert } = useGlucoseUnit();
+    const hasData = averageGlucose != null || inRangePercentage != null || minGlucose != null || maxGlucose != null;
+
+    if (!hasData) return <div className="rounded-[20px] border border-[#e3e7f0] bg-white px-5 py-5 dark:border-white/10 dark:bg-[#1a1a1a] sm:px-6"><p className="text-sm font-semibold text-[#101b4b] dark:text-white">Your 7-day overview</p><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your average and range will appear here once you have readings.</p></div>;
+
     const stats = [
-        {
-            label: '7-Day Avg',
-            value: averageGlucose ? format(averageGlucose) : '--',
-            unit: label,
-            icon: FiActivity,
-            iconColor: 'text-[#1F2F98]',
-            bgGradient: 'from-blue-100 to-blue-50',
-        },
-        {
-            label: 'In Range',
-            value: inRangePercentage ?? '--',
-            unit: `${convert(targetMin)}–${convert(targetMax)} ${label}`,
-            suffix: '%',
-            icon: FiTarget,
-            iconColor: 'text-green-600',
-            bgGradient: 'from-green-100 to-green-50',
-            valueColor: 'text-green-600',
-        },
-        {
-            label: 'Lowest',
-            value: minGlucose ? format(minGlucose) : '--',
-            unit: label,
-            icon: FiTrendingDown,
-            iconColor: 'text-red-500',
-            bgGradient: 'from-red-100 to-red-50',
-        },
-        {
-            label: 'Highest',
-            value: maxGlucose ? format(maxGlucose) : '--',
-            unit: label,
-            icon: FiTrendingUp,
-            iconColor: 'text-orange-500',
-            bgGradient: 'from-orange-100 to-orange-50',
-        },
+        { label: 'Average', value: averageGlucose != null ? format(averageGlucose) : '—', unit: label },
+        { label: 'In range', value: inRangePercentage != null ? `${inRangePercentage}%` : '—', unit: `${convert(targetMin)}–${convert(targetMax)} ${label}` },
+        { label: 'Lowest', value: minGlucose != null ? format(minGlucose) : '—', unit: label },
+        { label: 'Highest', value: maxGlucose != null ? format(maxGlucose) : '—', unit: label },
     ];
 
-    return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((stat) => {
-                const Icon = stat.icon;
-                return (
-                    <Card key={stat.label} className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-shadow">
-                        <CardContent>
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 mb-1">{stat.label}</p>
-                                    <p className={`text-3xl font-bold ${stat.valueColor || 'text-gray-900'}`}>
-                                        {stat.value}{stat.suffix || ''}
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-1">{stat.unit}</p>
-                                </div>
-                                <div className={`w-12 h-12 bg-gradient-to-br ${stat.bgGradient} rounded-2xl flex items-center justify-center`}>
-                                    <Icon className={`w-6 h-6 ${stat.iconColor}`} />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                );
-            })}
-        </div>
-    );
+    return <section aria-label="Your last 7 days at a glance" className="overflow-hidden rounded-[20px] border border-[#e3e7f0] bg-white dark:border-white/10 dark:bg-[#1a1a1a]">
+        <div className="border-b border-[#e9ecf4] px-5 py-4 dark:border-white/10 sm:px-6"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5365b2] dark:text-[#aebdff]">Last 7 days</p><h3 className="mt-1 text-lg font-semibold text-[#101b4b] dark:text-white">At a glance</h3></div>
+        <dl className="grid grid-cols-2 divide-x divide-y divide-[#e9ecf4] dark:divide-white/10 lg:grid-cols-4 lg:divide-y-0">
+            {stats.map(stat => <div key={stat.label} className="min-w-0 px-5 py-5 sm:px-6"><dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{stat.label}</dt><dd className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-[#101b4b] dark:text-white">{stat.value}</dd><p className="mt-1 text-xs text-slate-400">{stat.unit}</p></div>)}
+        </dl>
+    </section>;
 }
