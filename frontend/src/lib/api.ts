@@ -36,6 +36,7 @@ interface UserData {
     firebaseUid: string;
     email: string;
     displayName?: string;
+    role?: 'user' | 'admin';
     diabetesType?: string;
     diagnosisYear?: number;
     preferredUnit?: string;
@@ -365,6 +366,20 @@ class ApiClient {
         });
     }
 
+    async submitContactMessage(data: { name: string; email: string; topic: string; message: string }): Promise<{ success: boolean; contactMessage: { id: string } }> {
+        return this.request<{ success: boolean; contactMessage: { id: string } }>('/community/contact', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async submitVolunteerApplication(data: { name: string; email: string; location: string; interests: string; availability?: string; experience?: string }): Promise<{ success: boolean; volunteerApplication: { id: string } }> {
+        return this.request<{ success: boolean; volunteerApplication: { id: string } }>('/community/volunteer', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
     // User endpoints
     async createUser(data: { firebaseUid: string; email: string; displayName?: string }): Promise<UserData> {
         return this.request<UserData>('/users', {
@@ -377,8 +392,13 @@ class ApiClient {
         return this.request<UserData>(`/users?firebaseUid=${firebaseUid}`);
     }
 
-    async updateUser(firebaseUid: string, data: Record<string, unknown>): Promise<UserData> {
+    async getCurrentUser(token: string): Promise<UserData> {
+        return this.request<UserData>('/users/me', { token });
+    }
+
+    async updateUser(firebaseUid: string, data: Record<string, unknown>, token?: string): Promise<UserData> {
         return this.request<UserData>('/users', {
+            token,
             method: 'PUT',
             body: JSON.stringify({ firebaseUid, ...data }),
         });

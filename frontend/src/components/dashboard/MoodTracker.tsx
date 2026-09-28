@@ -15,11 +15,11 @@ interface Mood {
 }
 
 const moods: Mood[] = [
-    { icon: <TbMoodHappy className="w-7 h-7" />, label: 'Great', color: 'text-green-600', bgColor: 'bg-green-100 hover:bg-green-200 border-green-200' },
-    { icon: <TbMoodSmile className="w-7 h-7" />, label: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100 hover:bg-blue-200 border-blue-200' },
-    { icon: <TbMoodNeutral className="w-7 h-7" />, label: 'Okay', color: 'text-yellow-600', bgColor: 'bg-yellow-100 hover:bg-yellow-200 border-yellow-200' },
-    { icon: <TbMoodSad className="w-7 h-7" />, label: 'Low', color: 'text-orange-600', bgColor: 'bg-orange-100 hover:bg-orange-200 border-orange-200' },
-    { icon: <TbMoodCry className="w-7 h-7" />, label: 'Rough', color: 'text-red-600', bgColor: 'bg-red-100 hover:bg-red-200 border-red-200' },
+    { icon: <TbMoodHappy className="w-6 h-6" />, label: 'Great', color: 'text-[#1F2F98]', bgColor: 'bg-[#f3f5ff]' },
+    { icon: <TbMoodSmile className="w-6 h-6" />, label: 'Good', color: 'text-[#1F2F98]', bgColor: 'bg-[#f3f5ff]' },
+    { icon: <TbMoodNeutral className="w-6 h-6" />, label: 'Okay', color: 'text-[#1F2F98]', bgColor: 'bg-[#f3f5ff]' },
+    { icon: <TbMoodSad className="w-6 h-6" />, label: 'Low', color: 'text-[#1F2F98]', bgColor: 'bg-[#f3f5ff]' },
+    { icon: <TbMoodCry className="w-6 h-6" />, label: 'Rough', color: 'text-[#1F2F98]', bgColor: 'bg-[#f3f5ff]' },
 ];
 
 const moodIcons: Record<string, React.ReactNode> = {
@@ -32,29 +32,29 @@ const moodIcons: Record<string, React.ReactNode> = {
 
 const moodMessages: Record<string, { title: string; message: string; tip: string }> = {
     Great: {
-        title: "That's wonderful!",
-        message: "You're radiating positive energy today. Keep that momentum going!",
-        tip: 'Tip: Note what made today great so you can recreate it.',
+        title: 'Check-in saved',
+        message: 'You marked today as great.',
+        tip: 'Your mood is part of your daily record.',
     },
     Good: {
-        title: 'Glad to hear it!',
-        message: "A good day is a win. Your consistent effort is paying off.",
-        tip: 'Tip: Stay hydrated and keep up the great habits.',
+        title: 'Check-in saved',
+        message: 'You marked today as good.',
+        tip: 'Your mood is part of your daily record.',
     },
     Okay: {
-        title: "That's perfectly fine.",
-        message: "Not every day needs to be amazing. Steady days build strong foundations.",
-        tip: 'Tip: A short walk or stretch can give you a small boost.',
+        title: 'Check-in saved',
+        message: 'You marked today as okay.',
+        tip: 'Your mood is part of your daily record.',
     },
     Low: {
-        title: 'Thanks for sharing.',
-        message: "It takes courage to check in when you're not at your best. You're still showing up.",
-        tip: 'Tip: Be gentle with yourself. Rest if you need to.',
+        title: 'Check-in saved',
+        message: 'You marked today as low.',
+        tip: 'Your mood is part of your daily record.',
     },
     Rough: {
-        title: "We hear you.",
-        message: "Tough days happen, and they don't define you. Tomorrow is a fresh start.",
-        tip: 'Tip: Reach out to someone you trust if things feel heavy.',
+        title: 'Check-in saved',
+        message: 'You marked today as rough.',
+        tip: 'Your mood is part of your daily record.',
     },
 };
 
@@ -93,6 +93,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
     const [savedMood, setSavedMood] = useState<string | null>(null);
     const [hidden, setHidden] = useState(false);
     const [lastMood, setLastMood] = useState<{ mood: string; time: string } | null>(null);
+    const [saveError, setSaveError] = useState(false);
 
     // Check cooldown + fetch latest mood on mount
     useEffect(() => {
@@ -121,6 +122,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
         if (!selectedMood || !user) return;
 
         setIsSaving(true);
+        setSaveError(false);
         try {
             const period = getTimePeriod();
             const result = await api.logMood({
@@ -136,8 +138,8 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
             localStorage.setItem(key, JSON.stringify({ mood: selectedMood, time: new Date().toISOString() }));
         } catch (err) {
             console.error('Failed to save mood:', err);
-            // Still show feedback on error
-            setSavedMood(selectedMood);
+            // Keep the selection available so the user can try again.
+            setSaveError(true);
         } finally {
             setIsSaving(false);
         }
@@ -152,7 +154,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
     // Show personalized feedback after saving
     if (savedMood && feedback) {
         return (
-            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-gradient-to-br from-pink-50/50 via-purple-50/50 to-blue-50/50">
+            <Card className="rounded-[20px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
                 <CardContent>
                     <div className="text-center py-2">
                         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -171,16 +173,13 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
     }
 
     return (
-        <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-gradient-to-br from-pink-50/50 via-purple-50/50 to-blue-50/50">
+        <Card className="rounded-[20px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
             <CardContent>
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h3 className="font-semibold text-gray-900">How are you feeling?</h3>
-                        <p className="text-sm text-gray-500">
-                            {periodLabel === 'morning' && 'Good morning! Start your day with a check-in.'}
-                            {periodLabel === 'afternoon' && 'Afternoon check-in. How are things going?'}
-                            {periodLabel === 'evening' && 'Evening wind-down. How was your day?'}
-                        </p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5365b2] dark:text-[#aebdff]">Personal check-in</p>
+                        <h3 className="mt-1 text-lg font-semibold text-[#101b4b] dark:text-white">How are you feeling?</h3>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">A quick note about today can add context to your readings.</p>
                     </div>
                     {lastMood && (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-xs text-gray-500">
@@ -191,14 +190,16 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
                     )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="grid grid-cols-3 gap-2 mb-4 sm:grid-cols-5" role="group" aria-label="Select your mood">
                     {moods.map((mood) => (
                         <button
                             key={mood.label}
+                            type="button"
                             onClick={() => handleMoodSelect(mood)}
-                            className={`flex-1 flex flex-col items-center p-3 rounded-xl border-2 transition-all duration-200 ${selectedMood === mood.label
-                                ? `${mood.bgColor} border-current ${mood.color} scale-105 shadow-md`
-                                : 'bg-white border-gray-100 hover:border-gray-200'
+                            aria-pressed={selectedMood === mood.label}
+                            className={`flex min-h-20 flex-col items-center justify-center rounded-xl border p-2.5 transition-colors ${selectedMood === mood.label
+                                ? `${mood.bgColor} border-[#1F2F98] ${mood.color} dark:bg-[#1F2F98]/20 dark:text-white`
+                                : 'border-[#e3e7f0] bg-white hover:border-[#aab7e8] dark:border-white/10 dark:bg-[#1a1a1a]'
                                 }`}
                         >
                             <span className={`mb-1 ${selectedMood === mood.label ? mood.color : 'text-gray-500'}`}>{mood.icon}</span>
@@ -209,6 +210,7 @@ export default function MoodTracker({ onMoodSelect }: MoodTrackerProps) {
                     ))}
                 </div>
 
+                {saveError && <p role="alert" className="mb-3 text-sm text-rose-700">We couldn&apos;t save your check-in. Please try again.</p>}
                 {selectedMood && (
                     <Button
                         onClick={handleSave}

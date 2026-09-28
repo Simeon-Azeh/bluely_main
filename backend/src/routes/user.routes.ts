@@ -131,7 +131,7 @@ router.get('/', getUser);
  *       404:
  *         description: User not found
  */
-router.put('/', updateUser);
+router.put('/', authMiddleware, updateUser);
 
 /**
  * @swagger

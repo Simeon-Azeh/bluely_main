@@ -1,4 +1,4 @@
-﻿import {
+import {
     Header,
     HeroSection,
     MissionSection,

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, Button } from '@/components/ui';
-import { FiX, FiHeart, FiSend, FiCheck } from 'react-icons/fi';
+import { FiX, FiSend, FiCheck } from 'react-icons/fi';
 import { IoWalkOutline, IoFitnessOutline, IoBarbellOutline, IoHomeOutline, IoFastFoodOutline, IoRestaurantOutline } from 'react-icons/io5';
 import { TbPill, TbPillOff } from 'react-icons/tb';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,33 +69,30 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
     const isValid = activityLevel && mealPreference && onMedication !== null;
 
     return (
-        <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
+        <Card className="relative overflow-hidden rounded-[20px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
             <CardContent>
                 {/* Dismiss button */}
                 <button
                     onClick={handleDismiss}
-                    className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Dismiss personal context questions"
+                    className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10"
                 >
                     <FiX className="w-4 h-4" />
                 </button>
 
                 {/* Header */}
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#1F2F98] to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-[#1F2F98]/20">
-                        <FiHeart className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">Personalize Your Insights</h3>
-                        <p className="text-xs text-gray-500">Quick 3-question survey</p>
-                    </div>
+                <div className="mb-6 pr-10">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5365b2] dark:text-[#aebdff]">Add context</p>
+                    <h3 className="mt-1 text-lg font-semibold text-[#101b4b] dark:text-white">Make your insights more relevant</h3>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">A few details about everyday life can help put your readings in context.</p>
                 </div>
 
                 {/* Activity Level + Typical Meals — side by side */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid gap-6 mb-6 md:grid-cols-2">
                     {/* Activity Level */}
                     <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">Activity Level</label>
-                        <div className="space-y-2">
+                        <p className="text-sm font-semibold text-[#101b4b] mb-2 dark:text-white">Activity level</p>
+                        <div className="space-y-2" role="group" aria-label="Activity level">
                             {[
                                 { value: 'low', label: 'Low', icon: IoWalkOutline, desc: 'Sedentary' },
                                 { value: 'medium', label: 'Medium', icon: IoFitnessOutline, desc: 'Some exercise' },
@@ -105,10 +102,12 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
                                 return (
                                     <button
                                         key={opt.value}
+                                        type="button"
                                         onClick={() => setActivityLevel(opt.value)}
-                                        className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl border-2 text-left transition-all ${activityLevel === opt.value
-                                            ? 'border-[#1F2F98] bg-blue-50 shadow-[0_4px_20px_rgba(0,0,0,0.06)]'
-                                            : 'border-gray-200 bg-white hover:border-gray-300'
+                                        aria-pressed={activityLevel === opt.value}
+                                        className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-colors ${activityLevel === opt.value
+                                            ? 'border-[#1F2F98] bg-[#f3f5ff] dark:bg-[#1F2F98]/20'
+                                            : 'border-[#e3e7f0] bg-white hover:border-[#aab7e8] dark:border-white/10 dark:bg-[#1a1a1a]'
                                             }`}
                                     >
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${activityLevel === opt.value ? 'bg-[#1F2F98] text-white' : 'bg-gray-100 text-gray-500'
@@ -116,7 +115,7 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
                                             <Icon className="w-4 h-4" />
                                         </div>
                                         <div className="min-w-0">
-                                            <span className="text-sm font-medium text-gray-800 block">{opt.label}</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-white block">{opt.label}</span>
                                             <span className="text-[10px] text-gray-400">{opt.desc}</span>
                                         </div>
                                     </button>
@@ -127,8 +126,8 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
 
                     {/* Meal Preference */}
                     <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">Typical Meals</label>
-                        <div className="space-y-2">
+                        <p className="text-sm font-semibold text-[#101b4b] mb-2 dark:text-white">Typical meals</p>
+                        <div className="space-y-2" role="group" aria-label="Typical meals">
                             {[
                                 { value: 'home_cooked', label: 'Home-cooked', icon: IoHomeOutline },
                                 { value: 'processed', label: 'Processed', icon: IoFastFoodOutline },
@@ -138,17 +137,19 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
                                 return (
                                     <button
                                         key={opt.value}
+                                        type="button"
                                         onClick={() => setMealPreference(opt.value)}
-                                        className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl border-2 text-left transition-all ${mealPreference === opt.value
-                                            ? 'border-[#1F2F98] bg-blue-50 shadow-[0_4px_20px_rgba(0,0,0,0.06)]'
-                                            : 'border-gray-200 bg-white hover:border-gray-300'
+                                        aria-pressed={mealPreference === opt.value}
+                                        className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-colors ${mealPreference === opt.value
+                                            ? 'border-[#1F2F98] bg-[#f3f5ff] dark:bg-[#1F2F98]/20'
+                                            : 'border-[#e3e7f0] bg-white hover:border-[#aab7e8] dark:border-white/10 dark:bg-[#1a1a1a]'
                                             }`}
                                     >
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${mealPreference === opt.value ? 'bg-[#1F2F98] text-white' : 'bg-gray-100 text-gray-500'
                                             }`}>
                                             <Icon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-medium text-gray-800">{opt.label}</span>
+                                        <span className="text-sm font-medium text-gray-800 dark:text-white">{opt.label}</span>
                                     </button>
                                 );
                             })}
@@ -158,8 +159,8 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
 
                 {/* Medication — full width, inline */}
                 <div className="mb-5">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">Are you on any medication?</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <p className="text-sm font-semibold text-[#101b4b] mb-2 dark:text-white">Are you on any medication?</p>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label="Medication use">
                         {[
                             { value: true, label: 'Yes', icon: TbPill },
                             { value: false, label: 'No', icon: TbPillOff },
@@ -168,14 +169,16 @@ export default function InsightsCard({ onComplete, onDismiss }: InsightsCardProp
                             return (
                                 <button
                                     key={String(opt.value)}
+                                    type="button"
                                     onClick={() => setOnMedication(opt.value)}
-                                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${onMedication === opt.value
-                                        ? 'border-[#1F2F98] bg-blue-50 shadow-[0_4px_20px_rgba(0,0,0,0.06)]'
-                                        : 'border-gray-200 bg-white hover:border-gray-300'
+                                    aria-pressed={onMedication === opt.value}
+                                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-colors ${onMedication === opt.value
+                                        ? 'border-[#1F2F98] bg-[#f3f5ff] dark:bg-[#1F2F98]/20'
+                                        : 'border-[#e3e7f0] bg-white hover:border-[#aab7e8] dark:border-white/10 dark:bg-[#1a1a1a]'
                                         }`}
                                 >
                                     <Icon className={`w-5 h-5 ${onMedication === opt.value ? 'text-[#1F2F98]' : 'text-gray-400'}`} />
-                                    <span className="text-sm font-medium text-gray-700">{opt.label}</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-white">{opt.label}</span>
                                 </button>
                             );
                         })}

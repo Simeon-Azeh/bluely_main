@@ -327,7 +327,7 @@ export default function SettingsPage() {
                 reminderEnabled: data.reminderEnabled,
                 shareDataWithDiaBuddy: data.shareDataWithDiaBuddy,
                 timezone: data.timezone || undefined,
-            });
+            }, await user.getIdToken());
             // Persist timezone locally so date inputs pick it up without a profile fetch
             if (data.timezone) {
                 try { localStorage.setItem('bluely-timezone', data.timezone); } catch { /* ignore */ }

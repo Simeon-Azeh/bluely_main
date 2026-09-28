@@ -11,7 +11,6 @@ import {
     WeeklyChart,
     RecentReadings,
     MoodTracker,
-    TodaysProgress,
     InsightsCard,
     MedicationCard,
     LifestyleCheckIn,
@@ -22,7 +21,7 @@ import {
     DiaBuddyCard,
     PredictionGateway,
 } from '@/components/dashboard';
-import { FiAlertCircle, FiCircle, FiArrowRight, FiTrendingUp, FiDroplet } from 'react-icons/fi';
+import { FiAlertCircle, FiCircle, FiArrowRight, FiTrendingUp, FiDroplet, FiChevronDown } from 'react-icons/fi';
 import { format, isToday } from 'date-fns';
 import api from '@/lib/api';
 
@@ -65,20 +64,6 @@ interface ReadingsResponse {
     };
 }
 
-// Motivational messages for the dashboard
-const motivationalMessages = [
-    "Every reading is a step toward better health. Keep going!",
-    "Small consistent steps lead to big changes. You're doing great!",
-    "Your dedication to tracking shows how much you care about your health.",
-    "Progress, not perfection. Every day is a new opportunity!",
-    "You're taking control of your health journey. That's amazing!",
-    "Remember: knowledge is power. Keep tracking!",
-    "One day at a time. You've got this!",
-    "Your future self will thank you for the effort you're putting in today.",
-    "Consistency is key. You're building great habits!",
-    "Be proud of yourself for prioritizing your health.",
-];
-
 function getFirstName(displayName: string | null | undefined): string {
     if (!displayName) return '';
     if (displayName.includes('@')) return '';
@@ -95,7 +80,6 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [backendError, setBackendError] = useState(false);
     const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-    const [motivationalMessage, setMotivationalMessage] = useState('');
 
     // ML & progressive collection state
     const [healthProfile, setHealthProfile] = useState<{
@@ -225,10 +209,6 @@ export default function DashboardPage() {
 
         fetchData();
 
-        // Set random motivational message
-        const randomIndex = Math.floor(Math.random() * motivationalMessages.length);
-        setMotivationalMessage(motivationalMessages[randomIndex]);
-
         // Show install prompt after 3 seconds for new users
         const dismissed = localStorage.getItem('bluely-install-dismissed');
         if (!dismissed) {
@@ -315,10 +295,10 @@ export default function DashboardPage() {
             {/* Welcome Header */}
             <WelcomeHeader
                 userName={getFirstName(user?.displayName)}
-                motivationalMessage={motivationalMessage}
                 isOnboardingComplete={isOnboardingComplete}
                 todaysReadingsCount={todaysReadingsCount}
-                averageGlucose={stats?.averageGlucose || null}
+                dailyGoal={recommendedReadings}
+                averageGlucose={stats?.averageGlucose ?? null}
                 streak={streak}
             />
 
@@ -389,6 +369,18 @@ export default function DashboardPage() {
                     {user?.emailVerified && (
                         <>
                             {/* ── 30-Minute Glucose Forecast (with Safety Gates) ── */}
+                            <RecentReadings
+                                readings={recentReadings}
+                                targetMin={stats?.targetMin || 70}
+                                targetMax={stats?.targetMax || 180}
+                            />
+
+                            <details className="group overflow-hidden rounded-[24px] border border-[#e3e7f0] bg-white dark:border-white/10 dark:bg-[#1a1a1a]">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-5 p-5 marker:hidden sm:p-7 [&::-webkit-details-marker]:hidden">
+                                    <span><span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5365b2] dark:text-[#aebdff]">Understand your patterns</span><span className="mt-1 block text-xl font-semibold tracking-tight text-[#101b4b] dark:text-white sm:text-2xl">Go a little deeper</span><span className="mt-1 block text-sm font-normal text-slate-500 dark:text-slate-400">Forecasts, personal context and how you feel, in one place.</span></span>
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#dfe4f3] text-[#1F2F98] transition-transform group-open:rotate-180 dark:border-white/15 dark:text-[#aebdff]"><FiChevronDown className="h-5 w-5" /></span>
+                                </summary>
+                                <div className="space-y-5 border-t border-[#e3e7f0] bg-[#fafbfe] p-4 dark:border-white/10 dark:bg-[#161616] sm:p-6">
                             <PredictionGateway
                                 firebaseUid={user.uid}
                                 isVisible={true}
@@ -431,13 +423,16 @@ export default function DashboardPage() {
 
                             {/* Mood Tracker */}
                             <MoodTracker />
+                                </div>
+                            </details>
 
                             {/* Today's Progress */}
-                            <TodaysProgress
-                                todaysReadingsCount={todaysReadingsCount}
-                                recommendedReadings={recommendedReadings}
-                                userName={getFirstName(user?.displayName)}
-                            />
+                            <details className="group overflow-hidden rounded-[24px] border border-[#e3e7f0] bg-white dark:border-white/10 dark:bg-[#1a1a1a]">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-5 p-5 marker:hidden sm:p-7 [&::-webkit-details-marker]:hidden">
+                                    <span><span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5365b2] dark:text-[#aebdff]">Your data</span><span className="mt-1 block text-xl font-semibold tracking-tight text-[#101b4b] dark:text-white sm:text-2xl">See your numbers</span><span className="mt-1 block text-sm font-normal text-slate-500 dark:text-slate-400">A closer look at your readings and their patterns.</span></span>
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#dfe4f3] text-[#1F2F98] transition-transform group-open:rotate-180 dark:border-white/15 dark:text-[#aebdff]"><FiChevronDown className="h-5 w-5" /></span>
+                                </summary>
+                                <div className="space-y-5 border-t border-[#e3e7f0] bg-[#fafbfe] p-4 dark:border-white/10 dark:bg-[#161616] sm:p-6">
 
                             {/* Stats Grid */}
                             <StatsGrid
@@ -457,11 +452,6 @@ export default function DashboardPage() {
                             />
 
                             {/* Recent Readings */}
-                            <RecentReadings
-                                readings={recentReadings}
-                                targetMin={stats?.targetMin || 70}
-                                targetMax={stats?.targetMax || 180}
-                            />
 
                             {/* ── ML Output Cards ── */}
 
@@ -493,6 +483,8 @@ export default function DashboardPage() {
 
                             {/* Install App Card (Alternative placement) */}
                             <InstallPrompt variant="card" onDismiss={() => { }} />
+                                </div>
+                            </details>
                         </>
                     )}
                 </>

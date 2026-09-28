@@ -16,8 +16,10 @@ service cloud.firestore {
 
     match /users/{documentId} {
       allow read: if ownsExistingDocument();
-      allow create: if ownsNewDocument();
-      allow update: if ownsExistingDocument() && request.resource.data.firebaseUid == request.auth.uid;
+      allow create: if ownsNewDocument() && request.resource.data.role == 'user';
+      allow update: if ownsExistingDocument()
+        && request.resource.data.firebaseUid == request.auth.uid
+        && request.resource.data.role == resource.data.role;
       allow delete: if ownsExistingDocument();
     }
 

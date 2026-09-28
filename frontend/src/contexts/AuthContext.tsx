@@ -7,6 +7,7 @@ import { signUp, signIn, logOut, resetPassword, signInWithGoogle } from '@/lib/f
 import api from '@/lib/api';
 
 interface UserProfile {
+    role?: 'user' | 'admin';
     onboardingCompleted?: boolean;
     diabetesType?: string;
     preferredUnit?: string;
@@ -48,7 +49,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const fetchUserProfile = async (firebaseUser: User) => {
         try {
-            const profile = await api.getUser(firebaseUser.uid) as UserProfile;
+            const token = await firebaseUser.getIdToken();
+            const profile = await api.getCurrentUser(token) as UserProfile;
             setUserProfile(profile);
         } catch (error: unknown) {
             // If user not found, create them in the backend
@@ -59,8 +61,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                         email: firebaseUser.email || '',
                         displayName: firebaseUser.displayName || undefined,
                     });
-                    // Fetch the newly created profile
-                    const newProfile = await api.getUser(firebaseUser.uid) as UserProfile;
+                    // Fetch the newly created profile through the authenticated endpoint.
+                    const token = await firebaseUser.getIdToken(true);
+                    const newProfile = await api.getCurrentUser(token) as UserProfile;
                     setUserProfile(newProfile);
                     return;
                 } catch (createError) {

@@ -25,6 +25,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
             email,
             displayName: displayName || email.split('@')[0] || 'User',
             onboardingCompleted: false,
+            role: 'user',
         });
 
         res.status(201).json(newUser);
@@ -81,18 +82,24 @@ export const getCurrentUser = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Update user
-export const updateUser = async (req: Request, res: Response): Promise<void> => {
+export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { firebaseUid, ...updateData } = req.body;
 
-        if (!firebaseUid) {
-            res.status(400).json({ error: 'firebaseUid is required' });
+        if (!firebaseUid || !req.user?.uid) {
+            res.status(401).json({ error: 'Authentication is required' });
+            return;
+        }
+
+        if (firebaseUid !== req.user.uid) {
+            res.status(403).json({ error: 'You can only update your own profile' });
             return;
         }
 
         // Remove fields that shouldn't be updated directly
         delete updateData.email;
         delete updateData.createdAt;
+        delete updateData.role;
 
         const updatedUser = await User.findOneAndUpdate(
             { firebaseUid },

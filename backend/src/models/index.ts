@@ -14,6 +14,8 @@ export {
     PatientModelProfile,
     StorySubmission,
     NewsletterSubscription,
+    ContactMessage,
+    VolunteerApplication,
 } from './firestoreModels';
 
 export type {
@@ -32,4 +34,6 @@ export type {
     IPatientModelProfile,
     IStorySubmission,
     INewsletterSubscription,
+    IContactMessage,
+    IVolunteerApplication,
 } from './firestoreModels';

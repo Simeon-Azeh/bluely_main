@@ -1,76 +1,157 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { FiArrowLeft, FiCheck, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button, Input, Select } from '@/components/ui';
-import { FiArrowRight, FiArrowLeft, FiCheck, FiArrowUpRight } from 'react-icons/fi';
-import Image from 'next/image';
+import AuthAction from '@/components/auth/AuthAction';
+import AuthField from '@/components/auth/AuthField';
+import styles from '@/components/auth/AuthStep.module.css';
 import api from '@/lib/api';
 
-const diabetesTypes = [
-    { value: 'type1', label: 'Type 1 Diabetes' },
-    { value: 'type2', label: 'Type 2 Diabetes' },
-    { value: 'gestational', label: 'Gestational Diabetes' },
-    { value: 'not_sure', label: 'Not sure' },
-];
+type Option = { value: string; label: string; detail?: string };
 
-const ageRanges = [
-    { value: '18-25', label: '18-25' },
-    { value: '26-35', label: '26-35' },
-    { value: '36-45', label: '36-45' },
-    { value: '46-55', label: '46-55' },
-    { value: '56-65', label: '56-65' },
+const steps = ['Welcome', 'About you', 'Glucose', 'Everyday life', 'Review'];
+const diabetesTypes: Option[] = [
+    { value: 'type1', label: 'Type 1' },
+    { value: 'type2', label: 'Type 2' },
+    { value: 'gestational', label: 'Gestational' },
+    { value: 'not_sure', label: 'Not sure yet' },
+];
+const ageRanges: Option[] = [
+    { value: '16-17', label: '16 to 17' },
+    { value: '18-25', label: '18 to 25' },
+    { value: '26-35', label: '26 to 35' },
+    { value: '36-45', label: '36 to 45' },
+    { value: '46-55', label: '46 to 55' },
+    { value: '56-65', label: '56 to 65' },
     { value: '65+', label: '65+' },
 ];
-
-const genderOptions = [
+const genderOptions: Option[] = [
     { value: 'male', label: 'Male' },
     { value: 'female', label: 'Female' },
     { value: 'other', label: 'Other' },
     { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
-
-const monitoringMethods = [
-    { value: 'finger_prick', label: 'Finger-prick glucometer' },
-    { value: 'cgm', label: 'Continuous Glucose Monitor (CGM)' },
+const monitoringMethods: Option[] = [
+    { value: 'finger_prick', label: 'Finger-prick meter', detail: 'I check with a meter and test strips.' },
+    { value: 'cgm', label: 'Continuous glucose monitor', detail: 'I use a wearable sensor.' },
 ];
-
-const unitOptions = [
-    { value: 'mg/dL', label: 'mg/dL (milligrams per deciliter)' },
-    { value: 'mmol/L', label: 'mmol/L (millimoles per liter)' },
+const unitOptions: Option[] = [
+    { value: 'mg/dL', label: 'mg/dL' },
+    { value: 'mmol/L', label: 'mmol/L' },
 ];
-
-const readingsPerDayOptions = [
-    { value: '1', label: '1 reading per day' },
-    { value: '2', label: '2 readings per day' },
-    { value: '3+', label: '3 or more readings per day' },
+const readingsPerDayOptions: Option[] = [
+    { value: '1', label: 'Around once' },
+    { value: '2', label: 'Around twice' },
+    { value: '3+', label: 'Three or more' },
 ];
-
-const activityLevelOptions = [
-    { value: 'low', label: 'Low activity' },
-    { value: 'moderate', label: 'Moderate activity' },
-    { value: 'high', label: 'High activity' },
+const activityLevelOptions: Option[] = [
+    { value: 'low', label: 'Mostly gentle' },
+    { value: 'moderate', label: 'A mix of movement' },
+    { value: 'high', label: 'Often active' },
 ];
 
 interface OnboardingData {
-    // Step 2 - About You
     ageRange: string;
     gender: string;
     diabetesType: string;
     diagnosisYear: string;
-    // Step 3 - Monitoring
     monitoringMethod: string;
     preferredUnit: string;
     readingsPerDay: string;
-    // Step 4 - Lifestyle
     activityLevel: string;
     trackMood: boolean;
     trackSleep: boolean;
-    // Step 5 - Targets
     targetGlucoseMin: string;
     targetGlucoseMax: string;
+}
+
+const MMOL_FACTOR = 18.0182;
+const currentYear = new Date().getFullYear();
+
+function convertedValue(value: string, from: string, to: string): string {
+    const number = Number(value);
+    if (!value || !Number.isFinite(number) || from === to) return value;
+    return to === 'mmol/L'
+        ? (Math.round(number / MMOL_FACTOR * 10) / 10).toString()
+        : Math.round(number * MMOL_FACTOR).toString();
+}
+
+function ChoiceGroup({ name, label, options, value, onChange, columns = 2 }: {
+    name: string;
+    label: string;
+    options: Option[];
+    value: string;
+    onChange: (value: string) => void;
+    columns?: 2 | 3;
+}) {
+    return (
+        <fieldset>
+            <legend className="mb-3 text-sm font-semibold text-[#344463]">{label}</legend>
+            <div className={`grid gap-3 ${columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                {options.map((option) => (
+                    <label key={option.value} className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border px-4 py-4 transition-[border-color,background-color,box-shadow] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1F2F98] ${value === option.value ? 'border-[#1F2F98] bg-[#eef2ff] shadow-[0_0_0_1px_rgba(31,47,152,0.15)]' : 'border-[#d4deef] bg-[#ffffff] hover:border-[#9eadd1]'}`}>
+                        <span className="min-w-0"><span className="block text-sm font-semibold text-[#172853]">{option.label}</span>{option.detail && <span className="mt-1 block text-xs leading-[1.5] text-[#647396]">{option.detail}</span>}</span>
+                        <input type="radio" name={name} value={option.value} checked={value === option.value} onChange={() => onChange(option.value)} className="sr-only" />
+                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${value === option.value ? 'border-[#1F2F98] bg-[#1F2F98] text-white' : 'border-[#afbbd3] text-transparent'}`} aria-hidden="true"><FiCheck className="h-3 w-3" /></span>
+                    </label>
+                ))}
+            </div>
+        </fieldset>
+    );
+}
+
+function OnboardingSelect({ id, label, value, options, placeholder, onChange }: {
+    id: string;
+    label: string;
+    value: string;
+    options: Option[];
+    placeholder: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div>
+            <label htmlFor={id} className="mb-2.5 block text-sm font-semibold text-[#344463]">{label}</label>
+            <div className="relative">
+                <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="min-h-14 w-full appearance-none rounded-2xl border border-[#cbd6ed] bg-[#ffffff] px-4 py-3.5 pr-11 text-base text-[#172853] shadow-[0_8px_25px_rgba(24,43,94,0.04)] outline-none transition-[border-color,box-shadow] hover:border-[#9eadd1] focus:border-[#1F2F98] focus:shadow-[0_0_0_4px_rgba(87,107,214,0.12)]">
+                    <option value="">{placeholder}</option>
+                    {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <FiChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8293ba]" />
+            </div>
+        </div>
+    );
+}
+
+function TrackingOption({ id, title, description, checked, onChange }: {
+    id: string;
+    title: string;
+    description: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+}) {
+    return (
+        <label htmlFor={id} className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-4 transition-colors ${checked ? 'border-[#1F2F98] bg-[#eef2ff]' : 'border-[#d4deef] bg-[#ffffff] hover:border-[#9eadd1]'}`}>
+            <span><span className="block text-sm font-semibold text-[#172853]">{title}</span><span className="mt-1 block text-xs leading-[1.5] text-[#647396]">{description}</span></span>
+            <input id={id} type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 shrink-0 accent-[#1F2F98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F2F98]" />
+        </label>
+    );
+}
+
+function StepHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+    return (
+        <div className="mb-9">
+            <p className="text-xs font-bold tracking-[0.17em] text-[#1F2F98]">{eyebrow}</p>
+            <h1 className="mt-4 text-[clamp(2.35rem,4vw,4.15rem)] font-semibold leading-[1.1] tracking-[-0.055em] text-[#172853]">{title}</h1>
+            <p className="mt-4 max-w-[610px] text-base leading-[1.75] text-[#52617d] sm:text-lg">{description}</p>
+        </div>
+    );
+}
+
+function optionLabel(options: Option[], value: string, fallback = 'Not selected') {
+    return options.find((option) => option.value === value)?.label ?? fallback;
 }
 
 export default function OnboardingPage() {
@@ -79,582 +160,183 @@ export default function OnboardingPage() {
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
+    const [yearError, setYearError] = useState<string | null>(null);
+    const [rangeError, setRangeError] = useState<string | null>(null);
     const [formData, setFormData] = useState<OnboardingData>({
         ageRange: '',
         gender: '',
         diabetesType: '',
         diagnosisYear: '',
-        monitoringMethod: 'finger_prick',
+        monitoringMethod: '',
         preferredUnit: 'mg/dL',
-        readingsPerDay: '3+',
-        activityLevel: 'moderate',
+        readingsPerDay: '',
+        activityLevel: '',
         trackMood: false,
         trackSleep: false,
         targetGlucoseMin: '70',
         targetGlucoseMax: '180',
     });
 
-    const totalSteps = 5;
-
+    const firstName = user?.displayName?.trim().split(/\s+/)[0] || 'there';
     const updateFormData = (field: keyof OnboardingData, value: string | boolean) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData((current) => ({ ...current, [field]: value }));
+        if (field === 'diagnosisYear') setYearError(null);
+        if (field === 'targetGlucoseMin' || field === 'targetGlucoseMax') setRangeError(null);
     };
-
+    const changeUnit = (unit: string) => {
+        setFormData((current) => ({
+            ...current,
+            preferredUnit: unit,
+            targetGlucoseMin: convertedValue(current.targetGlucoseMin, current.preferredUnit, unit),
+            targetGlucoseMax: convertedValue(current.targetGlucoseMax, current.preferredUnit, unit),
+        }));
+        setRangeError(null);
+    };
     const handleNext = () => {
-        if (step < totalSteps) {
-            setStep(step + 1);
+        if (step === 2 && formData.diagnosisYear) {
+            const year = Number(formData.diagnosisYear);
+            if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+                setYearError(`Enter a year from 1900 to ${currentYear}.`);
+                return;
+            }
         }
+        setError(null);
+        setStep((current) => Math.min(current + 1, steps.length));
     };
-
     const handleBack = () => {
-        if (step > 1) {
-            setStep(step - 1);
-        }
+        setError(null);
+        setStep((current) => Math.max(current - 1, 1));
     };
-
-    const handleSkip = () => {
-        router.push('/dashboard');
-    };
-
     const handleComplete = async () => {
-        if (!user) return;
+        const min = Number(formData.targetGlucoseMin);
+        const max = Number(formData.targetGlucoseMax);
+        const minMg = formData.preferredUnit === 'mmol/L' ? Math.round(min * MMOL_FACTOR) : Math.round(min);
+        const maxMg = formData.preferredUnit === 'mmol/L' ? Math.round(max * MMOL_FACTOR) : Math.round(max);
+        if (!formData.targetGlucoseMin || !formData.targetGlucoseMax || !Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= min || minMg >= maxMg) {
+            setRangeError('Enter a valid low and high value, with the low value below the high value.');
+            return;
+        }
+        if (!user) {
+            setError('Your session has ended. Please sign in again to finish setup.');
+            return;
+        }
 
         try {
             setIsLoading(true);
             setError(null);
-
             await api.updateUser(user.uid, {
                 ageRange: formData.ageRange,
                 gender: formData.gender,
                 diabetesType: formData.diabetesType,
-                diagnosisYear: formData.diagnosisYear ? parseInt(formData.diagnosisYear) : undefined,
-                monitoringMethod: formData.monitoringMethod,
+                diagnosisYear: formData.diagnosisYear ? Number(formData.diagnosisYear) : undefined,
+                monitoringMethod: formData.monitoringMethod || undefined,
                 preferredUnit: formData.preferredUnit,
-                readingsPerDay: formData.readingsPerDay,
-                activityLevel: formData.activityLevel,
+                readingsPerDay: formData.readingsPerDay || undefined,
+                activityLevel: formData.activityLevel || undefined,
                 trackMood: formData.trackMood,
                 trackSleep: formData.trackSleep,
-                targetGlucoseMin: parseInt(formData.targetGlucoseMin),
-                targetGlucoseMax: parseInt(formData.targetGlucoseMax),
+                targetGlucoseMin: minMg,
+                targetGlucoseMax: maxMg,
                 onboardingCompleted: true,
-            });
-
+            }, await user.getIdToken());
             await refreshUserProfile();
             router.push('/dashboard');
-        } catch (err) {
-            console.error('Onboarding error:', err);
-            setError('Failed to save your profile. Please try again.');
+        } catch {
+            setError('We could not save your setup. Check your connection and try again.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Get context-aware text based on previous selections
-    const getDiabetesTypeText = () => {
-        switch (formData.diabetesType) {
-            case 'type1':
-                return "Thanks for sharing. Managing Type 1 diabetes often requires close attention to daily patterns. Bluely focuses on helping you understand how routine activities affect your glucose levels.";
-            case 'type2':
-                return "Got it. With Type 2 diabetes, lifestyle factors like meals and activity play a major role. Bluely helps you see how these daily choices affect your readings.";
-            case 'gestational':
-                return "Understood. Gestational diabetes requires careful monitoring. Bluely will help you track patterns and stay informed throughout your pregnancy.";
-            case 'not_sure':
-                return "That's okay. Bluely is designed to help you observe patterns regardless of diabetes type.";
-            default:
-                return "";
-        }
-    };
-
-    const getReadingsText = () => {
-        switch (formData.readingsPerDay) {
-            case '1':
-                return "Thanks. With one reading per day, Bluely can still track trends, but adding more readings improves insight accuracy.";
-            case '2':
-                return "Great. Two daily readings allow Bluely to compare changes across the day.";
-            case '3+':
-                return "Excellent. This gives Bluely enough data to identify meaningful patterns faster.";
-            default:
-                return "";
-        }
-    };
-
-    const getActivityText = () => {
-        switch (formData.activityLevel) {
-            case 'low':
-                return "Noted. Physical activity can significantly influence glucose levels. Bluely will help you observe these effects over time.";
-            case 'moderate':
-                return "Good to know. Bluely will track how your activity patterns impact your glucose readings.";
-            case 'high':
-                return "Nice! Bluely will track how your activity levels impact your glucose patterns.";
-            default:
-                return "";
-        }
-    };
-
-    const userName = user?.displayName?.split(' ')[0] || 'there';
-
     return (
-        <div className="min-h-screen flex">
-            {/* Left Side - Gradient Background (Smaller) */}
-            <div
-                className="hidden lg:flex lg:w-2/5 relative overflow-hidden"
-                style={{
-                    background: 'linear-gradient(135deg, #1F2F98 0%, #3B4CC0 50%, #1F2F98 100%)'
-                }}
-            >
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-10">
-                    <div className="absolute inset-0" style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                    }} />
-                </div>
-
-                {/* Decorative circles */}
-                <div className="absolute top-20 right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-32 left-5 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl" />
-
-                {/* Content */}
-                <div className="relative z-10 flex flex-col w-full p-8">
-                    {/* Top Navigation */}
-                    <div className="flex items-center justify-between">
-                        {/* Logo */}
-                        <Link href="/" className="flex items-center space-x-3">
-                            <Image
-                                src="/icons/full_logotext_white.png"
-                                alt="Bluely"
-                                width={140}
-                                height={40}
-                                className="h-26 w-auto"
-                            />
-                        </Link>
-
-                        {/* Skip */}
-                        <button
-                            onClick={handleSkip}
-                            className="flex items-center space-x-1 text-white/70 hover:text-white transition-colors text-sm"
-                        >
-                            <span>Skip</span>
-                            <FiArrowUpRight className="w-4 h-4" />
-                        </button>
+        <div className="min-h-screen bg-[#f6f8ff] text-[#172853]">
+            <div className="grid min-h-screen lg:grid-cols-[minmax(0,42fr)_minmax(0,58fr)]">
+                <aside className="relative flex min-h-[235px] flex-col justify-between overflow-hidden bg-[#172853] px-6 pb-8 pt-7 text-white sm:px-10 lg:sticky lg:top-0 lg:h-screen lg:min-h-0 lg:overflow-y-auto lg:px-14 lg:pb-12 lg:pt-12">
+                    <div className="pointer-events-none absolute -right-36 -top-24 h-[420px] w-[420px] rounded-full border border-[#b9cbff]/20" aria-hidden="true" />
+                    <div className="pointer-events-none absolute bottom-0 left-0 h-1/2 w-full bg-linear-to-t from-[#0c1b43] to-transparent" aria-hidden="true" />
+                    <Link href="/" className="relative z-10 w-fit text-3xl font-semibold tracking-[-0.08em] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:text-4xl">BLUELY</Link>
+                    <div className="relative z-10 mt-9 max-w-[500px] lg:my-auto">
+                        <p className="text-xs font-bold tracking-[0.18em] text-[#b9cbff]">YOUR BLUELY SPACE</p>
+                        <h2 className="mt-4 text-[clamp(2.15rem,4.3vw,4.6rem)] font-semibold leading-[1.08] tracking-[-0.06em]">A clearer picture starts with you.</h2>
+                        <p className="mt-5 max-w-[430px] text-sm leading-[1.7] text-[#d6def2] sm:text-base">Bring your readings and everyday routines into one place, at your own pace.</p>
+                        <ol className="mt-12 hidden space-y-0 lg:block" aria-label="Onboarding steps">
+                            {steps.map((name, index) => <li key={name} className={`flex items-center gap-4 border-t border-white/20 py-3.5 text-sm ${step === index + 1 ? 'text-white' : 'text-[#aebde0]'}`}><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${step > index + 1 ? 'bg-white/20' : step === index + 1 ? 'bg-white text-[#1F2F98]' : 'border border-white/30'}`}>{step > index + 1 ? <FiCheck aria-label="Completed" /> : `0${index + 1}`}</span><span className="font-semibold">{name}</span>{step === index + 1 && <span className="ml-auto text-[10px] font-bold tracking-[0.15em] text-[#b9cbff]">CURRENT</span>}</li>)}
+                        </ol>
                     </div>
+                    <p className="relative z-10 hidden text-xs leading-[1.6] text-[#b9cbff] lg:block">Built for real life in Africa.</p>
+                </aside>
 
-                    {/* Step Indicators */}
-                    <div className="flex items-center justify-center space-x-3 mt-12">
-                        {[1, 2, 3, 4, 5].map((num) => (
-                            <div
-                                key={num}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${step === num
-                                    ? 'bg-white text-[#1F2F98]'
-                                    : step > num
-                                        ? 'bg-white/30 text-white'
-                                        : 'bg-white/10 text-white/50'
-                                    }`}
-                            >
-                                {step > num ? <FiCheck className="w-4 h-4" /> : num}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Spacer */}
-                    <div className="flex-1" />
-
-                    {/* Bottom Content */}
-                    <div className="space-y-4">
-                        <p className="text-white/80 text-sm">
-                            Bluely helps you understand how your daily habits affect your blood glucose — beyond just numbers.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Side - Form Content */}
-            <div className="w-full lg:w-3/5 flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-white overflow-y-auto">
-                <div className="w-full max-w-lg">
-                    {/* Mobile Logo & Skip */}
-                    <div className="lg:hidden flex items-center justify-between mb-8">
-                        <Link href="/" className="flex items-center">
-                            <Image
-                                src="/icons/full_logotext.png"
-                                alt="Bluely"
-                                width={140}
-                                height={40}
-                                className="h-26 w-auto"
-                            />
-                        </Link>
-                        <button
-                            onClick={handleSkip}
-                            className="text-sm text-gray-500 hover:text-gray-700"
-                        >
-                            Skip
-                        </button>
-                    </div>
-
-                    {/* Mobile Step Indicators */}
-                    <div className="lg:hidden flex items-center justify-center space-x-2 mb-8">
-                        {[1, 2, 3, 4, 5].map((num) => (
-                            <div
-                                key={num}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${step === num
-                                    ? 'bg-[#1F2F98] text-white'
-                                    : step > num
-                                        ? 'bg-[#1F2F98]/20 text-[#1F2F98]'
-                                        : 'bg-gray-100 text-gray-400'
-                                    }`}
-                            >
-                                {step > num ? <FiCheck className="w-3 h-3" /> : num}
-                            </div>
-                        ))}
-                    </div>
-
-                    {error && (
-                        <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                            {error}
+                <main className="flex min-w-0 items-center justify-center px-5 py-10 sm:px-8 sm:py-14 lg:px-12 lg:py-16 xl:px-20">
+                    <div className="w-full max-w-[670px]">
+                        <div className="mb-10 flex items-end justify-between border-b border-[#d1dced] pb-5">
+                            <div><p className="text-xs font-bold tracking-[0.16em] text-[#1F2F98]">SETUP</p><p className="mt-1 text-sm font-semibold text-[#52617d]">{steps[step - 1]}</p></div>
+                            <p className="text-sm font-bold text-[#1F2F98]">0{step} <span className="text-[#94a2bd]">/ 0{steps.length}</span></p>
                         </div>
-                    )}
+                        <div className="mb-10 grid grid-cols-5 gap-2" role="progressbar" aria-label="Setup progress" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step} aria-valuetext={`Step ${step} of ${steps.length}: ${steps[step - 1]}`}>{steps.map((name, index) => <span key={name} className={`h-1.5 rounded-full transition-colors duration-300 ${index < step ? 'bg-[#1F2F98]' : 'bg-[#d7e0f1]'}`} />)}</div>
 
-                    {/* Step 1 - Welcome */}
-                    {step === 1 && (
-                        <div className="space-y-6">
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                    Hello {userName},
-                                </h1>
-                                <p className="mt-3 text-gray-600 text-lg">
-                                    We&apos;ll ask you a few questions to personalize your experience! It&apos;ll be quick.
-                                </p>
-                            </div>
-
-                            <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
-                                <p className="text-[#1F2F98] font-medium">
-                                    Bluely helps you understand how your daily habits affect your blood glucose — beyond just numbers.
-                                </p>
-                            </div>
-
-                            <Button
-                                onClick={handleNext}
-                                className="w-full bg-[#1F2F98] hover:bg-[#1F2F98]/90"
-                                size="lg"
-                            >
-                                Let&apos;s get started
-                                <FiArrowRight className="w-4 h-4 ml-2" />
-                            </Button>
-                        </div>
-                    )}
-
-                    {/* Step 2 - About You */}
-                    {step === 2 && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">
-                                    Tell us a bit about you
-                                </h2>
-                                <p className="mt-2 text-gray-600">
-                                    This helps us personalize insights and recommendations based on your profile.
-                                </p>
-                            </div>
-
-                            <div className="space-y-5">
-                                <Select
-                                    label="Age range"
-                                    options={ageRanges}
-                                    value={formData.ageRange}
-                                    onChange={(e) => updateFormData('ageRange', e.target.value)}
-                                    placeholder="Select your age range"
-                                />
-
-                                <Select
-                                    label="Gender (optional)"
-                                    options={genderOptions}
-                                    value={formData.gender}
-                                    onChange={(e) => updateFormData('gender', e.target.value)}
-                                    placeholder="Select your gender"
-                                />
-
-                                <Select
-                                    label="Type of diabetes"
-                                    options={diabetesTypes}
-                                    value={formData.diabetesType}
-                                    onChange={(e) => updateFormData('diabetesType', e.target.value)}
-                                    placeholder="Select your diabetes type"
-                                />
-
-                                <Input
-                                    label="Year of diagnosis (optional)"
-                                    type="number"
-                                    min="1900"
-                                    max={new Date().getFullYear()}
-                                    value={formData.diagnosisYear}
-                                    onChange={(e) => updateFormData('diagnosisYear', e.target.value)}
-                                    placeholder="e.g., 2020"
-                                />
-                            </div>
-
-                            <div className="flex justify-between pt-4">
-                                <Button variant="ghost" onClick={handleBack}>
-                                    <FiArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleNext}
-                                    className="bg-[#1F2F98] hover:bg-[#1F2F98]/90"
-                                >
-                                    Continue
-                                    <FiArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 3 - Monitoring */}
-                    {step === 3 && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">
-                                    Your glucose monitoring routine
-                                </h2>
-                                <p className="mt-2 text-gray-600">
-                                    Bluely works with simple tools. Tell us how you usually check your blood glucose.
-                                </p>
-                            </div>
-
-                            {/* Context-aware text */}
-                            {formData.diabetesType && (
-                                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                    <p className="text-sm text-[#1F2F98]">
-                                        {getDiabetesTypeText()}
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="space-y-5">
-                                <Select
-                                    label="Glucose measurement method"
-                                    options={monitoringMethods}
-                                    value={formData.monitoringMethod}
-                                    onChange={(e) => updateFormData('monitoringMethod', e.target.value)}
-                                />
-
-                                <Select
-                                    label="Preferred unit"
-                                    options={unitOptions}
-                                    value={formData.preferredUnit}
-                                    onChange={(e) => updateFormData('preferredUnit', e.target.value)}
-                                    helperText="Most countries use mg/dL. UK and some European countries use mmol/L."
-                                />
-
-                                <Select
-                                    label="Typical readings per day"
-                                    options={readingsPerDayOptions}
-                                    value={formData.readingsPerDay}
-                                    onChange={(e) => updateFormData('readingsPerDay', e.target.value)}
-                                />
-                            </div>
-
-                            <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
-                                <p className="text-sm text-amber-800">
-                                    <strong>Tip:</strong> We recommend at least 3 readings per day (before meals or 2 hours after meals) for meaningful insights.
-                                </p>
-                            </div>
-
-                            <div className="flex justify-between pt-4">
-                                <Button variant="ghost" onClick={handleBack}>
-                                    <FiArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleNext}
-                                    className="bg-[#1F2F98] hover:bg-[#1F2F98]/90"
-                                >
-                                    Continue
-                                    <FiArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 4 - Lifestyle */}
-                    {step === 4 && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">
-                                    Your daily habits matter
-                                </h2>
-                                <p className="mt-2 text-gray-600">
-                                    Blood glucose is influenced by more than food. Bluely helps you track key daily factors.
-                                </p>
-                            </div>
-
-                            {/* Context-aware text */}
-                            {formData.readingsPerDay && (
-                                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                    <p className="text-sm text-[#1F2F98]">
-                                        {getReadingsText()}
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="space-y-5">
-                                <Select
-                                    label="Physical activity level"
-                                    options={activityLevelOptions}
-                                    value={formData.activityLevel}
-                                    onChange={(e) => updateFormData('activityLevel', e.target.value)}
-                                />
-
-                                <div className="space-y-3">
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        Optional tracking factors
-                                    </label>
-
-                                    <div className="flex items-center">
-                                        <input
-                                            id="trackMood"
-                                            type="checkbox"
-                                            checked={formData.trackMood}
-                                            onChange={(e) => updateFormData('trackMood', e.target.checked)}
-                                            className="h-4 w-4 text-[#1F2F98] focus:ring-[#1F2F98] border-gray-300 rounded"
-                                        />
-                                        <label htmlFor="trackMood" className="ml-3 text-sm text-gray-700">
-                                            Track mood & stress levels
-                                        </label>
+                        <div key={step} className={styles.step}>
+                            {step === 1 && <>
+                                <StepHeading eyebrow="LET'S BEGIN" title={`Welcome, ${firstName}.`} description="A few details will help us shape your Bluely space. You can change your choices later in Settings." />
+                                <div className="border-l-[3px] border-[#1F2F98] bg-[#eef2fc] px-5 py-5 text-base leading-[1.7] text-[#344463]">Bluely is here to help you notice patterns and understand the context around your numbers.</div>
+                            </>}
+                            {step === 2 && <>
+                                <StepHeading eyebrow="01 / ABOUT YOU" title="Tell us a little about you." description="Share what you are comfortable with. These details help us make your space feel more relevant." />
+                                <div className="space-y-7">
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <OnboardingSelect id="age-range" label="Age range (optional)" value={formData.ageRange} options={ageRanges} placeholder="Choose an age range" onChange={(value) => updateFormData('ageRange', value)} />
+                                        <OnboardingSelect id="gender" label="Gender (optional)" value={formData.gender} options={genderOptions} placeholder="Choose if you wish" onChange={(value) => updateFormData('gender', value)} />
                                     </div>
-
-                                    <div className="flex items-center">
-                                        <input
-                                            id="trackSleep"
-                                            type="checkbox"
-                                            checked={formData.trackSleep}
-                                            onChange={(e) => updateFormData('trackSleep', e.target.checked)}
-                                            className="h-4 w-4 text-[#1F2F98] focus:ring-[#1F2F98] border-gray-300 rounded"
-                                        />
-                                        <label htmlFor="trackSleep" className="ml-3 text-sm text-gray-700">
-                                            Track sleep quality
-                                        </label>
+                                    <ChoiceGroup name="diabetes-type" label="Diabetes type (optional)" options={diabetesTypes} value={formData.diabetesType} onChange={(value) => updateFormData('diabetesType', value)} />
+                                    <AuthField id="diagnosis-year" label="Year of diagnosis (optional)" type="number" inputMode="numeric" min={1900} max={currentYear} placeholder="e.g. 2020" value={formData.diagnosisYear} onChange={(event) => updateFormData('diagnosisYear', event.target.value)} error={yearError ?? undefined} />
+                                </div>
+                            </>}
+                            {step === 3 && <>
+                                <StepHeading eyebrow="02 / GLUCOSE" title="How do you check your glucose?" description="Choose what feels familiar. You can update your method and units later." />
+                                <div className="space-y-7">
+                                    <ChoiceGroup name="monitoring-method" label="Your usual method (optional)" options={monitoringMethods} value={formData.monitoringMethod} onChange={(value) => updateFormData('monitoringMethod', value)} />
+                                    <ChoiceGroup name="preferred-unit" label="The unit you use" options={unitOptions} value={formData.preferredUnit} onChange={changeUnit} />
+                                    <ChoiceGroup name="readings-per-day" label="About how often do you check in a day? (optional)" options={readingsPerDayOptions} value={formData.readingsPerDay} onChange={(value) => updateFormData('readingsPerDay', value)} columns={3} />
+                                    <p className="text-sm leading-[1.7] text-[#647396]">Your care team can help you decide when and how often to check.</p>
+                                </div>
+                            </>}
+                            {step === 4 && <>
+                                <StepHeading eyebrow="03 / EVERYDAY LIFE" title="What else would you like to notice?" description="Choose the details you want to keep alongside your readings. There is no right way to use Bluely." />
+                                <div className="space-y-7">
+                                    <ChoiceGroup name="activity-level" label="How active are your days, generally? (optional)" options={activityLevelOptions} value={formData.activityLevel} onChange={(value) => updateFormData('activityLevel', value)} columns={3} />
+                                    <fieldset><legend className="mb-3 text-sm font-semibold text-[#344463]">Optional notes</legend><div className="space-y-3">
+                                        <TrackingOption id="track-mood" title="Mood and stress" description="Keep a note of how you feel." checked={formData.trackMood} onChange={(value) => updateFormData('trackMood', value)} />
+                                        <TrackingOption id="track-sleep" title="Sleep" description="See sleep alongside the rest of your day." checked={formData.trackSleep} onChange={(value) => updateFormData('trackSleep', value)} />
+                                    </div></fieldset>
+                                </div>
+                            </>}
+                            {step === 5 && <>
+                                <StepHeading eyebrow="04 / REVIEW" title="Ready when you are." description="Take a look at your choices. You can revisit them in Settings at any time." />
+                                <dl className="border-y border-[#cbd6ed] text-sm">
+                                    <div className="flex justify-between gap-5 border-b border-[#dbe3f2] py-4"><dt className="text-[#647396]">Diabetes type</dt><dd className="font-semibold text-[#172853]">{optionLabel(diabetesTypes, formData.diabetesType)}</dd></div>
+                                    <div className="flex justify-between gap-5 border-b border-[#dbe3f2] py-4"><dt className="text-[#647396]">Glucose checks</dt><dd className="font-semibold text-[#172853]">{optionLabel(monitoringMethods, formData.monitoringMethod)}</dd></div>
+                                    <div className="flex justify-between gap-5 border-b border-[#dbe3f2] py-4"><dt className="text-[#647396]">Units</dt><dd className="font-semibold text-[#172853]">{formData.preferredUnit}</dd></div>
+                                    <div className="flex justify-between gap-5 py-4"><dt className="text-[#647396]">Extra notes</dt><dd className="text-right font-semibold text-[#172853]">{[formData.trackMood && 'Mood', formData.trackSleep && 'Sleep'].filter(Boolean).join(' and ') || 'None selected'}</dd></div>
+                                </dl>
+                                <div className="mt-8">
+                                    <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#172853]">Your glucose range in Bluely</h2>
+                                    <p className="mt-2 text-sm leading-[1.7] text-[#52617d]">Bluely starts with a general range for organizing readings. Your care team can help you set a range that fits your own care plan.</p>
+                                    <div className="mt-5 grid grid-cols-2 gap-4">
+                                        <AuthField id="target-min" label={`Low (${formData.preferredUnit})`} type="number" min="0" step={formData.preferredUnit === 'mmol/L' ? '0.1' : '1'} value={formData.targetGlucoseMin} onChange={(event) => updateFormData('targetGlucoseMin', event.target.value)} />
+                                        <AuthField id="target-max" label={`High (${formData.preferredUnit})`} type="number" min="0" step={formData.preferredUnit === 'mmol/L' ? '0.1' : '1'} value={formData.targetGlucoseMax} onChange={(event) => updateFormData('targetGlucoseMax', event.target.value)} />
                                     </div>
+                                    {rangeError && <p className="mt-3 text-sm text-[#a32626]" role="alert">{rangeError}</p>}
                                 </div>
-                            </div>
-
-                            {(formData.trackMood || formData.trackSleep) && (
-                                <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                                    <p className="text-sm text-green-800">
-                                        {formData.trackMood && "Stress and mood can affect glucose more than expected. "}
-                                        {formData.trackSleep && "Sleep quality also impacts blood sugar levels. "}
-                                        Bluely will factor this into your insights.
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="flex justify-between pt-4">
-                                <Button variant="ghost" onClick={handleBack}>
-                                    <FiArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleNext}
-                                    className="bg-[#1F2F98] hover:bg-[#1F2F98]/90"
-                                >
-                                    Continue
-                                    <FiArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
+                            </>}
                         </div>
-                    )}
 
-                    {/* Step 5 - Ready / Summary */}
-                    {step === 5 && (
-                        <div className="space-y-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">
-                                    You&apos;re all set!
-                                </h2>
-                                <p className="mt-2 text-gray-600">
-                                    Log your readings consistently and Bluely will start showing patterns after about 21 readings.
-                                </p>
-                            </div>
-
-                            {/* Context-aware text */}
-                            {formData.activityLevel && (
-                                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                    <p className="text-sm text-[#1F2F98]">
-                                        {getActivityText()}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Target Range */}
-                            <div className="space-y-4">
-                                <label className="block text-sm font-medium text-gray-700">
-                                    Set your target glucose range
-                                </label>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input
-                                        label="Minimum target"
-                                        type="number"
-                                        value={formData.targetGlucoseMin}
-                                        onChange={(e) => updateFormData('targetGlucoseMin', e.target.value)}
-                                        helperText={formData.preferredUnit}
-                                    />
-                                    <Input
-                                        label="Maximum target"
-                                        type="number"
-                                        value={formData.targetGlucoseMax}
-                                        onChange={(e) => updateFormData('targetGlucoseMax', e.target.value)}
-                                        helperText={formData.preferredUnit}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Personalized Summary */}
-                            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                                <h3 className="font-semibold text-gray-900 mb-3">Based on what you shared:</h3>
-                                <ul className="space-y-2 text-sm text-gray-700">
-                                    {formData.readingsPerDay && (
-                                        <li className="flex items-start">
-                                            <span className="text-[#1F2F98] mr-2">•</span>
-                                            You check your glucose {formData.readingsPerDay === '3+' ? '3+' : formData.readingsPerDay} time{formData.readingsPerDay !== '1' ? 's' : ''} per day
-                                        </li>
-                                    )}
-                                    {formData.activityLevel && (
-                                        <li className="flex items-start">
-                                            <span className="text-[#1F2F98] mr-2">•</span>
-                                            Your activity level is {formData.activityLevel}
-                                        </li>
-                                    )}
-                                    {(formData.trackMood || formData.trackSleep) && (
-                                        <li className="flex items-start">
-                                            <span className="text-[#1F2F98] mr-2">•</span>
-                                            You want to track {formData.trackMood && 'mood/stress'}{formData.trackMood && formData.trackSleep && ' and '}{formData.trackSleep && 'sleep quality'}
-                                        </li>
-                                    )}
-                                </ul>
-                                <p className="mt-4 text-sm text-gray-600">
-                                    Log consistently and Bluely will generate insights after about <strong>21 readings</strong>.
-                                </p>
-                            </div>
-
-                            <div className="flex justify-between pt-4">
-                                <Button variant="ghost" onClick={handleBack}>
-                                    <FiArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleComplete}
-                                    isLoading={isLoading}
-                                    className="bg-[#1F2F98] hover:bg-[#1F2F98]/90"
-                                    size="lg"
-                                >
-                                    <FiCheck className="w-4 h-4 mr-2" />
-                                    Start my journey
-                                </Button>
-                            </div>
-
-                            <p className="text-center text-xs text-gray-500">
-                                You can update your information anytime in settings.
-                            </p>
+                        {error && <div className="mt-7 rounded-2xl border border-[#e9baba] bg-[#fff5f5] px-4 py-3 text-sm text-[#a32626]" role="alert">{error}</div>}
+                        <div className="mt-10 flex gap-3 border-t border-[#d1dced] pt-7">
+                            {step > 1 && <button type="button" onClick={handleBack} disabled={isLoading} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-[#cbd6ed] bg-[#ffffff] px-5 text-sm font-bold text-[#26375f] transition-colors hover:border-[#9eadd1] hover:bg-[#f8faff] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F2F98] disabled:opacity-60"><FiArrowLeft aria-hidden="true" /> Back</button>}
+                            <AuthAction type="button" onClick={step === steps.length ? handleComplete : handleNext} loading={isLoading} className="flex-1">{isLoading ? 'Saving your space...' : step === steps.length ? 'Start with Bluely' : step === 1 ? "Let's get started" : 'Continue'}</AuthAction>
                         </div>
-                    )}
-                </div>
+                        <p className="mt-5 text-xs leading-[1.6] text-[#71809d]">Bluely supports understanding and tracking. <Link href="/medical-disclaimer" className="font-semibold text-[#1F2F98] underline underline-offset-2">Read our medical disclaimer</Link>.</p>
+                    </div>
+                </main>
             </div>
         </div>
     );
