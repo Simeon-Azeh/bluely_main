@@ -50,6 +50,15 @@ interface UserData {
     updatedAt: string;
 }
 
+interface AuthSession {
+    authenticated: true;
+    user: {
+        uid: string;
+        email: string | null;
+    };
+    profile: UserData | null;
+}
+
 interface GlucoseStats {
     totalReadings: number;
     averageGlucose: number | null;
@@ -394,6 +403,10 @@ class ApiClient {
 
     async getCurrentUser(token: string): Promise<UserData> {
         return this.request<UserData>('/users/me', { token });
+    }
+
+    async getAuthSession(token: string): Promise<AuthSession> {
+        return this.request<AuthSession>('/auth/me', { token });
     }
 
     async updateUser(firebaseUid: string, data: Record<string, unknown>, token?: string): Promise<UserData> {
