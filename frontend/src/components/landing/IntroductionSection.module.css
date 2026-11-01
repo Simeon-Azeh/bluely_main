@@ -1,0 +1,11 @@
+﻿.section { background: #f6f8ff; color: #172853; padding: 64px 0; }
+.container { max-width: 1440px; margin: auto; padding: 0 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 80px); align-items: center; }
+.picture { position: relative; width: 100%; max-width: 620px; aspect-ratio: 1672 / 941; overflow: hidden; border-radius: 16px; background: #1f2f98; }
+.thumbnail { object-fit: contain; }
+.copy { max-width: 560px; }
+.copy h2 { font-size: clamp(30px, 3.3vw, 46px); font-weight: 600; line-height: 1.16; letter-spacing: -.045em; }
+.copy h2 span { color: #1f2f98; }
+.copy p { margin-top: 20px; color: #52617d; font-size: 15px; line-height: 1.85; }
+.copy p + p { margin-top: 12px; }
+@media (max-width: 1023px) { .container { padding-inline: 32px; gap: 32px; } .copy p { font-size: 14px; } }
+@media (max-width: 767px) { .section { padding: 40px 0; } .container { padding-inline: 20px; grid-template-columns: 1fr; gap: 28px; } .picture { max-width: none; border-radius: 12px; } .copy { max-width: none; } }

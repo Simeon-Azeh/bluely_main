@@ -1,0 +1,35 @@
+.photoFrame { position: relative; overflow: hidden; }
+.photoLayer { position: absolute; inset: -42px 0; transform: translate3d(0, var(--photo-offset, 0px), 0); }
+.image { object-fit: cover; }
+.wave { position: absolute; bottom: -1px; left: 0; width: 100%; height: clamp(35px, 6vw, 90px); pointer-events: none; }
+.chapter { position: relative; overflow: hidden; background: #f6f8ff; color: #172853; padding: 100px 40px 140px; }
+.chapterLayout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: 90px; max-width: 1280px; margin: auto; }
+.chapterCopy { max-width: 500px; }
+.chapterNumber { font-size: 10px; font-weight: 700; letter-spacing: .17em; color: #465c99; }
+.chapterCopy h2 { margin-top: 24px; font-size: clamp(36px, 4.2vw, 58px); line-height: 1.13; letter-spacing: -.05em; font-weight: 600; }
+.chapterCopy > p:not(.chapterNumber) { margin-top: 26px; color: #52617d; font-size: 16px; line-height: 1.9; }
+.chapterLink { display: inline-flex; align-items: center; gap: 28px; min-height: 48px; margin-top: 24px; border-bottom: 1px solid #7184b4; color: #263b9d; font-size: 13px; font-weight: 700; }
+.chapterLink:hover { border-color: currentColor; }
+.chapterLink:focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
+.chapterLink span { font-size: 22px; }
+.figure { position: relative; margin: 0; }
+.chapterPhoto { height: 620px; border-radius: 48% 48% 8px 8px; background: #1f2f98; }
+.figure figcaption { margin-top: 15px; color: #596a8b; font-size: 11px; line-height: 1.6; }
+.access { background: #f6f8ff; }
+.access .chapterLayout { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
+.access .figure { grid-column: 1; grid-row: 1; }
+.access .chapterCopy { grid-column: 2; }
+.access .chapterPhoto { height: 510px; border-radius: 8px 80px 8px 80px; }
+@media (max-width: 1023px) { .chapter { padding: 72px 32px 110px; } .chapterLayout { gap: 40px; } .chapterPhoto { height: 520px; } }
+@media (max-width: 767px) {
+    .chapter { padding: 60px 20px 88px; }
+    .chapterLayout, .access .chapterLayout { grid-template-columns: 1fr; gap: 36px; }
+    .chapterCopy { max-width: 100%; }
+    .chapterCopy h2 { font-size: 39px; }
+    .chapterCopy > p:not(.chapterNumber) { font-size: 14px; }
+    .chapterPhoto { height: 480px; }
+    .access .chapterCopy, .access .figure { grid-column: auto; grid-row: auto; }
+    .access .chapterPhoto { height: 350px; border-radius: 8px 56px 8px 56px; }
+    .photoLayer { inset: 0; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .photoLayer { transform: none; } }

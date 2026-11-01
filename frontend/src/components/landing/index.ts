@@ -1,5 +1,6 @@
 export { default as Header } from './Header';
 export { default as HeroSection } from './HeroSection';
+export { default as AffordabilitySection } from './AffordabilitySection';
 export { default as MissionSection } from './MissionSection';
 export { default as MeetBluelySection } from './MeetBluelySection';
 export { default as MoreThanAppSection } from './MoreThanAppSection';
