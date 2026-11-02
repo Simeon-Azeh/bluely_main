@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
 import { Card, CardContent, Button } from '@/components/ui';
-import { FiCoffee, FiSun, FiMoon, FiCheck, FiInfo, FiX, FiPlusCircle, FiSend, FiZap } from 'react-icons/fi';
-import { IoFastFoodOutline } from 'react-icons/io5';
+import { FiCoffee, FiSun, FiMoon, FiCheck, FiX, FiPlusCircle, FiSend } from 'react-icons/fi';
 
 // Carb level types
 type CarbLevel = 'low' | 'medium' | 'high';
@@ -72,13 +71,16 @@ export default function MealsPage() {
     const router = useRouter();
     const [selectedMealType, setSelectedMealType] = useState<string>('');
     const [selectedDishes, setSelectedDishes] = useState<string[]>([]);
+    const [customDishNames, setCustomDishNames] = useState<Record<string, string>>({});
+    const [dishSearch, setDishSearch] = useState('');
+    const [showAllDishes, setShowAllDishes] = useState(false);
+    const [submitError, setSubmitError] = useState('');
     const [dishCarbLevels, setDishCarbLevels] = useState<Record<string, CarbLevel>>({});
     const [customDish, setCustomDish] = useState('');
     const [customCarbLevel, setCustomCarbLevel] = useState<CarbLevel>('medium');
     const [notes, setNotes] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(false);
     const [aiDescription, setAiDescription] = useState('');
     const [aiEstimating, setAiEstimating] = useState(false);
     const [aiResult, setAiResult] = useState<string | null>(null);
@@ -119,6 +121,7 @@ export default function MealsPage() {
 
         const customId = `custom-${Date.now()}`;
         setSelectedDishes(prev => [...prev, customId]);
+        setCustomDishNames(prev => ({ ...prev, [customId]: customDish.trim() }));
         setDishCarbLevels(prev => ({
             ...prev,
             [customId]: customCarbLevel,
@@ -198,7 +201,7 @@ export default function MealsPage() {
             } else {
                 // Always set aiParsed so refine + accept sections stay visible
                 const parsed = parseAiResponse(result.reply, aiDescription);
-                setAiParsed(parsed ?? { carbsEstimate: 0, carbLevel: 'low', description: aiDescription });
+                setAiParsed(parsed);
             }
         } catch {
             setAiResult('Sorry, I couldn\'t estimate carbs right now. Please try again.');
@@ -290,6 +293,7 @@ export default function MealsPage() {
 
         try {
             setIsLoading(true);
+            setSubmitError('');
 
             // Create meal log entry (in a real app, this would call an API)
             const mealData = {
@@ -299,7 +303,7 @@ export default function MealsPage() {
                     const dish = cameroonianDishes.find(d => d.id === id);
                     return {
                         id,
-                        name: dish?.name || id.replace('custom-', 'Custom: '),
+                        name: dish?.name || customDishNames[id] || 'Custom dish',
                         carbLevel: dishCarbLevels[id],
                     };
                 }),
@@ -339,6 +343,7 @@ export default function MealsPage() {
             setTimeout(() => {
                 setSelectedMealType('');
                 setSelectedDishes([]);
+                setCustomDishNames({});
                 setDishCarbLevels({});
                 setNotes('');
                 setIsSuccess(false);
@@ -346,6 +351,7 @@ export default function MealsPage() {
 
         } catch (error) {
             console.error('Error logging meal:', error);
+            setSubmitError('We could not save this meal. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -355,17 +361,19 @@ export default function MealsPage() {
         return cameroonianDishes.find(d => d.id === id);
     };
 
+    const visibleDishes = cameroonianDishes.filter(dish =>
+        selectedDishes.includes(dish.id) || (dishSearch.trim()
+            ? dish.name.toLowerCase().includes(dishSearch.trim().toLowerCase())
+            : showAllDishes || cameroonianDishes.indexOf(dish) < 5)
+    );
+
     return (
-        <div className="space-y-5 max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl space-y-5 pb-10">
             {/* Header */}
-            <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-linear-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-                    <IoFastFoodOutline className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Log a Meal</h1>
-                    <p className="text-sm text-gray-500">Track what you eat to understand glucose effects</p>
-                </div>
+            <div className="pb-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5365b2] dark:text-[#aebdff]">Daily log</p>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#101b4b] dark:text-white">Log a meal</h1>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Choose when you ate, then add the food.</p>
             </div>
 
             {/* Success Message */}
@@ -381,49 +389,15 @@ export default function MealsPage() {
                 </div>
             )}
 
-            {/* Info + Carb Legend — combined */}
-            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)] bg-blue-50/50">
-                <CardContent>
-                    <div className="flex items-start gap-3">
-                        <button
-                            onClick={() => setShowTooltip(!showTooltip)}
-                            className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0 hover:bg-blue-200 transition-colors"
-                        >
-                            <FiInfo className="w-4 h-4 text-blue-600" />
-                        </button>
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-medium text-gray-900 text-sm">What are carbohydrates?</h3>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /><span className="text-[10px] text-gray-500">Low</span></div>
-                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-500" /><span className="text-[10px] text-gray-500">Med</span></div>
-                                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /><span className="text-[10px] text-gray-500">High</span></div>
-                                </div>
-                            </div>
-                            {showTooltip && (
-                                <div className="mt-2 space-y-2">
-                                    <p className="text-sm text-gray-600">
-                                        Carbohydrates are foods that give your body energy, such as rice, fufu, garri, plantain, and yam.
-                                        These foods can raise blood glucose levels, especially when eaten in large portions.
-                                    </p>
-                                    <p className="text-xs text-blue-700 pt-1 border-t border-blue-100">
-                                        Bluely uses carb levels (low, medium, high) instead of exact numbers to keep meal tracking simple.
-                                    </p>
-                                    <button onClick={() => setShowTooltip(false)} className="text-xs text-blue-600 hover:underline">Hide details</button>
-                                </div>
-                            )}
-                            {!showTooltip && (
-                                <button onClick={() => setShowTooltip(true)} className="text-xs text-blue-600 hover:underline mt-1">Learn more</button>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <details className="rounded-2xl border border-[#e3e7f0] bg-white px-5 py-3 text-sm dark:border-white/10 dark:bg-[#1a1a1a]">
+                <summary className="cursor-pointer font-medium text-[#1F2F98] dark:text-[#aebdff]">About carb estimates</summary>
+                <p className="mt-3 leading-6 text-slate-600 dark:text-slate-300">The labels are rough guides. Portion and preparation change the amount of carbohydrate in a meal.</p>
+            </details>
 
             {/* Step 1: Meal Type */}
-            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+            <Card className="rounded-[22px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
                 <CardContent>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">1. Select meal type</h3>
+                    <h2 className="mb-3 text-base font-semibold text-[#101b4b] dark:text-white">When did you eat?</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {mealTypes.map((meal) => {
                             const Icon = meal.icon;
@@ -431,16 +405,16 @@ export default function MealsPage() {
                             return (
                                 <button
                                     key={meal.value}
+                                    type="button"
                                     onClick={() => setSelectedMealType(meal.value)}
-                                    className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${isSelected
-                                        ? 'border-orange-500 bg-orange-50 text-orange-600 shadow-[0_4px_20px_rgba(0,0,0,0.06)]'
-                                        : 'border-gray-200 hover:border-gray-300 text-gray-500'
+                                    aria-pressed={isSelected}
+                                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${isSelected
+                                        ? 'border-[#1F2F98] bg-[#f3f5ff] text-[#1F2F98] dark:bg-[#1F2F98]/20 dark:text-white'
+                                        : 'border-[#e3e7f0] text-slate-600 hover:border-[#9eaae0] dark:border-white/10 dark:text-slate-300'
                                         }`}
                                 >
-                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-1.5 ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100'}`}>
-                                        <Icon className="w-4 h-4" />
-                                    </div>
-                                    <span className={`text-xs font-medium ${isSelected ? 'text-orange-700' : 'text-gray-600'}`}>{meal.label}</span>
+                                    <Icon className="h-4 w-4" />
+                                    <span>{meal.label}</span>
                                 </button>
                             );
                         })}
@@ -448,67 +422,60 @@ export default function MealsPage() {
                 </CardContent>
             </Card>
 
-            {/* AI Meal Description */}
-            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.08)] bg-linear-to-br from-[#1F2F98]/3 via-indigo-50/20 to-purple-50/10">
+            {/* Optional meal description estimate */}
+            <details className="rounded-[22px] border border-[#e3e7f0] bg-white dark:border-white/10 dark:bg-[#1a1a1a]">
+                <summary className="cursor-pointer list-none px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
+                    <span className="block text-sm font-semibold text-[#101b4b] dark:text-white">Prefer to describe your meal?</span>
+                    <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">DiaBuddy can suggest an estimate for you to review.</span>
+                </summary>
                 <CardContent>
-                    <div className="flex items-center gap-2.5 mb-3">
-                        <div className="relative w-9 h-9 shrink-0">
-                            <div className="absolute inset-0 rounded-full bg-linear-to-br from-[#1F2F98] to-indigo-400 opacity-20 animate-pulse" />
-                            <Image src="/diabuddy.png" alt="DiaBuddy" width={36} height={36} className="rounded-full relative z-10" />
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-900">Describe your meal to DiaBuddy</h3>
-                            <p className="text-[11px] text-gray-400">AI estimates carbs and you can refine in real-time</p>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                         <input
                             type="text"
                             value={aiDescription}
                             onChange={(e) => setAiDescription(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAiEstimate(); } }}
                             placeholder="e.g. A plate of rice with stew and fried plantain"
-                            className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1F2F98]/15 focus:border-[#1F2F98]/30 bg-white"
+                            className="min-w-0 flex-1 rounded-xl border border-[#dfe4f0] bg-white px-4 py-3 text-sm focus:border-[#1F2F98] focus:outline-none dark:bg-[#222] dark:text-white"
                             disabled={aiEstimating}
                         />
                         <button
                             type="button"
                             onClick={handleAiEstimate}
                             disabled={!aiDescription.trim() || aiEstimating}
-                            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.03] hover:shadow-[0_4px_16px_rgba(79,70,229,0.4)] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}
+                            className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#1F2F98] px-4 py-3 text-sm font-semibold text-white hover:bg-[#17257d] disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                            <FiZap className={`w-4 h-4 ${aiDescription.trim() && !aiEstimating ? 'animate-pulse' : ''}`} />
-                            {aiEstimating ? 'Analysing...' : 'AI Estimate'}
+                            {aiEstimating ? 'Estimating...' : 'Estimate carbs'}
                         </button>
                     </div>
 
                     {/* Thinking animation */}
                     {aiEstimating && (
-                        <div className="mt-3 p-4 bg-linear-to-br from-[#1F2F98]/5 via-indigo-50/60 to-purple-50/40 rounded-xl border border-indigo-100">
+                        <div role="status" className="mt-3 rounded-xl border border-[#e3e7f0] bg-[#f7f8fc] p-4 dark:border-white/10 dark:bg-white/5">
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="relative w-8 h-8 shrink-0">
-                                    <div className="absolute inset-0 rounded-full bg-linear-to-br from-[#1F2F98] via-indigo-500 to-purple-500 animate-pulse opacity-80" />
+                                    <div className="absolute inset-0 rounded-full bg-[#1F2F98]/15 animate-pulse motion-reduce:animate-none" />
                                     <div className="absolute inset-0.5 rounded-full bg-white flex items-center justify-center">
                                         <Image src="/diabuddy.png" alt="" width={22} height={22} className="rounded-full" />
                                     </div>
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-xs font-semibold text-[#1F2F98]">DiaBuddy is analysing your meal</p>
-                                    <p className="text-[10px] text-indigo-400">Estimating carbohydrate content...</p>
+                                    <p className="text-xs text-slate-500">Review the estimate before saving.</p>
                                 </div>
                                 <span className="flex items-center gap-0.5">
-                                    <span className="w-1.5 h-1.5 bg-[#1F2F98] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '120ms' }} />
-                                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '240ms' }} />
+                                    <span className="w-1.5 h-1.5 bg-[#1F2F98] rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: '0ms' }} />
+                                    <span className="w-1.5 h-1.5 bg-[#1F2F98] rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: '120ms' }} />
+                                    <span className="w-1.5 h-1.5 bg-[#1F2F98] rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: '240ms' }} />
                                 </span>
                             </div>
-                            <div className="h-1 bg-indigo-100 rounded-full overflow-hidden">
-                                <div className="h-full w-3/4 bg-linear-to-r from-[#1F2F98] via-indigo-400 to-purple-400 rounded-full animate-pulse" />
+                            <div className="h-1 bg-[#e3e7f0] rounded-full overflow-hidden">
+                                <div className="h-full w-3/4 bg-[#1F2F98] rounded-full animate-pulse motion-reduce:animate-none" />
                             </div>
                         </div>
                     )}
 
+                    {aiResult && !aiParsed && !aiEstimating && <p role="alert" className="mt-3 text-sm text-slate-600 dark:text-slate-300">We couldn&apos;t produce a usable estimate. Try describing the portion and ingredients, or select dishes below.</p>}
                     {/* AI Result */}
                     {aiParsed !== null && !aiEstimating && (
                         <div className="mt-3 space-y-2.5">
@@ -516,11 +483,10 @@ export default function MealsPage() {
                             {aiBreakdown && aiBreakdown.length > 0 ? (
                                 <div className="rounded-xl border border-indigo-100 overflow-hidden shadow-[0_2px_8px_rgba(99,102,241,0.10)]">
                                     {/* Breakdown header */}
-                                    <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}>
+                                    <div className="flex items-center gap-2 bg-[#101b4b] px-4 py-2.5">
                                         <Image src="/diabuddy.png" alt="" width={18} height={18} className="rounded-full opacity-90" />
                                         <p className="text-xs font-semibold text-white tracking-wide">Food Breakdown by DiaBuddy</p>
                                         <span className="ml-auto flex items-center gap-1 text-[10px] text-white/70">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                             AI
                                         </span>
                                     </div>
@@ -610,8 +576,7 @@ export default function MealsPage() {
                                         />
                                         <button type="button" onClick={handleAiRefine}
                                             disabled={!aiRefinement.trim() || aiRefining}
-                                            className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-40 transition-all hover:scale-[1.02]"
-                                            style={{ background: 'linear-gradient(135deg, #1F2F98, #4338ca, #7c3aed)' }}>
+                                            className="flex items-center gap-1 rounded-xl bg-[#1F2F98] px-3 py-2 text-xs font-semibold text-white hover:bg-[#17257d] disabled:opacity-40">
                                             {aiRefining ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSend className="w-3 h-3" />}
                                             Refine
                                         </button>
@@ -625,7 +590,7 @@ export default function MealsPage() {
                                     type="button"
                                     onClick={handleAiAccept}
                                     disabled={aiLogging}
-                                    className="w-full py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1F2F98] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#17257d] disabled:opacity-50"
                                 >
                                     {aiLogging ? (
                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -641,75 +606,66 @@ export default function MealsPage() {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </details>
 
             {/* Step 2: Select Foods */}
-            <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+            <Card className="rounded-[22px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
                 <CardContent>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-1">2. What did you eat?</h3>
-                    <p className="text-xs text-gray-400 mb-3">Select dishes. Carb estimates are for guidance only.</p>
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                        <div><h2 className="text-base font-semibold text-[#101b4b] dark:text-white">What did you eat?</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Select a dish or add your own.</p></div>
+                        {selectedDishes.length > 0 && <p className="text-xs font-medium text-[#1F2F98] dark:text-[#aebdff]">{selectedDishes.length} selected</p>}
+                    </div>
+                    <input type="search" value={dishSearch} onChange={event => setDishSearch(event.target.value)} placeholder="Find a dish" aria-label="Find a dish" className="mb-3 w-full rounded-xl border border-[#dfe4f0] bg-white px-4 py-3 text-sm focus:border-[#1F2F98] focus:outline-none dark:border-white/15 dark:bg-[#222] dark:text-white" />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-                        {cameroonianDishes.map((dish) => {
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {visibleDishes.map((dish) => {
                             const isSelected = selectedDishes.includes(dish.id);
                             const config = carbLevelConfig[dish.carbLevel];
 
                             return (
-                                <div
+                                <button type="button"
                                     key={dish.id}
-                                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${isSelected
-                                        ? 'border-orange-500 bg-orange-50'
-                                        : 'border-gray-200 hover:border-gray-300'
+                                    aria-pressed={isSelected}
+                                    className={`flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors ${isSelected
+                                        ? 'border-[#1F2F98] bg-[#f3f5ff] dark:bg-[#1F2F98]/20'
+                                        : 'border-[#e3e7f0] hover:border-[#9eaae0] dark:border-white/10'
                                         }`}
                                     onClick={() => handleDishSelect(dish)}
                                 >
-                                    <div className="flex items-center space-x-2.5">
-                                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-orange-500 bg-orange-500' : 'border-gray-300'
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${isSelected ? 'border-[#1F2F98] bg-[#1F2F98]' : 'border-slate-300'
                                             }`}>
                                             {isSelected && <FiCheck className="w-2.5 h-2.5 text-white" />}
                                         </div>
-                                        {dish.imageUrl ? (
-                                            <img
-                                                src={dish.imageUrl}
-                                                alt={dish.name}
-                                                className="w-10 h-10 rounded-lg object-cover shrink-0"
-                                            />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-orange-100 to-amber-100 flex items-center justify-center shrink-0">
-                                                <IoFastFoodOutline className="w-5 h-5 text-orange-400" />
-                                            </div>
-                                        )}
-                                        <div>
-                                            <p className="font-medium text-gray-900 text-sm leading-tight">{dish.name}</p>
-                                            <p className="text-[10px] text-gray-400">{dish.description}</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium leading-tight text-[#101b4b] dark:text-white">{dish.name}</p>
+                                            <p className="mt-0.5 text-xs text-slate-500">{dish.description}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-2.5 h-2.5 rounded-full ${config.dot}`}></div>
-                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${config.bg} ${config.color}`}>
-                                            {config.label}
-                                        </span>
-                                    </div>
-                                </div>
+                                    <span className="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">{config.label}</span>
+                                </button>
                             );
                         })}
                     </div>
+                    {!dishSearch && !showAllDishes && <button type="button" onClick={() => setShowAllDishes(true)} className="mt-3 text-sm font-semibold text-[#1F2F98] hover:underline dark:text-[#aebdff]">Browse all dishes</button>}
+                    {dishSearch && visibleDishes.length === 0 && <p className="py-3 text-sm text-slate-500">No dish found. Add it below.</p>}
 
                     {/* Custom Dish Input */}
                     <div className="mt-3 pt-3 border-t border-gray-200">
-                        <p className="text-xs font-medium text-gray-700 mb-2">Add something else</p>
-                        <div className="flex gap-2">
+                        <p className="mb-2 text-sm font-medium text-[#101b4b] dark:text-white">Add your own dish</p>
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <input
                                 type="text"
                                 value={customDish}
                                 onChange={(e) => setCustomDish(e.target.value)}
                                 placeholder="Dish name"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                className="min-w-0 flex-1 rounded-xl border border-[#dfe4f0] px-4 py-3 text-sm focus:border-[#1F2F98] focus:outline-none dark:bg-[#222] dark:text-white"
                             />
                             <select
                                 value={customCarbLevel}
                                 onChange={(e) => setCustomCarbLevel(e.target.value as CarbLevel)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                aria-label="Estimated carb level"
+                                className="rounded-xl border border-[#dfe4f0] px-3 py-3 text-sm focus:border-[#1F2F98] focus:outline-none dark:bg-[#222] dark:text-white"
                             >
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
@@ -730,20 +686,22 @@ export default function MealsPage() {
 
             {/* Selected Dishes with Editable Carb Levels + Notes — combined */}
             {selectedDishes.length > 0 && (
-                <Card className="border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                <Card className="rounded-[22px] border border-[#e3e7f0] bg-white shadow-none dark:border-white/10 dark:bg-[#1a1a1a]">
                     <CardContent>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">3. Adjust carbs & add notes</h3>
-                        <p className="text-xs text-gray-400 mb-3">Adjust based on your portion size.</p>
+                        <h2 className="mb-1 text-base font-semibold text-[#101b4b] dark:text-white">Review your meal</h2>
+                        <p className="mb-4 text-xs text-slate-500">Adjust the rough carb label if needed.</p>
                         <div className="space-y-2">
                             {selectedDishes.map((dishId) => {
                                 const dish = getDishById(dishId);
                                 const currentLevel = dishCarbLevels[dishId] || 'medium';
-                                const name = dish?.name || dishId.replace('custom-', '');
+                                const name = dish?.name || customDishNames[dishId] || 'Custom dish';
 
                                 return (
-                                    <div key={dishId} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                                    <div key={dishId} className="flex flex-col gap-3 rounded-xl bg-[#f7f8fc] p-3 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="flex items-center space-x-2">
                                             <button
+                                                type="button"
+                                                aria-label={`Remove ${name}`}
                                                 onClick={() => {
                                                     setSelectedDishes(prev => prev.filter(id => id !== dishId));
                                                 }}
@@ -751,15 +709,17 @@ export default function MealsPage() {
                                             >
                                                 <FiX className="w-3.5 h-3.5" />
                                             </button>
-                                            <span className="font-medium text-gray-900 text-sm">{name}</span>
+                                            <span className="text-sm font-medium text-[#101b4b] dark:text-white">{name}</span>
                                         </div>
-                                        <div className="flex gap-1">
+                                        <div className="flex gap-1" role="group" aria-label={`${name} carb level`}>
                                             {(['low', 'medium', 'high'] as CarbLevel[]).map((level) => {
                                                 const config = carbLevelConfig[level];
                                                 const isActive = currentLevel === level;
                                                 return (
                                                     <button
                                                         key={level}
+                                                        type="button"
+                                                        aria-pressed={isActive}
                                                         onClick={() => handleCarbLevelChange(dishId, level)}
                                                         className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${isActive
                                                             ? `${config.bg} ${config.color} ${config.border} border`
@@ -783,7 +743,7 @@ export default function MealsPage() {
                                 onChange={(e) => setNotes(e.target.value)}
                                 placeholder="Add any notes about this meal..."
                                 rows={2}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                className="w-full rounded-xl border border-[#dfe4f0] px-4 py-3 text-sm focus:border-[#1F2F98] focus:outline-none dark:bg-[#222] dark:text-white"
                             />
                         </div>
                     </CardContent>
@@ -791,12 +751,13 @@ export default function MealsPage() {
             )}
 
             {/* Submit Button */}
-            <div className="flex flex-col sm:flex-row gap-3 *:w-full sm:*:w-auto">
+            {submitError && <p role="alert" className="text-sm text-rose-700">{submitError}</p>}
+            <div className="flex flex-col gap-3 sm:flex-row *:w-full sm:*:w-auto">
                 <Button
                     onClick={handleSubmit}
                     disabled={!selectedMealType || selectedDishes.length === 0 || isLoading}
                     isLoading={isLoading}
-                    className="flex-1 bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+                    className="flex-1 bg-[#1F2F98] hover:bg-[#17257d]"
                 >
                     <FiCheck className="w-4 h-4 mr-2" />
                     Log Meal

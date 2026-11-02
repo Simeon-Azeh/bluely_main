@@ -17,6 +17,7 @@ import wellnessRoutes from './routes/wellness.routes';
 import storyRoutes from './routes/story.routes';
 import newsletterRoutes from './routes/newsletter.routes';
 import communityRoutes from './routes/community.routes';
+import authRoutes from './routes/auth.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -35,8 +36,13 @@ app.use(helmet({
 }));
 
 // CORS configuration
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3002')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 app.use(cors({
-    origin: true, // Allow all origins in development
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -92,6 +98,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/glucose', glucoseRoutes);
 app.use('/api/meals', mealRoutes);

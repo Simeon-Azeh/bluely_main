@@ -1,0 +1,21 @@
+.section { background: #f6f8ff; padding: 64px 40px 80px; }
+.card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: center; gap: 72px; max-width: 1360px; margin: auto; padding: 44px; border-radius: 24px; background: #132653; color: #fff; overflow: hidden; }
+.photos { position: relative; padding: 0 36px 54px 0; }
+.mainPhoto { position: relative; height: 430px; border-radius: 120px 12px 12px 12px; overflow: hidden; background: #243b6c; }
+.insetPhoto { position: absolute; width: 64%; aspect-ratio: 739 / 415; bottom: 0; right: 0; overflow: hidden; border: 6px solid #132653; border-radius: 14px; background: #243b6c; }
+.image { object-fit: cover; }
+.mainPhoto .image { object-position: 25% center; }
+.copy h2 { font-size: clamp(29px, 3.15vw, 44px); font-weight: 600; line-height: 1.18; letter-spacing: -.045em; }
+.copy h2 span { color: #dce9c8; }
+.description { max-width: 540px; margin-top: 20px; color: #d4dced; font-size: 15px; line-height: 1.85; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 22px; min-height: 48px; margin-top: 26px; padding: 12px 22px; border-radius: 999px; background: #e2edcf; color: #172b36; font-size: 13px; font-weight: 700; transition: background .2s; }
+.button svg { width: 18px; height: 18px; }
+.button:hover { background: #f0f6e6; }
+.button:focus-visible, .source:focus-visible { outline: 2px solid #e2edcf; outline-offset: 5px; }
+.evidence { margin-top: 28px; padding-top: 20px; border-top: 1px solid #ffffff26; font-size: 12px; line-height: 1.8; color: #d4dced; }
+.evidence strong { font-weight: 700; color: #e2edcf; }
+.context { font-size: 10px; color: #b7c5df; margin-top: 3px; }
+.source { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; color: #b7c5df; font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
+.source:hover { color: #fff; }
+@media (max-width: 1023px) { .section { padding: 48px 32px; } .card { gap: 32px; padding: 32px; } .mainPhoto { height: 420px; } .photos { padding-right: 16px; } }
+@media (max-width: 767px) { .section { padding: 40px 20px 48px; } .card { grid-template-columns: 1fr; padding: 24px; gap: 28px; border-radius: 20px; } .photos { max-width: 480px; width: 100%; margin: auto; padding-bottom: 42px; } .mainPhoto { height: 330px; border-top-left-radius: 84px; } .copy h2 { font-size: 31px; } .description { font-size: 14px; } }

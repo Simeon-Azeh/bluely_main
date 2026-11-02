@@ -17,16 +17,24 @@ const pillars = [
     { number: '03', title: 'Amplify', description: 'A platform for young African voices to be represented, heard and taken seriously.' },
 ];
 
-const teamMembers: Array<{ name: string; role: string; bio: string; image?: string }> = [
+const teamMembers: Array<{ name: string; role: string; bio: string; image: string }> = [
     {
         name: 'Simeon Azeh',
         role: 'FOUNDER',
+        image: '/images/real/simeon.webp',
         bio: 'A developer living with Type 1 diabetes who dared to dream and build something he genuinely needs: a more human way to understand the numbers and the life around them.',
     },
     {
         name: 'Foncham Randolf',
         role: 'CHIEF TECHNOLOGY OFFICER',
+        image: '/images/real/randolf.webp',
         bio: 'A recent medical laboratory science graduate who cares deeply about solving diabetes challenges and bringing thoughtful health technology closer to the people it is meant to serve.',
+    },
+    {
+        name: 'Vera',
+        role: 'CAMPAIGNS LEAD',
+        image: '/images/real/vera.webp',
+        bio: 'Vera is Bluely\'s Campaigns Lead and a second-year parasitology student at the University of Buea.',
     },
 ];
 
@@ -99,10 +107,19 @@ export default function AboutPage() {
 
                 <section className="bg-[#f3f5fb] py-20 sm:py-24 lg:py-32" aria-labelledby="team-heading">
                     <div className="mx-auto max-w-360 px-5 sm:px-8 lg:px-10">
-                        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] lg:gap-20">
-                            <div><p className="text-xs font-bold tracking-[0.18em] text-[#1F2F98] sm:text-sm">THE PEOPLE BEHIND BLUELY</p><h2 id="team-heading" className="mt-5 text-[clamp(2.6rem,4.8vw,5rem)] font-semibold leading-[1.04] tracking-[-0.055em]">Built by people who care about what comes next.</h2></div>
-                            <div>
-                                <div className="grid gap-10 sm:grid-cols-2">{teamMembers.map((member, index) => <article key={member.name} className="border-t border-[#9eadd1] pt-5"><div className="mb-6 flex h-16 w-16 items-center justify-center bg-[#dfe7f8] text-xl font-semibold tracking-[-0.04em] text-[#1F2F98]" aria-hidden="true">0{index + 1}</div><h3 className="text-2xl font-semibold tracking-[-0.035em]">{member.name}</h3><p className="mt-2 text-xs font-bold tracking-[0.14em] text-[#1F2F98]">{member.role}</p><p className="mt-4 text-sm leading-7 text-[#52617d]">{member.bio}</p></article>)}</div>
+                        <div>
+                            <div className="max-w-225"><p className="text-xs font-bold tracking-[0.18em] text-[#1F2F98] sm:text-sm">THE PEOPLE BEHIND BLUELY</p><h2 id="team-heading" className="mt-5 text-[clamp(2.6rem,4.8vw,5rem)] font-semibold leading-[1.04] tracking-[-0.055em]">Built by people who care about what comes next.</h2></div>
+                            <div className="mt-12 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:mt-16 lg:grid-cols-3">
+                                {teamMembers.map((member) => (
+                                    <article key={member.name}>
+                                        <div className="relative mb-6 aspect-[3/4] overflow-hidden rounded-2xl bg-[#1F2F98]">
+                                            <Image src={member.image} alt={`Portrait of ${member.name}`} fill sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" className="object-cover object-top" />
+                                        </div>
+                                        <h3 className="text-2xl font-semibold tracking-[-0.035em]">{member.name}</h3>
+                                        <p className="mt-2 text-xs font-bold tracking-[0.14em] text-[#1F2F98]">{member.role}</p>
+                                        <p className="mt-4 text-sm leading-7 text-[#52617d]">{member.bio}</p>
+                                    </article>
+                                ))}
                             </div>
                         </div>
                     </div>

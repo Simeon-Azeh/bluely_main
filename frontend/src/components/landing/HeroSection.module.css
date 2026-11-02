@@ -1,0 +1,27 @@
+﻿.hero { position: relative; isolation: isolate; overflow: hidden; background: #101e32; color: #fff; }
+.background { position: absolute; inset: 0; z-index: -3; }
+.background img { object-position: 64% center; }
+.overlay { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, #081327f0 0%, #081327c9 42%, #08132766 75%, #08132726), linear-gradient(0deg, #08132799, transparent 45%); }
+.layout { max-width: 1440px; min-height: 650px; margin: 0 auto; padding: 100px 40px 120px; display: flex; align-items: center; }
+.copy { width: 100%; max-width: 1120px; }
+.heading { max-width: 1120px; font-size: clamp(46px, 5.3vw, 78px); line-height: 1.1; letter-spacing: -.055em; font-weight: 600; }
+.heading > span { display: block; margin-top: 12px; color: #c8d7ff; }
+.description { max-width: 800px; margin-top: 26px; font-size: 18px; line-height: 1.8; color: #e0e6f1; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; margin-top: 32px; }
+.primary { display: inline-flex; align-items: center; gap: 22px; min-height: 54px; padding: 7px 7px 7px 24px; border-radius: 999px; background: #fff; color: #243794; font-size: 14px; font-weight: 700; transition: background .2s, transform .2s; }
+.primary:hover { background: #e8eeff; transform: translateY(-2px); }
+.secondary { display: inline-flex; align-items: center; gap: 18px; min-height: 48px; border-bottom: 1px solid #ffffff70; color: #fff; font-size: 14px; font-weight: 600; }
+.secondary:hover { border-color: #fff; }
+.secondary > span { font-size: 21px; }
+.primary:focus-visible, .secondary:focus-visible { outline: 2px solid #c8d7ff; outline-offset: 6px; }
+@media (max-width: 1023px) { .layout { min-height: 610px; padding: 80px 32px 110px; } .heading { font-size: clamp(46px, 6.8vw, 68px); } }
+@media (max-width: 600px) {
+    .layout { min-height: 600px; padding: 64px 20px 92px; }
+    .heading { font-size: clamp(39px, 10vw, 58px); line-height: 1.13; }
+    .description { margin-top: 22px; font-size: 15px; }
+    .actions { gap: 20px; margin-top: 26px; }
+    .primary, .secondary { font-size: 12px; }
+    .primary { gap: 14px; padding-left: 18px; }
+    .overlay { background: linear-gradient(90deg, #081327eb, #081327a6), linear-gradient(0deg, #081327e6, transparent 65%); }
+}
+@media (prefers-reduced-motion: reduce) { .primary { transition: none; } .primary:hover { transform: none; } }

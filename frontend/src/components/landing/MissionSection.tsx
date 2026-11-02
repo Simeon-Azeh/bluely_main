@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useRef, useState } from 'react';
@@ -11,7 +11,7 @@ import styles from './StoryCarousel.module.css';
 
 export default function MissionSection() {
     const viewportRef = useRef<HTMLDivElement>(null);
-    const [paused, setPaused] = useState(false);
+    const [paused, setPaused] = useState(true);
 
     const scrollStories = (direction: -1 | 1) => {
         setPaused(true);
@@ -30,7 +30,7 @@ export default function MissionSection() {
                 </div>
                 <div className="lg:pb-2">
                     <p className="max-w-[460px] text-base leading-[1.8] text-[#d6def2] sm:text-lg">Bluely is creating a space for young people living with diabetes to share their experiences, feel heard and remind others that they are not alone.</p>
-                    <p className="mt-5 text-xs font-bold tracking-[0.15em] text-[#b9cbff]">SAMPLE STORY COVERS &nbsp; 01 — 06</p>
+                    <p className="mt-5 text-xs font-bold tracking-[0.15em] text-[#b9cbff]">EVERYDAY CARE. SHARED EXPERIENCES.</p>
                 </div>
             </div>
 
@@ -46,7 +46,7 @@ export default function MissionSection() {
                     </div>
                 </div>
                 <div className="mx-auto mt-6 flex max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
-                    <p className="text-xs font-medium text-[#b9cbff]">Sample covers · films coming soon</p>
+                    <p className="text-xs font-medium text-[#b9cbff]">Illustrative photography · community films coming soon</p>
                     <div className="flex items-center gap-2">
                         <button type="button" onClick={() => scrollStories(-1)} aria-label="Scroll stories left" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/40 text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><FiChevronLeft aria-hidden="true" /></button>
                         <button type="button" onClick={() => scrollStories(1)} aria-label="Scroll stories right" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/40 text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><FiChevronRight aria-hidden="true" /></button>
@@ -55,7 +55,7 @@ export default function MissionSection() {
                 </div>
             </div>
 
-            <div id="mission" className="scroll-mt-20 bg-[#eef2fc] py-20 text-[#172853] sm:py-24 lg:py-28">
+            <div id="mission" className="scroll-mt-20 bg-[#f6f8ff] py-20 text-[#172853] sm:py-24 lg:py-28">
                 <div className="mx-auto grid max-w-[1440px] gap-10 px-5 sm:px-8 lg:grid-cols-[minmax(0,35fr)_minmax(0,65fr)] lg:gap-16 lg:px-10">
                     <div className="border-l-[3px] border-[#1F2F98] pl-5">
                         <p className="text-xs font-bold tracking-[0.17em] text-[#1F2F98] sm:text-sm">BUILD THE MISSION WITH US</p>

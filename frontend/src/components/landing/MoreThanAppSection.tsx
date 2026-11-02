@@ -1,4 +1,4 @@
-﻿export default function MoreThanAppSection() {
+export default function MoreThanAppSection() {
     const pillars = [
         { number: '01', title: 'UNDERSTAND', lines: <>Tools that help make<br />diabetes easier to<br />understand.</> },
         { number: '02', title: 'CONNECT', lines: <>Stories and community<br />that remind young people<br />they aren&apos;t alone.</> },
@@ -6,7 +6,7 @@
     ];
 
     return (
-        <section id="more-than-an-app" aria-labelledby="more-than-app-heading" className="bg-[#eef2fc] py-20 text-[#172853] sm:py-24 lg:py-28">
+        <section id="more-than-an-app" aria-labelledby="more-than-app-heading" className="bg-[#f6f8ff] py-20 text-[#172853] sm:py-24 lg:py-28">
             <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-10">
                 <h2 id="more-than-app-heading" className="max-w-[900px] text-[clamp(2.7rem,5.4vw,5.9rem)] font-semibold leading-[1.07] tracking-[-0.06em]">Bluely is more<br className="hidden sm:block" /> than an app.</h2>
                 <div className="mt-14 grid gap-10 sm:mt-20 lg:grid-cols-3 lg:gap-9">
