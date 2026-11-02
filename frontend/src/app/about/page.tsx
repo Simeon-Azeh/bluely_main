@@ -7,8 +7,8 @@ import { Footer, Header } from '@/components/landing';
 import ArrowCircle from '@/components/landing/ArrowCircle';
 
 export const metadata: Metadata = {
-    title: 'About Bluely | Beyond the Numbers',
-    description: 'Learn why Bluely exists and how we are building technology, understanding and community around young people living with diabetes in Africa.',
+    title: 'About Bluely | Founded by Simeon Azeh',
+    description: 'Meet founder Simeon Azeh and the Bluely team building diabetes tools, education and community for young people across Africa.',
 };
 
 const pillars = [
@@ -31,10 +31,10 @@ const teamMembers: Array<{ name: string; role: string; bio: string; image: strin
         bio: 'A recent medical laboratory science graduate who cares deeply about solving diabetes challenges and bringing thoughtful health technology closer to the people it is meant to serve.',
     },
     {
-        name: 'Vera',
+        name: 'Vera Itoe',
         role: 'CAMPAIGNS LEAD',
         image: '/images/real/vera.webp',
-        bio: 'Vera is Bluely\'s Campaigns Lead and a second-year parasitology student at the University of Buea.',
+        bio: 'Vera Itoe is Bluely\'s Campaigns Lead and a second-year parasitology student at the University of Buea.',
     },
 ];
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { founder, organizationSchema, publicPages, siteUrl, socialImage } from '@/lib/seo';
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -15,8 +16,15 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Bluely - Smarter Diabetes Self-Management for Africa",
-  description: "A digital diabetes self-management platform designed for African realities. Track blood glucose, understand patterns, and make informed health decisions.",
+  metadataBase: new URL(siteUrl),
+  title: publicPages[0].title,
+  description: publicPages[0].description,
+  applicationName: 'Bluely',
+  authors: [{ name: founder.name, url: founder.url }],
+  creator: founder.name,
+  publisher: 'Bluely',
+  other: { founder: founder.name },
+  robots: { index: false, follow: true },
   keywords: ["diabetes", "blood glucose", "health", "self-management", "tracking", "Africa", "Cameroon", "digital health"],
   manifest: "/manifest.json",
   appleWebApp: {
@@ -30,17 +38,17 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Bluely",
-    title: "Bluely - Smarter Diabetes Self-Management",
-    description: "Track blood glucose, understand patterns, and make informed health decisions.",
+    title: publicPages[0].title,
+    description: publicPages[0].description,
+    images: [socialImage],
   },
+  twitter: { card: 'summary_large_image', title: publicPages[0].title, description: publicPages[0].description, images: [socialImage] },
 };
 
 export const viewport: Viewport = {
   themeColor: "#1F2F98",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
@@ -59,6 +67,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${plusJakarta.variable} ${inter.variable} font-sans antialiased`}>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, '\\u003c') }} />
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('bluely-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}` }} />
         <Providers>{children}</Providers>
         <script
