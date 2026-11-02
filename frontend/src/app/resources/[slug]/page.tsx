@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Header } from '@/components/landing';
 import { resources } from '@/components/landing/resourceData';
+import { publicMetadata } from '@/lib/seo';
 
 export function generateStaticParams() {
     return resources.map((resource) => ({ slug: resource.slug }));
@@ -11,7 +12,8 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
     const resource = resources.find((item) => item.slug === slug);
-    return { title: resource ? `${resource.title} | Bluely` : 'Resource | Bluely', description: resource?.summary };
+    if (!resource) return { title: 'Resource not found | Bluely', robots: { index: false, follow: true } };
+    return { ...publicMetadata(`${resource.title} | Bluely`, resource.summary, `/resources/${resource.slug}`), authors: [{ name: 'Bluely' }], openGraph: { ...publicMetadata(`${resource.title} | Bluely`, resource.summary, `/resources/${resource.slug}`).openGraph, type: 'article' } };
 }
 
 export default async function ResourceArticlePage({ params }: { params: Promise<{ slug: string }> }) {

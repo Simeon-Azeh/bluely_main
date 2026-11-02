@@ -2,6 +2,15 @@
 import { notFound } from 'next/navigation';
 import { Header } from '@/components/landing';
 import { stories } from '@/components/landing/storyData';
+import type { Metadata } from 'next';
+import { publicMetadata } from '@/lib/seo';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+    const { id } = await params;
+    const story = stories.find((item) => item.id === id);
+    if (!story?.videoUrl) return { title: 'Story not found | Bluely', robots: { index: false, follow: true } };
+    return publicMetadata(`${story.title} | Bluely`, `Watch ${story.title}, a Bluely community story about living with diabetes.`, `/stories/${id}`);
+}
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
